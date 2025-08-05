@@ -1,42 +1,47 @@
+
 body {
   font-family: sans-serif;
   text-align: center;
   margin: 0;
-  padding: 0;
+  padding: 20px;
+  overflow: hidden;
 }
-#mainImageContainer {
-  margin-top: 20px;
+
+h1 {
+  margin-bottom: 10px;
 }
-#mainImage {
-  width: 200px;
-  height: 200px;
-  object-fit: cover;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.3);
-}
-#buttonContainer {
+
+.button-row {
   margin: 20px 0;
 }
+
 button {
-  margin: 5px;
-  padding: 10px 20px;
-  font-size: 16px;
-  background-color: #4d6dff;
+  background-color: #5c6bc0;
   color: white;
   border: none;
+  padding: 10px 15px;
+  margin: 5px;
   border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
 }
-#gridContainer {
+
+button:hover {
+  background-color: #3f51b5;
+}
+
+.image-grid {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
-  margin: 20px;
+  gap: 10px;
 }
-.gridImage {
+
+.image-grid img {
   width: 100px;
   height: 100px;
   object-fit: cover;
-  border-radius: 6px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
   cursor: pointer;
 }

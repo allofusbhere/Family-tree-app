@@ -1,25 +1,23 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <h1>SwipeTree</h1>
-  <div id="mainImageContainer">
-    <div id="personName">Person</div>
-    <img id="mainImage" alt="Person" />
-  </div>
-  <div id="buttonContainer">
-    <button onclick="goToParent()">Parent</button>
-    <button onclick="showSiblings()">Siblings</button>
-    <button onclick="showChildren()">Children</button>
-    <button onclick="showSpouse()">Spouse</button>
+  <div id="personName">Person</div>
+  <div class="button-row">
+    <button onclick="loadRelative('parent')">Parent</button>
+    <button onclick="loadRelative('siblings')">Siblings</button>
+    <button onclick="loadRelative('children')">Children</button>
+    <button onclick="loadRelative('spouse')">Spouse</button>
     <button onclick="goBack()">Back</button>
   </div>
-  <div id="gridContainer"></div>
+  <div id="imageGrid" class="image-grid"></div>
   <script src="script.js"></script>
 </body>
 </html>
