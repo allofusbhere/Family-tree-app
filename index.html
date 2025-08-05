@@ -1,29 +1,21 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <title>Family Tree Navigator</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
-    <div class="main-image-container">
-      <img id="mainImage" src="" alt="Main Person" />
-      <div id="infoBox"></div>
+    <h1 id="personName">Name</h1>
+    <p id="dob">DOB</p>
+    <img id="mainImage" src="100000.jpg" alt="Family Member" ondblclick="editInfo()">
+    <div class="buttons">
+        <button onclick="showRelatives('parent')">Parent</button>
+        <button onclick="showRelatives('siblings')">Siblings</button>
+        <button onclick="showRelatives('children')">Children</button>
+        <button onclick="goBack()">Back</button>
     </div>
-
-    <div id="buttons">
-      <button id="parent-btn">Parent</button>
-      <button id="siblings-btn">Siblings</button>
-      <button id="spouse-btn">Spouse</button>
-      <button id="children-btn">Children</button>
-      <button id="back-btn">Back</button>
-    </div>
-
-    <div id="grid" class="grid"></div>
-  </div>
-  <script src="script.js"></script>
+    <div class="grid" id="imageGrid"></div>
+    <script src="script.js"></script>
 </body>
 </html>

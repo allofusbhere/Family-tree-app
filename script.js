@@ -3,38 +3,46 @@ const cdnPrefix = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@m
 let currentId = "100000";
 let historyStack = [];
 
-function loadImage(id, addToHistory = true, showGrid = false) {
-  if (addToHistory) historyStack.push(currentId);
-  currentId = id;
-
-  const img = document.getElementById("mainImage");
-  const infoBox = document.getElementById("infoBox");
-  img.src = cdnPrefix + id + ".jpg";
-
-  const name = localStorage.getItem(id + "_name") || "Name";
-  const dob = localStorage.getItem(id + "_dob") || "DOB";
-  infoBox.textContent = name + " (" + dob + ")";
-
-  if (showGrid) loadGrid(id);
-  else document.getElementById("grid").innerHTML = "";
+function getGenerationStep(id) {
+  const num = parseInt(id);
+  if (num % 1000000 === 0) return 100000;
+  if (num % 100000 === 0) return 10000;
+  if (num % 10000 === 0) return 1000;
+  if (num % 1000 === 0) return 100;
+  if (num % 100 === 0) return 10;
+  return 1;
 }
 
-function loadGrid(baseId) {
-  const grid = document.getElementById("grid");
-  grid.innerHTML = "";
+function getParentId(id) {
+  const step = getGenerationStep(id);
+  return (parseInt(id) - (parseInt(id) % step)).toString();
+}
+
+function getRelativeIds(type) {
+  const base = parseInt(currentId);
+  const step = getGenerationStep(currentId);
   let ids = [];
 
-  const base = parseInt(baseId);
-  const gen = Math.floor(
-    base % 1000000 === 0 ? 100000 :
-    base % 100000 === 0 ? 10000 :
-    base % 10000 === 0 ? 1000 :
-    base % 1000 === 0 ? 100 :
-    10
-  );
+  for (let i = 1; i <= 9; i++) {
+    const offset = i * step;
+    if (type === "children" || type === "siblings") {
+      ids.push((base + offset).toString());
+    }
+  }
 
-  for (let i = 1; i < 9; i++) {
-    ids.push(base + i * gen);
+  return ids;
+}
+
+function showRelatives(type) {
+  const grid = document.getElementById("imageGrid");
+  grid.innerHTML = "";
+
+  let ids = [];
+
+  if (type === "parent") {
+    ids = [getParentId(currentId)];
+  } else {
+    ids = getRelativeIds(type);
   }
 
   ids.forEach(id => {
@@ -46,21 +54,23 @@ function loadGrid(baseId) {
   });
 }
 
-function getParentId(id) {
-  const base = parseInt(id);
-  if (base % 10 !== 0) return base - (base % 1);
-  if (base % 100 !== 0) return base - (base % 10);
-  if (base % 1000 !== 0) return base - (base % 100);
-  if (base % 10000 !== 0) return base - (base % 1000);
-  if (base % 100000 !== 0) return base - (base % 10000);
-  return base - (base % 100000);
+function loadImage(id, addToHistory = true) {
+  if (addToHistory) historyStack.push(currentId);
+  currentId = id;
+
+  const img = document.getElementById("mainImage");
+  const name = localStorage.getItem(id + "_name") || "Name";
+  const dob = localStorage.getItem(id + "_dob") || "DOB";
+  document.getElementById("personName").textContent = name;
+  document.getElementById("dob").textContent = dob;
+  img.src = cdnPrefix + id + ".jpg";
+
+  document.getElementById("imageGrid").innerHTML = "";
 }
 
 function goBack() {
   const previousId = historyStack.pop();
-  if (previousId) {
-    loadImage(previousId, false, true);
-  }
+  if (previousId) loadImage(previousId, false);
 }
 
 function addSwipeListener() {
@@ -76,22 +86,13 @@ function addSwipeListener() {
     const deltaX = e.changedTouches[0].clientX - startX;
     const deltaY = e.changedTouches[0].clientY - startY;
 
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (Math.abs(deltaX) > 50) loadGrid(currentId); // siblings
-    } else {
-      if (deltaY > 50) loadGrid(currentId); // children
-      else if (deltaY < -50) loadImage(getParentId(currentId), true, false); // parent
+    if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY > 50) {
+      showRelatives("children"); // swipe down = children
     }
   };
 }
 
 window.onload = () => {
-  loadImage(currentId, false, false); // Only show anchor on load
+  loadImage(currentId, false);
   addSwipeListener();
-
-  document.getElementById("parent-btn").onclick = () => loadImage(getParentId(currentId), true, false);
-  document.getElementById("children-btn").onclick = () => loadGrid(currentId);
-  document.getElementById("siblings-btn").onclick = () => loadGrid(currentId);
-  document.getElementById("spouse-btn").onclick = () => loadImage(currentId + ".1", true, false);
-  document.getElementById("back-btn").onclick = goBack;
 };
