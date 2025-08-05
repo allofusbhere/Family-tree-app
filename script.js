@@ -3,7 +3,7 @@ const cdnPrefix = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@m
 let currentId = "100000";
 let historyStack = [];
 
-function loadImage(id, addToHistory = true) {
+function loadImage(id, addToHistory = true, showGrid = false) {
   if (addToHistory) historyStack.push(currentId);
   currentId = id;
 
@@ -14,7 +14,9 @@ function loadImage(id, addToHistory = true) {
   const name = localStorage.getItem(id + "_name") || "Name";
   const dob = localStorage.getItem(id + "_dob") || "DOB";
   infoBox.textContent = name + " (" + dob + ")";
-  loadGrid(id);
+
+  if (showGrid) loadGrid(id);
+  else document.getElementById("grid").innerHTML = "";
 }
 
 function loadGrid(baseId) {
@@ -51,7 +53,7 @@ function getParentId(id) {
 function goBack() {
   const previousId = historyStack.pop();
   if (previousId) {
-    loadImage(previousId, false);
+    loadImage(previousId, false, true);
   }
 }
 
@@ -69,21 +71,21 @@ function addSwipeListener() {
     const deltaY = e.changedTouches[0].clientY - startY;
 
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (Math.abs(deltaX) > 50) loadGrid(currentId); // swipe left or right = siblings
+      if (Math.abs(deltaX) > 50) loadGrid(currentId); // siblings
     } else {
-      if (deltaY > 50) loadGrid(currentId);           // swipe down = children
-      else if (deltaY < -50) loadImage(getParentId(currentId)); // swipe up = parent
+      if (deltaY > 50) loadGrid(currentId);           // children
+      else if (deltaY < -50) loadImage(getParentId(currentId), true, false); // parent
     }
   };
 }
 
 window.onload = () => {
-  loadImage(currentId, false);
+  loadImage(currentId, false, false); // ← show only anchor, no grid
   addSwipeListener();
 
-  document.getElementById("parent-btn").onclick = () => loadImage(getParentId(currentId));
+  document.getElementById("parent-btn").onclick = () => loadImage(getParentId(currentId), true, false);
   document.getElementById("children-btn").onclick = () => loadGrid(currentId);
   document.getElementById("siblings-btn").onclick = () => loadGrid(currentId);
-  document.getElementById("spouse-btn").onclick = () => loadImage(currentId + ".1");
+  document.getElementById("spouse-btn").onclick = () => loadImage(currentId + ".1", true, false);
   document.getElementById("back-btn").onclick = goBack;
 };
