@@ -2,21 +2,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Family Tree Navigator</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SwipeTree</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <h1 id="person-name">Name</h1>
-    <p id="person-dob">DOB</p>
-    <div id="anchor-container"></div>
-    <div class="buttons">
-        <button onclick="goToParent()">Parent</button>
-        <button onclick="goToSiblings()">Siblings</button>
-        <button onclick="goToChildren()">Children</button>
-        <button onclick="goBack()">Back</button>
+  <div id="app">
+    <h1 id="personName">SwipeTree</h1>
+    <p id="personDOB"></p>
+    <div id="imageContainer">
+      <img id="mainImage" src="" alt="Person" />
     </div>
-    <div id="grid-container" class="grid"></div>
-    <script src="script.js"></script>
+    <div id="buttonRow">
+      <button onclick="goToParent()">Parent</button>
+      <button onclick="goToSiblings()">Siblings</button>
+      <button onclick="goToChildren()">Children</button>
+      <button onclick="goToSpouse()">Spouse</button>
+      <button onclick="goBack()">Back</button>
+    </div>
+  </div>
+  <script src="script.js"></script>
 </body>
 </html>
