@@ -30,12 +30,16 @@ function loadGrid(baseId) {
         const img = document.createElement("img");
         img.src = cdnPrefix + id + ".jpg";
         img.onerror = () => img.style.display = "none";
-        img.ontouchstart = e => startX = e.touches[0].clientX;
+        img.ontouchstart = e => {
+            startX = e.touches[0].clientX;
+            e.preventDefault();
+        };
         img.ontouchend = e => {
             let deltaX = e.changedTouches[0].clientX - startX;
             if (Math.abs(deltaX) > 50) {
                 loadImage(id.toString());
             }
+            e.preventDefault();
         };
         grid.appendChild(img);
     });
@@ -50,10 +54,14 @@ document.getElementById("mainImage").addEventListener("dblclick", () => {
 });
 
 let startX = 0;
-document.getElementById("mainImage").addEventListener("touchstart", e => {
+const mainImg = document.getElementById("mainImage");
+
+mainImg.addEventListener("touchstart", e => {
     startX = e.touches[0].clientX;
-});
-document.getElementById("mainImage").addEventListener("touchend", e => {
+    e.preventDefault();
+}, { passive: false });
+
+mainImg.addEventListener("touchend", e => {
     let deltaX = e.changedTouches[0].clientX - startX;
     if (Math.abs(deltaX) > 50) {
         const base = parseInt(currentId);
@@ -61,6 +69,7 @@ document.getElementById("mainImage").addEventListener("touchend", e => {
         const newId = deltaX > 0 ? base + gen : base - gen;
         loadImage(newId.toString());
     }
-});
+    e.preventDefault();
+}, { passive: false });
 
 window.onload = () => loadImage(currentId);
