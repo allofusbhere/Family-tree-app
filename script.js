@@ -25,9 +25,13 @@ function loadGrid(baseId) {
   let ids = [];
 
   const base = parseInt(baseId);
-  const gen = Math.floor(base % 1000000 === 0 ? 100000 :
-                         base % 100000 === 0 ? 10000 :
-                         base % 10000 === 0 ? 1000 : 100);
+  const gen = Math.floor(
+    base % 1000000 === 0 ? 100000 :
+    base % 100000 === 0 ? 10000 :
+    base % 10000 === 0 ? 1000 :
+    base % 1000 === 0 ? 100 :
+    10
+  );
 
   for (let i = 1; i < 9; i++) {
     ids.push(base + i * gen);
@@ -44,6 +48,8 @@ function loadGrid(baseId) {
 
 function getParentId(id) {
   const base = parseInt(id);
+  if (base % 10 !== 0) return base - (base % 1);
+  if (base % 100 !== 0) return base - (base % 10);
   if (base % 1000 !== 0) return base - (base % 100);
   if (base % 10000 !== 0) return base - (base % 1000);
   if (base % 100000 !== 0) return base - (base % 10000);
@@ -73,14 +79,14 @@ function addSwipeListener() {
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
       if (Math.abs(deltaX) > 50) loadGrid(currentId); // siblings
     } else {
-      if (deltaY > 50) loadGrid(currentId);           // children
+      if (deltaY > 50) loadGrid(currentId); // children
       else if (deltaY < -50) loadImage(getParentId(currentId), true, false); // parent
     }
   };
 }
 
 window.onload = () => {
-  loadImage(currentId, false, false); // ← show only anchor, no grid
+  loadImage(currentId, false, false); // Only show anchor on load
   addSwipeListener();
 
   document.getElementById("parent-btn").onclick = () => loadImage(getParentId(currentId), true, false);
