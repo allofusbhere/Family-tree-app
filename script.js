@@ -1,88 +1,102 @@
-
 let currentId = "100000";
 let historyStack = [];
 
+function padId(id) {
+    return id.toString().padEnd(6, '0');
+}
+
 function loadPerson(id) {
-  currentId = id;
-  historyStack.push(id);
-
-  const anchor = document.getElementById("anchor-container");
-  anchor.innerHTML = `<img src="${id}.jpg" onerror="this.src='placeholder.jpg'" ondblclick="editInfo('${id}')">`;
-
-  document.getElementById("person-name").innerText = localStorage.getItem(id + "_name") || "Name";
-  document.getElementById("person-dob").innerText = localStorage.getItem(id + "_dob") || "DOB";
-
-  document.getElementById("grid-container").innerHTML = "";
+    currentId = padId(id);
+    document.getElementById("mainImage").src = getImageUrl(currentId);
+    document.getElementById("name").innerText = localStorage.getItem(currentId + "_name") || "Name";
+    document.getElementById("dob").innerText = localStorage.getItem(currentId + "_dob") || "DOB";
+    clearGrid();
 }
 
-function getGenerationFactor(id) {
-  if (id.length < 6) return 10000;
-  const zeros = id.match(/0+$/);
-  if (!zeros) return 1;
-  return Math.pow(10, zeros[0].length);
+function clearGrid() {
+    document.getElementById("grid").innerHTML = "";
 }
 
-function goToParent() {
-  const factor = getGenerationFactor(currentId);
-  const parentId = String(Math.floor(Number(currentId) / factor) * factor);
-  if (parentId !== currentId) {
-    loadPerson(parentId);
-  }
+function getImageUrl(id) {
+    return `https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/${id}.jpg`;
 }
 
-function goToSiblings() {
-  const factor = getGenerationFactor(currentId);
-  const base = Math.floor(Number(currentId) / factor) * factor;
-  const siblings = [];
+function showImages(ids) {
+    clearGrid();
+    const grid = document.getElementById("grid");
+    ids.forEach(id => {
+        const fullId = padId(id);
+        const img = document.createElement("img");
+        img.src = getImageUrl(fullId);
+        img.onerror = () => img.style.display = "none";
+        img.ondblclick = () => editInfo(fullId);
+        img.onclick = () => {
+            historyStack.push(currentId);
+            loadPerson(fullId);
+        };
+        grid.appendChild(img);
+    });
+}
 
-  for (let i = 1; i <= 9; i++) {
-    const siblingId = String(base + i * (factor / 10));
-    if (siblingId !== currentId) {
-      siblings.push(siblingId);
+function calculateChildrenIds(id) {
+    let base = parseInt(id);
+    let children = [];
+    for (let i = 1; i <= 9; i++) {
+        let childId = base + i * 1000;
+        children.push(childId.toString());
     }
-  }
-  displayGrid(siblings);
+    return children;
 }
 
-function goToChildren() {
-  const factor = getGenerationFactor(currentId);
-  const childFactor = factor / 10;
-  const base = Number(currentId);
-  const children = [];
+function calculateSiblingIds(id) {
+    let base = Math.floor(parseInt(id) / 10000) * 10000;
+    let siblings = [];
+    for (let i = 1; i <= 9; i++) {
+        let siblingId = base + i * 1000;
+        if (siblingId.toString() !== id) {
+            siblings.push(siblingId.toString());
+        }
+    }
+    return siblings;
+}
 
-  for (let i = 1; i <= 9; i++) {
-    const childId = String(base + i * childFactor);
-    children.push(childId);
-  }
-  displayGrid(children);
+function calculateParentId(id) {
+    return (Math.floor(parseInt(id) / 10000) * 10000).toString();
+}
+
+function showChildren() {
+    const childrenIds = calculateChildrenIds(currentId);
+    showImages(childrenIds);
+}
+
+function showSiblings() {
+    const siblingIds = calculateSiblingIds(currentId);
+    showImages(siblingIds);
+}
+
+function showParent() {
+    const parentId = calculateParentId(currentId);
+    if (parentId !== currentId) {
+        historyStack.push(currentId);
+        loadPerson(parentId);
+    }
 }
 
 function goBack() {
-  if (historyStack.length > 1) {
-    historyStack.pop();
-    const previous = historyStack.pop();
-    loadPerson(previous);
-  }
-}
-
-function displayGrid(ids) {
-  const container = document.getElementById("grid-container");
-  container.innerHTML = "";
-  ids.forEach(id => {
-    const img = document.createElement("img");
-    img.src = id + ".jpg";
-    img.onerror = () => img.src = "placeholder.jpg";
-    img.onclick = () => loadPerson(id);
-    container.appendChild(img);
-  });
+    if (historyStack.length > 0) {
+        const prevId = historyStack.pop();
+        loadPerson(prevId);
+    }
 }
 
 function editInfo(id) {
-  const name = prompt("Enter name:", localStorage.getItem(id + "_name") || "");
-  const dob = prompt("Enter DOB:", localStorage.getItem(id + "_dob") || "");
-  if (name) localStorage.setItem(id + "_name", name);
-  if (dob) localStorage.setItem(id + "_dob", dob);
-  loadPerson(id);
+    const name = prompt("Enter name:", localStorage.getItem(id + "_name") || "");
+    if (name !== null) localStorage.setItem(id + "_name", name);
+
+    const dob = prompt("Enter date of birth:", localStorage.getItem(id + "_dob") || "");
+    if (dob !== null) localStorage.setItem(id + "_dob", dob);
+
+    if (id === currentId) loadPerson(id);
 }
 
 window.onload = () => loadPerson(currentId);
