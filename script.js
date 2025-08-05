@@ -1,13 +1,42 @@
 
 let currentId = "100000";
 let historyStack = [];
+const imgElement = document.getElementById("mainImage");
+const nameElement = document.getElementById("personName");
+const dobElement = document.getElementById("personDOB");
+
+const extensions = [".jpg", ".JPG", ".jpeg"];
+const baseURL = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
+
+function tryLoadImage(id, callback) {
+  let index = 0;
+
+  function tryNext() {
+    if (index >= extensions.length) {
+      console.warn("Image not found:", id);
+      imgElement.src = "https://via.placeholder.com/400x500.png?text=Image+Not+Found";
+      return;
+    }
+    const url = baseURL + id + extensions[index];
+    imgElement.onerror = () => {
+      index++;
+      tryNext();
+    };
+    imgElement.onload = () => {
+      callback && callback();
+    };
+    imgElement.src = url;
+  }
+
+  tryNext();
+}
 
 function loadPerson(id) {
   currentId = id;
   historyStack.push(id);
-  document.getElementById("mainImage").src = `https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/${id}.jpg`;
-  document.getElementById("personName").innerText = localStorage.getItem(id + "_name") || "SwipeTree";
-  document.getElementById("personDOB").innerText = localStorage.getItem(id + "_dob") || "";
+  tryLoadImage(id);
+  nameElement.innerText = localStorage.getItem(id + "_name") || "SwipeTree";
+  dobElement.innerText = localStorage.getItem(id + "_dob") || "";
 }
 
 function goToParent() {
@@ -46,7 +75,7 @@ function goBack() {
   }
 }
 
-document.getElementById("mainImage").addEventListener("dblclick", () => {
+imgElement.addEventListener("dblclick", () => {
   let name = prompt("Enter name:");
   let dob = prompt("Enter DOB:");
   if (name) localStorage.setItem(currentId + "_name", name);
