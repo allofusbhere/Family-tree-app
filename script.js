@@ -4,16 +4,20 @@ window.onload = () => {
 
   function loadImage(id, imgElement) {
     const exts = ['jpg', 'JPG'];
-    let attempts = 0;
+    let tried = 0;
+    let loaded = false;
     for (let ext of exts) {
-      const img = new Image();
-      img.src = `${id}.${ext}`;
-      img.onload = () => {
-        if (!imgElement.src) imgElement.src = img.src;
+      const testImg = new Image();
+      testImg.src = `${id}.${ext}`;
+      testImg.onload = () => {
+        if (!loaded) {
+          imgElement.src = testImg.src;
+          loaded = true;
+        }
       };
-      img.onerror = () => {
-        attempts++;
-        if (attempts >= exts.length) imgElement.remove();
+      testImg.onerror = () => {
+        tried++;
+        if (tried === exts.length) imgElement.remove();
       };
     }
   }
@@ -85,7 +89,6 @@ window.onload = () => {
     }
   }
 
-  // Bind to global scope
   window.goToParent = goToParent;
   window.showChildren = showChildren;
   window.showSiblings = showSiblings;
