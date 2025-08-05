@@ -1,86 +1,104 @@
-
-let currentId = "100000";
+const anchorImage = document.getElementById("anchor-image");
+const childGrid = document.getElementById("child-grid");
+const siblingGrid = document.getElementById("sibling-grid");
+const backButton = document.getElementById("back-button");
+let currentID = "100000";
 let historyStack = [];
-const imgElement = document.getElementById("mainImage");
-const nameElement = document.getElementById("personName");
-const dobElement = document.getElementById("personDOB");
 
-const extensions = [".jpg", ".JPG", ".jpeg"];
-const baseURL = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
+function padID(id) {
+  return id.toString().padEnd(6, "0");
+}
 
-function tryLoadImage(id, callback) {
-  let index = 0;
+function loadImage(id, targetImg) {
+  const baseUrl = "https://allofusbhere.github.io/Family-tree-app/";
+  const tryExtensions = [".jpg", ".JPG"];
 
-  function tryNext() {
-    if (index >= extensions.length) {
-      console.warn("Image not found:", id);
-      imgElement.src = "https://via.placeholder.com/400x500.png?text=Image+Not+Found";
+  function tryNextExtension(index) {
+    if (index >= tryExtensions.length) {
+      targetImg.src = baseUrl + "placeholder.jpg";
       return;
     }
-    const url = baseURL + id + extensions[index];
-    imgElement.onerror = () => {
-      index++;
-      tryNext();
-    };
-    imgElement.onload = () => {
-      callback && callback();
-    };
-    imgElement.src = url;
+    const url = baseUrl + id + tryExtensions[index];
+    fetch(url, { method: "HEAD" }).then((res) => {
+      if (res.ok) {
+        targetImg.src = url;
+      } else {
+        tryNextExtension(index + 1);
+      }
+    });
   }
 
-  tryNext();
+  tryNextExtension(0);
 }
 
-function loadPerson(id) {
-  currentId = id;
+function loadAnchor(id) {
+  currentID = id;
   historyStack.push(id);
-  tryLoadImage(id);
-  nameElement.innerText = localStorage.getItem(id + "_name") || "SwipeTree";
-  dobElement.innerText = localStorage.getItem(id + "_dob") || "";
+  document.getElementById("child-grid").innerHTML = "";
+  document.getElementById("sibling-grid").innerHTML = "";
+  loadImage(id, anchorImage);
 }
 
-function goToParent() {
-  let num = parseInt(currentId);
-  let parentId = (Math.floor(num / 10000) * 10000).toString();
-  if (parentId !== currentId) loadPerson(parentId);
+function getChildrenIDs(id) {
+  let base = parseInt(id);
+  let place = 1000;
+  let children = [];
+  for (let i = 1; i <= 9; i++) {
+    children.push(padID(base + i * place));
+  }
+  return children;
 }
 
-function goToSiblings() {
-  let base = Math.floor(parseInt(currentId) / 10000) * 10000;
+function getSiblingIDs(id) {
+  const num = parseInt(id);
+  const siblingStart = Math.floor(num / 1000) * 1000;
   let siblings = [];
   for (let i = 1; i <= 9; i++) {
-    let sibId = base + i * 1000;
-    if (sibId !== parseInt(currentId)) siblings.push(sibId.toString());
+    const sibID = siblingStart + i * 1000;
+    if (sibID !== num) {
+      siblings.push(padID(sibID));
+    }
   }
-  if (siblings.length) loadPerson(siblings[0]);
+  return siblings;
 }
 
-function goToChildren() {
-  let base = parseInt(currentId);
-  for (let i = 1; i <= 9; i++) {
-    let childId = (base + i * 1000).toString();
-    loadPerson(childId);
-    break;
+function getParentID(id) {
+  return padID(Math.floor(parseInt(id) / 1000) * 1000);
+}
+
+function displayGrid(grid, ids) {
+  grid.innerHTML = "";
+  ids.forEach((id) => {
+    const img = document.createElement("img");
+    loadImage(id, img);
+    img.onclick = () => loadAnchor(id);
+    grid.appendChild(img);
+  });
+}
+
+document.getElementById("children-button").onclick = () => {
+  const children = getChildrenIDs(currentID);
+  displayGrid(childGrid, children);
+};
+
+document.getElementById("siblings-button").onclick = () => {
+  const siblings = getSiblingIDs(currentID);
+  displayGrid(siblingGrid, siblings);
+};
+
+document.getElementById("parent-button").onclick = () => {
+  const parent = getParentID(currentID);
+  if (parent !== currentID) {
+    loadAnchor(parent);
   }
-}
+};
 
-function goToSpouse() {
-  loadPerson(currentId + ".1");
-}
-
-function goBack() {
-  historyStack.pop();
-  if (historyStack.length > 0) {
-    loadPerson(historyStack.pop());
+document.getElementById("back-button").onclick = () => {
+  if (historyStack.length > 1) {
+    historyStack.pop();
+    const prev = historyStack.pop();
+    loadAnchor(prev);
   }
-}
+};
 
-imgElement.addEventListener("dblclick", () => {
-  let name = prompt("Enter name:");
-  let dob = prompt("Enter DOB:");
-  if (name) localStorage.setItem(currentId + "_name", name);
-  if (dob) localStorage.setItem(currentId + "_dob", dob);
-  loadPerson(currentId);
-});
-
-window.onload = () => loadPerson(currentId);
+loadAnchor(currentID);

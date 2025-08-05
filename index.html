@@ -1,27 +1,25 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SwipeTree</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
-    <h1 id="personName">SwipeTree</h1>
-    <p id="personDOB"></p>
-    <div id="imageContainer">
-      <img id="mainImage" src="" alt="Person" />
-    </div>
-    <div id="buttonRow">
-      <button onclick="goToParent()">Parent</button>
-      <button onclick="goToSiblings()">Siblings</button>
-      <button onclick="goToChildren()">Children</button>
-      <button onclick="goToSpouse()">Spouse</button>
-      <button onclick="goBack()">Back</button>
-    </div>
+  <h1>SwipeTree</h1>
+  <div id="anchor-container">
+    <img id="anchor-image" src="" alt="Person" />
   </div>
+  <div id="button-bar">
+    <button id="parent-button">Parent</button>
+    <button id="siblings-button">Siblings</button>
+    <button id="children-button">Children</button>
+    <button id="spouse-button">Spouse</button>
+    <button id="back-button">Back</button>
+  </div>
+  <div id="sibling-grid" class="grid"></div>
+  <div id="child-grid" class="grid"></div>
   <script src="script.js"></script>
 </body>
 </html>
