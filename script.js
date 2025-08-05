@@ -1,98 +1,88 @@
 
-const cdnPrefix = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
 let currentId = "100000";
 let historyStack = [];
 
-function getGenerationStep(id) {
-  const num = parseInt(id);
-  if (num % 1000000 === 0) return 100000;
-  if (num % 100000 === 0) return 10000;
-  if (num % 10000 === 0) return 1000;
-  if (num % 1000 === 0) return 100;
-  if (num % 100 === 0) return 10;
-  return 1;
+function loadPerson(id) {
+  currentId = id;
+  historyStack.push(id);
+
+  const anchor = document.getElementById("anchor-container");
+  anchor.innerHTML = `<img src="${id}.jpg" onerror="this.src='placeholder.jpg'" ondblclick="editInfo('${id}')">`;
+
+  document.getElementById("person-name").innerText = localStorage.getItem(id + "_name") || "Name";
+  document.getElementById("person-dob").innerText = localStorage.getItem(id + "_dob") || "DOB";
+
+  document.getElementById("grid-container").innerHTML = "";
 }
 
-function getParentId(id) {
-  const step = getGenerationStep(id);
-  return (parseInt(id) - (parseInt(id) % step)).toString();
+function getGenerationFactor(id) {
+  if (id.length < 6) return 10000;
+  const zeros = id.match(/0+$/);
+  if (!zeros) return 1;
+  return Math.pow(10, zeros[0].length);
 }
 
-function getRelativeIds(type) {
-  const base = parseInt(currentId);
-  const step = getGenerationStep(currentId);
-  let ids = [];
+function goToParent() {
+  const factor = getGenerationFactor(currentId);
+  const parentId = String(Math.floor(Number(currentId) / factor) * factor);
+  if (parentId !== currentId) {
+    loadPerson(parentId);
+  }
+}
+
+function goToSiblings() {
+  const factor = getGenerationFactor(currentId);
+  const base = Math.floor(Number(currentId) / factor) * factor;
+  const siblings = [];
 
   for (let i = 1; i <= 9; i++) {
-    const offset = i * step;
-    if (type === "children" || type === "siblings") {
-      ids.push((base + offset).toString());
+    const siblingId = String(base + i * (factor / 10));
+    if (siblingId !== currentId) {
+      siblings.push(siblingId);
     }
   }
-
-  return ids;
+  displayGrid(siblings);
 }
 
-function showRelatives(type) {
-  const grid = document.getElementById("imageGrid");
-  grid.innerHTML = "";
+function goToChildren() {
+  const factor = getGenerationFactor(currentId);
+  const childFactor = factor / 10;
+  const base = Number(currentId);
+  const children = [];
 
-  let ids = [];
-
-  if (type === "parent") {
-    ids = [getParentId(currentId)];
-  } else {
-    ids = getRelativeIds(type);
+  for (let i = 1; i <= 9; i++) {
+    const childId = String(base + i * childFactor);
+    children.push(childId);
   }
-
-  ids.forEach(id => {
-    const img = document.createElement("img");
-    img.src = cdnPrefix + id + ".jpg";
-    img.onerror = () => img.style.display = "none";
-    img.onclick = () => loadImage(id);
-    grid.appendChild(img);
-  });
-}
-
-function loadImage(id, addToHistory = true) {
-  if (addToHistory) historyStack.push(currentId);
-  currentId = id;
-
-  const img = document.getElementById("mainImage");
-  const name = localStorage.getItem(id + "_name") || "Name";
-  const dob = localStorage.getItem(id + "_dob") || "DOB";
-  document.getElementById("personName").textContent = name;
-  document.getElementById("dob").textContent = dob;
-  img.src = cdnPrefix + id + ".jpg";
-
-  document.getElementById("imageGrid").innerHTML = "";
+  displayGrid(children);
 }
 
 function goBack() {
-  const previousId = historyStack.pop();
-  if (previousId) loadImage(previousId, false);
+  if (historyStack.length > 1) {
+    historyStack.pop();
+    const previous = historyStack.pop();
+    loadPerson(previous);
+  }
 }
 
-function addSwipeListener() {
-  let startX = 0;
-  let startY = 0;
-
-  const area = document.getElementById("mainImage");
-  area.ontouchstart = e => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-  };
-  area.ontouchend = e => {
-    const deltaX = e.changedTouches[0].clientX - startX;
-    const deltaY = e.changedTouches[0].clientY - startY;
-
-    if (Math.abs(deltaY) > Math.abs(deltaX) && deltaY > 50) {
-      showRelatives("children"); // swipe down = children
-    }
-  };
+function displayGrid(ids) {
+  const container = document.getElementById("grid-container");
+  container.innerHTML = "";
+  ids.forEach(id => {
+    const img = document.createElement("img");
+    img.src = id + ".jpg";
+    img.onerror = () => img.src = "placeholder.jpg";
+    img.onclick = () => loadPerson(id);
+    container.appendChild(img);
+  });
 }
 
-window.onload = () => {
-  loadImage(currentId, false);
-  addSwipeListener();
-};
+function editInfo(id) {
+  const name = prompt("Enter name:", localStorage.getItem(id + "_name") || "");
+  const dob = prompt("Enter DOB:", localStorage.getItem(id + "_dob") || "");
+  if (name) localStorage.setItem(id + "_name", name);
+  if (dob) localStorage.setItem(id + "_dob", dob);
+  loadPerson(id);
+}
+
+window.onload = () => loadPerson(currentId);

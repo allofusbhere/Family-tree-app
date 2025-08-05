@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,16 +7,16 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1 id="personName">Name</h1>
-    <p id="dob">DOB</p>
-    <img id="mainImage" src="100000.jpg" alt="Family Member" ondblclick="editInfo()">
+    <h1 id="person-name">Name</h1>
+    <p id="person-dob">DOB</p>
+    <div id="anchor-container"></div>
     <div class="buttons">
-        <button onclick="showRelatives('parent')">Parent</button>
-        <button onclick="showRelatives('siblings')">Siblings</button>
-        <button onclick="showRelatives('children')">Children</button>
+        <button onclick="goToParent()">Parent</button>
+        <button onclick="goToSiblings()">Siblings</button>
+        <button onclick="goToChildren()">Children</button>
         <button onclick="goBack()">Back</button>
     </div>
-    <div class="grid" id="imageGrid"></div>
+    <div id="grid-container" class="grid"></div>
     <script src="script.js"></script>
 </body>
 </html>
