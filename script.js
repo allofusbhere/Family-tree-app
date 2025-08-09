@@ -1,7 +1,4 @@
-// SwipeTree — Buttons Only (jsDelivr Image Fix)
-// Loads images from https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/ID.EXT
-// with case-insensitive extension fallbacks. Focus: fix 'image not found' on GitHub Pages.
-
+// SwipeTree — Buttons Only (jsDelivr Image Fix v2)
 const CDN_BASE = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
 const EXT_CANDIDATES = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"];
 
@@ -35,13 +32,15 @@ function setImageFromCandidates(imgEl, id, onDone) {
   let idx = 0;
   function tryNext() {
     if (idx >= urls.length) {
+      dlog("FAILED all candidates for", id);
       imgEl.removeAttribute("src");
       onDone?.(false, null);
       return;
     }
     const url = urls[idx++];
-    imgEl.onload = () => onDone?.(true, url);
-    imgEl.onerror = () => tryNext();
+    dlog("Trying", url);
+    imgEl.onload = () => { dlog("Loaded", url); onDone?.(true, url); };
+    imgEl.onerror = () => { dlog("Error", url); tryNext(); };
     imgEl.src = url;
   }
   tryNext();
@@ -59,28 +58,12 @@ function updateAnchor(id) {
   });
 }
 
-// --- Placeholder nav handlers (logic intentionally minimal — focus on image loading fix)
-btnParents.onclick = () => {
-  // For now, simply echo to grid for visibility.
-  showList([anchorId], "Parents (demo)");
-};
-btnSiblings.onclick = () => {
-  showList([anchorId], "Siblings (demo)");
-};
-btnSpouse.onclick = () => {
-  // Try showing partner file anchorId.1 if it exists, else just display notice.
-  const partnerId = `${anchorId}.1`;
-  showList([partnerId], "Spouse (demo)");
-};
-btnChildren.onclick = () => {
-  showList([anchorId], "Children (demo)");
-};
-btnBack.onclick = () => {
-  if (historyStack.length > 0) {
-    const prev = historyStack.pop();
-    updateAnchor(prev);
-  }
-};
+// Demo handlers
+btnParents.onclick = () => showList([anchorId], "Parents (demo)");
+btnSiblings.onclick = () => showList([anchorId], "Siblings (demo)");
+btnSpouse.onclick = () => showList([`${anchorId}.1`], "Spouse (demo)");
+btnChildren.onclick = () => showList([anchorId], "Children (demo)");
+btnBack.onclick = () => { if (historyStack.length) updateAnchor(historyStack.pop()); };
 
 function showList(ids, title) {
   grid.innerHTML = "";
@@ -97,21 +80,14 @@ function showList(ids, title) {
     card.appendChild(wrap);
     card.appendChild(cap);
     grid.appendChild(card);
-
     setImageFromCandidates(img, id, (ok) => {
       if (!ok) cap.textContent = `${id} (image not found)`;
     });
-
-    // Clicking a grid item becomes new anchor
-    card.onclick = () => {
-      historyStack.push(anchorId);
-      const pureId = String(id).replace(/(\.1.*)$/, m => m); // keep as-is for now
-      updateAnchor(pureId);
-    };
+    card.onclick = () => { historyStack.push(anchorId); updateAnchor(String(id)); };
   });
 }
 
-// --- Launch: prompt for starting ID
+// Launch
 (function launch() {
   let start = (typeof sessionStorage !== "undefined") ? sessionStorage.getItem("swipetree_start_id") : null;
   if (!start) {
