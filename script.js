@@ -1,4 +1,4 @@
-// SwipeTree — Buttons Only (Full Logic, jsDelivr)
+// SwipeTree — Buttons Only (Hide Blanks, 100000 Children Fix)
 const CDN_BASE = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
 const EXT_CANDIDATES = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"];
 
@@ -7,6 +7,7 @@ const anchorImg = document.getElementById("anchorImg");
 const anchorCaption = document.getElementById("anchorCaption");
 const grid = document.getElementById("grid");
 const debugOut = document.getElementById("debugOut");
+const emptyNote = document.getElementById("emptyNote");
 
 const btnParents  = document.getElementById("btnParents");
 const btnSiblings = document.getElementById("btnSiblings");
@@ -42,14 +43,12 @@ function setImageFromCandidates(imgEl, id, onDone) {
 }
 
 function numericPart(id) {
-  // Keep only the base numeric before any ".1" (spouse) or further suffixes
   const str = String(id);
   const m = str.match(/^(\d+)/);
   return m ? parseInt(m[1], 10) : NaN;
 }
 
 function factorOfRightmostNonZero(n) {
-  // returns 1,10,100,... for the rightmost non-zero digit
   let f = 1;
   while (Math.floor(n / f) % 10 === 0) {
     f *= 10;
@@ -61,14 +60,8 @@ function factorOfRightmostNonZero(n) {
 function parentIdOf(n) {
   const f = factorOfRightmostNonZero(n);
   const digit = Math.floor(n / f) % 10;
-  if (digit === 0) return n; // fallback
+  if (digit === 0) return n;
   return n - digit * f;
-}
-
-function isTopOfBranch(n) {
-  // If only the first (leftmost) digit is non-zero (e.g., 100000), treat as not a parent.
-  // For simplicity, consider numbers like 100000, 200000, ... where n % 100000 === 0 and n < 1000000.
-  return (n % 100000 === 0) && (n < 1000000);
 }
 
 function siblingsOf(n) {
@@ -86,11 +79,9 @@ function childrenOf(n) {
   const f = factorOfRightmostNonZero(n);
   const next = Math.floor(f / 10);
   if (next <= 0) return [];
-  if (isTopOfBranch(n)) return []; // do not generate children for 100000, 200000, etc.
+  // IMPORTANT: allow top-of-branch (e.g., 100000) to generate children via next place (10000)
   const list = [];
-  for (let d = 1; d <= 9; d++) {
-    list.push(n + d * next);
-  }
+  for (let d = 1; d <= 9; d++) list.push(n + d * next);
   return list;
 }
 
@@ -115,16 +106,30 @@ function makeCard(id) {
   cap.textContent = id;
   card.appendChild(wrap);
   card.appendChild(cap);
+
+  // Load image, and if missing, drop the card
   setImageFromCandidates(img, id, (ok) => {
-    if (!ok) cap.textContent = `${id} (image not found)`;
+    if (!ok) {
+      card.remove(); // hide blanks
+      updateEmptyNote();
+    }
   });
+
   card.onclick = () => { historyStack.push(anchorId); updateAnchor(String(id)); };
   return card;
 }
 
+function updateEmptyNote() {
+  const hasCards = grid.children.length > 0;
+  grid.parentElement.classList.toggle("show-empty", !hasCards);
+}
+
 function showIds(ids) {
   grid.innerHTML = "";
+  grid.parentElement.classList.remove("show-empty");
   ids.forEach(id => grid.appendChild(makeCard(id)));
+  // In case none loaded
+  setTimeout(updateEmptyNote, 300);
 }
 
 // --- Button handlers
@@ -135,24 +140,10 @@ btnParents.onclick = () => {
   showIds(ids);
 };
 
-btnSiblings.onclick = () => {
-  const n = numericPart(anchorId);
-  const ids = siblingsOf(n);
-  showIds(ids);
-};
-
-btnChildren.onclick = () => {
-  const n = numericPart(anchorId);
-  const ids = childrenOf(n);
-  showIds(ids);
-};
-
-btnSpouse.onclick = () => {
-  // Show just the direct partner file: anchorId.1
-  showIds([`${anchorId}.1`]);
-};
-
-btnBack.onclick = () => { if (historyStack.length) updateAnchor(historyStack.pop()); };
+btnSiblings.onclick = () => { showIds(siblingsOf(numericPart(anchorId))); };
+btnChildren.onclick = () => { showIds(childrenOf(numericPart(anchorId))); };
+btnSpouse.onclick   = () => { showIds([`${anchorId}.1`]); };
+btnBack.onclick     = () => { if (historyStack.length) updateAnchor(historyStack.pop()); };
 
 // --- Launch
 (function launch() {

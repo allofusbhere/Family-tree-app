@@ -15,4 +15,5 @@ button:hover { background: #f3f3f3; }
 .grid-card { display: flex; flex-direction: column; gap: 6px; }
 .grid-card .img-wrap { width: 100%; height: 120px; }
 .debug { margin: 0 16px 16px; }
-.hidden { display: none; }
+.empty-note { display:none; padding:8px; opacity:.65; }
+.show-empty #emptyNote { display:block; }
