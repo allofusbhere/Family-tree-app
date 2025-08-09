@@ -1,4 +1,4 @@
-// SwipeTree — Buttons Only (jsDelivr Image Fix v2)
+// SwipeTree — Buttons Only (Full Logic, jsDelivr)
 const CDN_BASE = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
 const EXT_CANDIDATES = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"];
 
@@ -19,13 +19,8 @@ let historyStack = [];
 let anchorId = null;
 
 // --- Utils
-function dlog(...args) {
-  debugOut.textContent += args.join(" ") + "\n";
-}
-
-function buildCandidates(id) {
-  return EXT_CANDIDATES.map(ext => CDN_BASE + id + ext);
-}
+function dlog(...args) { debugOut.textContent += args.join(" ") + "\n"; }
+function buildCandidates(id) { return EXT_CANDIDATES.map(ext => CDN_BASE + id + ext); }
 
 function setImageFromCandidates(imgEl, id, onDone) {
   const urls = buildCandidates(id);
@@ -46,48 +41,120 @@ function setImageFromCandidates(imgEl, id, onDone) {
   tryNext();
 }
 
+function numericPart(id) {
+  // Keep only the base numeric before any ".1" (spouse) or further suffixes
+  const str = String(id);
+  const m = str.match(/^(\d+)/);
+  return m ? parseInt(m[1], 10) : NaN;
+}
+
+function factorOfRightmostNonZero(n) {
+  // returns 1,10,100,... for the rightmost non-zero digit
+  let f = 1;
+  while (Math.floor(n / f) % 10 === 0) {
+    f *= 10;
+    if (f > 1e12) break;
+  }
+  return f;
+}
+
+function parentIdOf(n) {
+  const f = factorOfRightmostNonZero(n);
+  const digit = Math.floor(n / f) % 10;
+  if (digit === 0) return n; // fallback
+  return n - digit * f;
+}
+
+function isTopOfBranch(n) {
+  // If only the first (leftmost) digit is non-zero (e.g., 100000), treat as not a parent.
+  // For simplicity, consider numbers like 100000, 200000, ... where n % 100000 === 0 and n < 1000000.
+  return (n % 100000 === 0) && (n < 1000000);
+}
+
+function siblingsOf(n) {
+  const f = factorOfRightmostNonZero(n);
+  const p = parentIdOf(n);
+  const list = [];
+  for (let d = 1; d <= 9; d++) {
+    const s = p + d * f;
+    if (s !== n) list.push(s);
+  }
+  return list;
+}
+
+function childrenOf(n) {
+  const f = factorOfRightmostNonZero(n);
+  const next = Math.floor(f / 10);
+  if (next <= 0) return [];
+  if (isTopOfBranch(n)) return []; // do not generate children for 100000, 200000, etc.
+  const list = [];
+  for (let d = 1; d <= 9; d++) {
+    list.push(n + d * next);
+  }
+  return list;
+}
+
+// --- UI
 function updateAnchor(id) {
   anchorId = id;
   anchorCaption.textContent = `${id}`;
-  setImageFromCandidates(anchorImg, id, (ok, url) => {
-    if (!ok) {
-      anchorCaption.textContent = `${id} (image not found)`;
-    } else {
-      anchorCaption.textContent = `${id}`;
-    }
+  setImageFromCandidates(anchorImg, id, (ok) => {
+    if (!ok) anchorCaption.textContent = `${id} (image not found)`;
   });
 }
 
-// Demo handlers
-btnParents.onclick = () => showList([anchorId], "Parents (demo)");
-btnSiblings.onclick = () => showList([anchorId], "Siblings (demo)");
-btnSpouse.onclick = () => showList([`${anchorId}.1`], "Spouse (demo)");
-btnChildren.onclick = () => showList([anchorId], "Children (demo)");
+function makeCard(id) {
+  const card = document.createElement("div");
+  card.className = "grid-card";
+  const wrap = document.createElement("div");
+  wrap.className = "img-wrap";
+  const img = document.createElement("img");
+  wrap.appendChild(img);
+  const cap = document.createElement("div");
+  cap.className = "caption";
+  cap.textContent = id;
+  card.appendChild(wrap);
+  card.appendChild(cap);
+  setImageFromCandidates(img, id, (ok) => {
+    if (!ok) cap.textContent = `${id} (image not found)`;
+  });
+  card.onclick = () => { historyStack.push(anchorId); updateAnchor(String(id)); };
+  return card;
+}
+
+function showIds(ids) {
+  grid.innerHTML = "";
+  ids.forEach(id => grid.appendChild(makeCard(id)));
+}
+
+// --- Button handlers
+btnParents.onclick = () => {
+  const n = numericPart(anchorId);
+  const p = parentIdOf(n);
+  const ids = (p === n) ? [] : [p];
+  showIds(ids);
+};
+
+btnSiblings.onclick = () => {
+  const n = numericPart(anchorId);
+  const ids = siblingsOf(n);
+  showIds(ids);
+};
+
+btnChildren.onclick = () => {
+  const n = numericPart(anchorId);
+  const ids = childrenOf(n);
+  showIds(ids);
+};
+
+btnSpouse.onclick = () => {
+  // Show just the direct partner file: anchorId.1
+  showIds([`${anchorId}.1`]);
+};
+
 btnBack.onclick = () => { if (historyStack.length) updateAnchor(historyStack.pop()); };
 
-function showList(ids, title) {
-  grid.innerHTML = "";
-  ids.forEach(id => {
-    const card = document.createElement("div");
-    card.className = "grid-card";
-    const wrap = document.createElement("div");
-    wrap.className = "img-wrap";
-    const img = document.createElement("img");
-    wrap.appendChild(img);
-    const cap = document.createElement("div");
-    cap.className = "caption";
-    cap.textContent = id;
-    card.appendChild(wrap);
-    card.appendChild(cap);
-    grid.appendChild(card);
-    setImageFromCandidates(img, id, (ok) => {
-      if (!ok) cap.textContent = `${id} (image not found)`;
-    });
-    card.onclick = () => { historyStack.push(anchorId); updateAnchor(String(id)); };
-  });
-}
-
-// Launch
+// --- Launch
 (function launch() {
   let start = (typeof sessionStorage !== "undefined") ? sessionStorage.getItem("swipetree_start_id") : null;
   if (!start) {
