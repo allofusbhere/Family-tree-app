@@ -1,23 +1,59 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SwipeTree — Buttons Only (Single Display + Local Index v9)</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>SwipeTree</h1>
-  <div id="personName">Person</div>
-  <div class="button-row">
-    <button onclick="loadRelative('parent')">Parent</button>
-    <button onclick="loadRelative('siblings')">Siblings</button>
-    <button onclick="loadRelative('children')">Children</button>
-    <button onclick="loadRelative('spouse')">Spouse</button>
-    <button onclick="goBack()">Back</button>
+<header>
+  <div class="container">
+    <h1>SwipeTree — Buttons Only <span class="badge">Single Display</span></h1>
+    <div class="launch">
+      <label for="startId">Start ID:</label>
+      <input id="startId" type="text" placeholder="e.g., 140000" />
+      <button id="launchBtn">Launch</button>
+      <span id="histStat" class="muted"></span>
+    </div>
+    <div class="load">
+      <label class="muted">Files:</label>
+      <input id="filePicker" type="file" accept=".jpg,.jpeg,.png,.JPG,.JPEG,.PNG,image/*" multiple />
+      <span id="fileCount" class="muted">No files indexed (optional)</span>
+    </div>
   </div>
-  <div id="imageGrid" class="image-grid"></div>
-  <script src="script.js"></script>
+</header>
+
+<div class="container">
+  <main>
+    <section class="anchor-card card">
+      <h2>Anchor</h2>
+      <div class="imgwrap anchor"><img id="anchorImg" alt="anchor" /></div>
+      <div class="caption"><span id="anchorIdCap">—</span></div>
+    </section>
+
+    <section class="nav-buttons">
+      <button id="btnParent">Parent</button>
+      <button id="btnSiblings">Siblings</button>
+      <button id="btnSpouse">Spouse</button>
+      <button id="btnChildren">Children</button>
+      <button id="btnBack" class="secondary" disabled>Back</button>
+    </section>
+
+    <section class="display card">
+      <div class="display-head">
+        <h2 id="displayTitle">—</h2>
+        <div id="displayStatus" class="status">—</div>
+      </div>
+      <div id="displayGrid" class="grid"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>All relationships derived dynamically from numeric filenames. Images can be loaded from the same folder or via the optional file index above.</small>
+  </footer>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
