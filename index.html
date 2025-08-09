@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>SwipeTree — Swipe (iPad) 20250809-205244</title>
-  <link rel="stylesheet" href="style.css?v=20250809-205244" />
+  <title>SwipeTree — Swipe (iPad) 20250809-213358</title>
+  <link rel="stylesheet" href="style.css?v=20250809-213358" />
 </head>
 <body>
   <header id="appHeader">
     <div class="bar">
-      <div class="title">SwipeTree <small>build 20250809-205244</small></div>
+      <div class="title">SwipeTree <small>build 20250809-213358</small></div>
       <div class="jump">
         <input id="jumpInput" type="text" inputmode="numeric" placeholder="Jump to ID" />
         <button id="jumpBtn">Go</button>
@@ -25,39 +25,24 @@
       </div>
       <div id="anchorBadge" class="badge"></div>
       <div id="hint" class="hint">Swipe ← siblings • → spouse • ↑ parent • ↓ children • Double‑tap: edit ID • Long‑press: immersive</div>
-      <!-- ripple container -->
       <div id="ripples" class="ripples" aria-hidden="true"></div>
     </div>
 
     <section id="tray" class="tray">
       <div class="tray-header">
         <div id="trayTitle" class="tray-title"></div>
-        <button id="trayClose" class="icon">✕</button>
+        <button id="trayClose" class="icon" aria-label="Close">✕</button>
       </div>
       <div id="trayGrid" class="grid"></div>
       <div id="emptyNote" class="empty">No matching images.</div>
     </section>
   </main>
 
-  <!-- Quick Jump Modal -->
-  <div id="jumpModal" class="modal" aria-hidden="true">
-    <div class="modal-card">
-      <div class="modal-title">Quick Jump</div>
-      <div class="modal-sub">Enter an ID like <code>140000</code>, <code>140000.1</code>, or <code>140000.1.240000</code></div>
-      <input id="modalInput" type="text" inputmode="numeric" class="modal-input" />
-      <div class="modal-actions">
-        <button id="modalCancel" class="btn">Cancel</button>
-        <button id="modalGo" class="btn primary">Go</button>
-      </div>
-      <div id="modalError" class="modal-error" role="alert"></div>
-    </div>
-  </div>
-
   <details class="debug" id="debugPanel" open>
     <summary>Debug</summary>
     <pre id="debugOut"></pre>
   </details>
 
-  <script src="script.js?v=20250809-205244"></script>
+  <script src="script.js?v=20250809-213358"></script>
 </body>
 </html>
