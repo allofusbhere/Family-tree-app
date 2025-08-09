@@ -2,50 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>SwipeTree — Buttons Only (Full‑Screen)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SwipeTree — Buttons Only (jsDelivr Image Fix)</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>SwipeTree</h1>
-    <div id="status">Ready</div>
-  </header>
+  <header>SwipeTree</header>
 
   <main>
-    <section id="anchorArea">
-      <div class="img-wrap">
-        <img id="anchorImg" alt="Anchor" />
-      </div>
-      <div class="right">
-        <div id="anchorId" class="id-text"></div>
-        <div id="nameDob" class="meta"></div>
-        <section id="controls">
-          <button id="btnParent">Parents</button>
+    <section class="anchor">
+      <div class="panel">
+        <div class="panel-title">Anchor</div>
+        <div class="img-wrap">
+          <img id="anchorImg" alt="Anchor image" />
+        </div>
+        <div id="anchorCaption" class="caption"></div>
+        <div class="btn-row">
+          <button id="btnParents">Parents</button>
           <button id="btnSiblings">Siblings</button>
           <button id="btnSpouse">Spouse</button>
           <button id="btnChildren">Children</button>
           <button id="btnBack">Back</button>
-        </section>
+        </div>
       </div>
     </section>
 
-    <section id="grid" class="grid"></section>
+    <section class="grid">
+      <div class="panel">
+        <div class="panel-title">Results</div>
+        <div id="grid" class="grid-wrap"></div>
+      </div>
+    </section>
   </main>
 
-  <footer>
-    <details>
-      <summary>Debug</summary>
-      <div id="debugLog"></div>
-    </details>
-  </footer>
+  <details class="debug">
+    <summary>Debug</summary>
+    <pre id="debugOut"></pre>
+  </details>
 
-  <script>
-    window.APP_CONFIG = {
-      IMAGE_BASE: "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/",
-      MAX_RESULTS: 9
-    };
-  </script>
   <script src="script.js"></script>
 </body>
 </html>
