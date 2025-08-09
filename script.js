@@ -1,259 +1,216 @@
-// SwipeTree v15.2 – drag preview, better double‑tap, FAB jump, easy tray close
-const CDN_BASE = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
-const EXT_CANDIDATES = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"];
 
-const bodyEl = document.body;
-const stage = document.getElementById("anchorStage");
-const ripples = document.getElementById("ripples");
-const slideA = document.getElementById("slideA");
-const slideB = document.getElementById("slideB");
-const anchorBadge = document.getElementById("anchorBadge");
-const tray = document.getElementById("tray");
-const trayGrid = document.getElementById("trayGrid");
-const trayTitle = document.getElementById("trayTitle");
-const trayClose = document.getElementById("trayClose");
-const fabJump = document.getElementById("fabJump");
-const jumpInput = document.getElementById("jumpInput");
-const jumpBtn = document.getElementById("jumpBtn");
-const debugOut = document.getElementById("debugOut");
+(() => {
+  const BUILD = window.SWIPE_TREE_BUILD || "";
+  const qs = new URLSearchParams(location.search);
+  const START = qs.get("start") || prompt("Enter starting ID", "140000") || "140000";
+  const JUMP = qs.get("jump") || "";
+  const CB = qs.get("cb") || BUILD;
 
-const modal = document.getElementById("jumpModal");
-const modalInput = document.getElementById("modalInput");
-const modalGo = document.getElementById("modalGo");
-const modalCancel = document.getElementById("modalCancel");
-const modalError = document.getElementById("modalError");
+  // POINT IMAGE BASE HERE (jsDelivr -> user repo of images)
+  // You told me images live in a GitHub images repo. This is configurable:
+  const IMAGE_BASE = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
+  const EXT_ORDER = ["jpg","JPG","jpeg","JPEG","png","PNG"];
 
-let anchorId = null;
-let historyStack = [];
-let activeIsA = true;
-let lastTapTime = 0;
-let longPressTimer = null;
-let dragActive = false;
-let dragDX = 0, dragDY = 0;
+  // DOM
+  const anchorImg = document.getElementById("anchorImg");
+  const anchorLabel = document.getElementById("anchorLabel");
+  const childrenArea = document.getElementById("childrenArea");
+  const spouseArea = document.getElementById("spouseArea");
+  const spouseImg = document.getElementById("spouseImg");
+  const spouseCaption = document.getElementById("spouseCaption");
+  const logEl = document.getElementById("log");
 
-function dlog(...args){ if(debugOut) debugOut.textContent += args.join(" ") + "\n"; }
-
-function buildCandidates(id){ return EXT_CANDIDATES.map(ext => CDN_BASE + id + ext); }
-function setImageFromCandidates(imgEl, id, onDone){
-  const urls = buildCandidates(id);
-  let i=0;
-  function next(){
-    if(i>=urls.length){ imgEl.removeAttribute("src"); onDone && onDone(false); return; }
-    const url = urls[i++];
-    imgEl.onload = ()=> onDone && onDone(true);
-    imgEl.onerror = ()=> next();
-    imgEl.src = url;
+  function log(msg) {
+    logEl.textContent = (msg + "\n" + logEl.textContent).slice(0, 8000);
   }
-  next();
-}
 
-function parseIdParts(id){
-  const s = String(id).trim();
-  const m = s.match(/^(\d+)(?:\.1(?:\.(\d+))?)?$/);
-  if(!m) return { base:null, isSpouse:false, spouseOwn:null, raw:s, valid:false };
-  return { base:parseInt(m[1],10), isSpouse:/\.1/.test(s), spouseOwn:m[2]?parseInt(m[2],10):null, raw:s, valid:true };
-}
+  function idToStr(x){ return String(x); }
 
-function factorOfRightmostNonZero(n){ let f=1; while(Math.floor(n/f)%10===0){ f*=10; if(f>1e12)break; } return f; }
-function parentIdOf(n){ const f=factorOfRightmostNonZero(n); const digit=Math.floor(n/f)%10; if(digit===0) return n; return n - digit*f; }
-function siblingsOf(n){ const f=factorOfRightmostNonZero(n); const p=parentIdOf(n); const list=[]; for(let d=1; d<=9; d++){ const s=p+d*f; if(s!==n) list.push(s); } return list; }
-function childrenOf(n){ const f=factorOfRightmostNonZero(n); const next=Math.floor(f/10); if(next<=0)return[]; const list=[]; for(let d=1; d<=9; d++){ list.push(n + d*next); } return list; }
+  function urlFor(id, ext) {
+    // Append cachebuster to ensure freshest file
+    return `${IMAGE_BASE}${id}.${ext}?cb=${encodeURIComponent(CB)}`;
+  }
 
-function getActive(){ return activeIsA ? slideA : slideB; }
-function getInactive(){ return activeIsA ? slideB : slideA; }
-
-function updateBadge(id, missing=false){ anchorBadge.textContent = missing ? `${id} (image not found)` : `${id}`; }
-function forceReflow(el){ void el.offsetWidth; }
-
-function setAnchorImmediate(id){
-  anchorId = id;
-  updateBadge(id);
-  const img = getActive();
-  const other = getInactive();
-  other.className = "slide offscreen-right";
-  setImageFromCandidates(img, id, ok=> updateBadge(id, !ok));
-}
-
-function animateTo(id, direction){
-  const current = getActive();
-  const incoming = getInactive();
-  incoming.className = "slide " + (direction==='left' ? 'offscreen-right' :
-                                   direction==='right' ? 'offscreen-left' :
-                                   direction==='up' ? 'offscreen-down' : 'offscreen-up');
-  forceReflow(incoming);
-  setImageFromCandidates(incoming, id, ok=>{
-    current.className = "slide"; forceReflow(current);
-    requestAnimationFrame(()=>{
-      current.className = "slide " + (direction==='left' ? 'offscreen-left' :
-                                      direction==='right' ? 'offscreen-right' :
-                                      direction==='up' ? 'offscreen-up' : 'offscreen-down');
-      incoming.className = "slide";
-      setTimeout(()=>{ activeIsA = !activeIsA; anchorId = id; updateBadge(id, !ok); }, 360);
+  function tryLoad(id, exts=EXT_ORDER) {
+    return new Promise((resolve) => {
+      let idx = 0;
+      const attempt = () => {
+        if (idx >= exts.length) return resolve(null);
+        const ext = exts[idx++];
+        const img = new Image();
+        img.onload = () => resolve({url: urlFor(id, ext), ext});
+        img.onerror = attempt;
+        img.src = urlFor(id, ext);
+      };
+      attempt();
     });
+  }
+
+  function show(el){ el.classList.remove("hidden"); }
+  function hide(el){ el.classList.add("hidden"); }
+
+  // === Relationship logic (dynamic, filename-only) ===
+  // Children rule (confirmed): for a 6-digit like 140000, children are 141000..149000
+  function childrenOf(baseIdStr) {
+    const n = Number(baseIdStr);
+    // children = base + k*1000, k=1..9 (but we only display those that exist)
+    const step = 1000;
+    const arr = [];
+    for (let k=1; k<=9; k++) arr.push(String(n + k*step).padStart(baseIdStr.length,"0"));
+    return arr;
+  }
+
+  // Spouse: look for "<id>.1"
+  function spouseId(baseIdStr){ return `${baseIdStr}.1`; }
+
+  async function loadAnchor(idStr){
+    hide(childrenArea); hide(spouseArea);
+    anchorImg.style.opacity = "0.001";
+    anchorImg.style.display = "block";
+    const found = await tryLoad(idStr);
+    if (found){
+      anchorImg.src = found.url;
+      anchorLabel.textContent = `ID ${idStr}`;
+      anchorImg.onload = () => { anchorImg.style.opacity = "1"; };
+    } else {
+      anchorImg.removeAttribute("src");
+      anchorImg.style.display = "none";
+      anchorLabel.textContent = `ID ${idStr} (image not found)`;
+    }
+    // optimistic prefetch spouse (non-blocking)
+    prefetch(spouseId(idStr));
+  }
+
+  async function showSpouse(idStr){
+    hide(childrenArea);
+    const spId = spouseId(idStr);
+    const found = await tryLoad(spId);
+    if (found){
+      show(spouseArea);
+      spouseImg.style.display = "block";
+      spouseImg.src = found.url;
+      spouseCaption.textContent = `Spouse of ${idStr} (${spId})`;
+    } else {
+      show(spouseArea);
+      spouseImg.style.display = "none";
+      spouseCaption.textContent = `No spouse image for ${idStr}`;
+    }
+  }
+
+  async function showChildrenGrid(idStr){
+    hide(spouseArea);
+    show(childrenArea);
+    const ids = childrenOf(idStr);
+    const cells = Array.from(childrenArea.querySelectorAll(".cell"));
+    // ensure 9 cells exist
+    for (let i=0;i<cells.length;i++){
+      const cell = cells[i];
+      const img = cell.querySelector("img");
+      const cap = cell.querySelector(".caption");
+      img.style.display = "none";
+      img.removeAttribute("src");
+      cap.textContent = "";
+      cell.style.visibility = "hidden";
+    }
+    // load children in order; show only those that resolve
+    let slot = 0;
+    for (const cid of ids){
+      const found = await tryLoad(cid);
+      if (!found) { log(`child missing: ${cid}`); continue; }
+      if (slot >= 9) break;
+      const cell = cells[slot++];
+      const img = cell.querySelector("img");
+      const cap = cell.querySelector(".caption");
+      img.src = found.url;
+      img.dataset.childId = cid;
+      img.style.display = "block";
+      cap.textContent = cid;
+      cell.style.visibility = "visible";
+    }
+    if (slot === 0){
+      // nothing found -> still show grid but say "No children images"
+      const cell = cells[0];
+      cell.style.visibility = "visible";
+      cell.querySelector(".caption").textContent = "No child images found";
+    }
+  }
+
+  function prefetch(idStr){
+    tryLoad(idStr).then(()=>{}).catch(()=>{});
+  }
+
+  // Tap on a child -> make it anchor
+  childrenArea.addEventListener("click", (e) => {
+    const img = e.target.closest("img");
+    if (!img) return;
+    const cid = img.dataset.childId;
+    if (!cid) return;
+    state.anchor = cid;
+    history.pushState({anchor: cid}, "", `?start=${encodeURIComponent(cid)}&cb=${encodeURIComponent(CB)}`);
+    loadAnchor(cid);
   });
-}
 
-/* ===== Live drag preview ===== */
-function applyDrag(dx, dy){
-  const cur = getActive();
-  cur.classList.add('dragging');
-  const absX = Math.abs(dx), absY = Math.abs(dy);
-  if(absX > absY){
-    cur.style.transform = `translate3d(${dx}px,0,0) scale(0.995)`;
-  }else{
-    cur.style.transform = `translate3d(0,${dy}px,0) scale(0.995)`;
+  // === Swipe handling ===
+  let startX=0, startY=0, tracking=false;
+  const SWIPE_MIN = 40; // px
+
+  function onTouchStart(e){
+    const t = e.touches ? e.touches[0] : e;
+    startX = t.clientX; startY = t.clientY; tracking = true;
   }
-}
-function clearDrag(){
-  const cur = getActive();
-  cur.classList.remove('dragging');
-  cur.style.transform = '';
-}
-
-/* ===== Tray helpers ===== */
-function clearTray(){ trayGrid.innerHTML = ""; }
-function openTray(title){ trayTitle.textContent = title; tray.classList.add("open"); }
-function closeTray(){ tray.classList.remove("open"); }
-if(trayClose){ trayClose.addEventListener("click", closeTray); }
-stage.addEventListener("click", (e)=>{ if(tray.classList.contains('open')) closeTray(); }); // tap anywhere closes
-
-/* ===== Ripple ===== */
-function spawnRipple(x, y){
-  const r = document.createElement('div');
-  r.className = 'ripple';
-  const rect = stage.getBoundingClientRect();
-  r.style.left = (x - rect.left) + 'px';
-  r.style.top  = (y - rect.top) + 'px';
-  ripples.appendChild(r);
-  setTimeout(()=> r.remove(), 500);
-}
-
-/* ===== Modal ===== */
-function openModal(prefill=""){
-  modal.classList.add("show");
-  modal.setAttribute("aria-hidden","false");
-  modalInput.value = prefill;
-  modalError.textContent = "";
-  setTimeout(()=> modalInput.focus(), 30);
-}
-function closeModal(){
-  modal.classList.remove("show");
-  modal.setAttribute("aria-hidden","true");
-}
-function submitModal(){
-  const raw = (modalInput.value||'').trim();
-  if(!/^(\d+)(?:\.1(?:\.(\d+))?)?$/.test(raw)){
-    modalError.textContent = "Invalid ID format.";
-    return;
-  }
-  historyStack.push(anchorId);
-  animateTo(raw, 'right');
-  if(typeof sessionStorage!=="undefined") sessionStorage.setItem("swipetree_start_id", raw);
-  closeModal();
-}
-modalGo.addEventListener("click", submitModal);
-modalCancel.addEventListener("click", closeModal);
-modal.addEventListener("click", (e)=>{ if(e.target === modal) closeModal(); });
-modalInput.addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") submitModal();
-  if(e.key === "Escape") closeModal();
-});
-
-/* ===== Gestures with overrides ===== */
-let startX=0, startY=0, startT=0;
-const SWIPE_DIST = 40;
-const SWIPE_TIME = 600;
-function cancelNative(e){ e.preventDefault(); e.stopPropagation(); }
-
-stage.addEventListener("touchmove", cancelNative, { passive:false });
-stage.addEventListener("gesturestart", cancelNative, { passive:false });
-stage.addEventListener("gesturechange", cancelNative, { passive:false });
-stage.addEventListener("gestureend", cancelNative, { passive:false });
-
-stage.addEventListener("pointerdown", e=>{
-  cancelNative(e);
-  dragActive = true; dragDX = 0; dragDY = 0;
-  startX = e.clientX; startY = e.clientY; startT = e.timeStamp;
-  clearTimeout(longPressTimer);
-  longPressTimer = setTimeout(()=>{ bodyEl.classList.toggle('immersive'); }, 520);
-  spawnRipple(e.clientX, e.clientY);
-});
-stage.addEventListener("pointermove", e=>{
-  if(!dragActive) return;
-  dragDX = e.clientX - startX;
-  dragDY = e.clientY - startY;
-  applyDrag(dragDX, dragDY);
-});
-stage.addEventListener("pointercancel", ()=>{ dragActive = false; clearDrag(); });
-stage.addEventListener("pointerup", async e=>{
-  cancelNative(e);
-  clearTimeout(longPressTimer);
-  dragActive = false;
-
-  // Double‑tap: small distance and quick time
-  const now = performance.now();
-  const moved = Math.hypot(e.clientX - startX, e.clientY - startY);
-  if(now - lastTapTime < 300 && moved < 8){ openModal(anchorId); lastTapTime = 0; clearDrag(); return; }
-  lastTapTime = now;
-
-  const dx = e.clientX - startX;
-  const dy = e.clientY - startY;
-  const dt = e.timeStamp - startT;
-  const absX = Math.abs(dx), absY = Math.abs(dy);
-  clearDrag();
-  if(dt > SWIPE_TIME) return;
-
-  if(absX > absY && absX > SWIPE_DIST){
-    if(dx < 0){
-      stage.classList.add('nudge-left'); forceReflow(stage);
-      const base = parseIdParts(anchorId).base ?? parseInt(anchorId,10);
-      const sibs = await (async()=>{
-        const out=[]; for(const id of siblingsOf(base)){ out.push(id); } return out;
-      })();
-      openTray("Siblings");
-      fillTray(sibs, 'left');
-      setTimeout(()=> stage.classList.remove('nudge-left'), 200);
+  function onTouchEnd(e){
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches ? e.changedTouches[0] : e;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ax < SWIPE_MIN && ay < SWIPE_MIN) return; // ignore taps; children taps handled separately
+    if (ax > ay){
+      // horizontal
+      if (dx > 0){
+        // right -> spouse
+        showSpouse(state.anchor);
+        log(`Swipe RIGHT → spouse of ${state.anchor}`);
+      } else {
+        // left -> back to anchor only
+        hide(spouseArea); hide(childrenArea);
+        log(`Swipe LEFT → anchor only`);
+      }
     } else {
-      const parts = parseIdParts(anchorId);
-      historyStack.push(anchorId);
-      if(parts.isSpouse){ animateTo(String(parts.base), 'right'); }
-      else { animateTo(`${parts.base}.1`, 'right'); }
-    }
-  } else if(absY > SWIPE_DIST){
-    if(dy < 0){
-      const base = parseIdParts(anchorId);
-      let target = base.base;
-      if(base.isSpouse && base.spouseOwn) target = base.spouseOwn;
-      const p = parentIdOf(target);
-      if(p !== target){ historyStack.push(anchorId); animateTo(String(p), 'up'); }
-    } else {
-      stage.classList.add('nudge-down'); forceReflow(stage);
-      const familyBase = parseIdParts(anchorId).base ?? parseInt(anchorId,10);
-      const kids = await (async()=>{
-        const out=[]; for(const id of childrenOf(familyBase)){ out.push(id); } return out;
-      })();
-      openTray("Children");
-      fillTray(kids, 'down');
-      setTimeout(()=> stage.classList.remove('nudge-down'), 200);
+      // vertical
+      if (dy > 0){
+        // down -> children
+        showChildrenGrid(state.anchor);
+        log(`Swipe DOWN → children of ${state.anchor}`);
+      } else {
+        // up -> (reserved for parent if/when needed)
+        hide(spouseArea); hide(childrenArea);
+        log(`Swipe UP → (reserved)`);
+      }
     }
   }
-});
 
-/* ===== Header jump + FAB ===== */
-function doJump(){
-  const raw = (jumpInput.value||"").trim();
-  if(!/^(\d+)(?:\.1(?:\.(\d+))?)?$/.test(raw)) return;
-  historyStack.push(anchorId);
-  animateTo(raw, 'right');
-  if(typeof sessionStorage!=="undefined") sessionStorage.setItem("swipetree_start_id", raw);
-}
-jumpBtn.addEventListener("click", doJump);
-jumpInput.addEventListener("keydown", e=>{ if(e.key==="Enter") doJump(); });
-fabJump.addEventListener("click", ()=> openModal(anchorId));
+  // Attach on the whole main area for reliability
+  const main = document.querySelector("main");
+  ["touchstart","mousedown"].forEach(ev => main.addEventListener(ev, onTouchStart, {passive:true}));
+  ["touchend","mouseup","mouseleave"].forEach(ev => main.addEventListener(ev, onTouchEnd, {passive:true}));
 
-/* ===== Boot ===== */
-(function launch(){
-  let start = (typeof sessionStorage!=="undefined") ? sessionStorage.getItem("swipetree_start_id") : null;
-  if(!start){ start = "140000"; if(typeof sessionStorage!=="undefined") sessionStorage.setItem("swipetree_start_id", start); }
-  setAnchorImmediate(start);
-})();
+  // Prevent native zoom/pinch from hijacking gestures
+  document.addEventListener("gesturestart", e => e.preventDefault());
+  document.addEventListener("gesturechange", e => e.preventDefault());
+  document.addEventListener("gestureend", e => e.preventDefault());
+  document.addEventListener("touchmove", function(e){
+    // allow vertical page scroll if needed but reduce accidental interference
+    if (e.scale && e.scale !== 1) e.preventDefault();
+  }, {passive:false});
+
+  const state = { anchor: idToStr(START) };
+
+  // INIT
+  loadAnchor(state.anchor).then(() => {
+    if (JUMP === "children") showChildrenGrid(state.anchor);
+    if (JUMP === "spouse") showSpouse(state.anchor);
+  });
+
+})(); 

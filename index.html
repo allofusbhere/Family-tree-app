@@ -2,62 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>SwipeTree — Swipe (iPad) 20250809-215135</title>
-  <link rel="stylesheet" href="style.css?v=20250809-215135" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>SwipeTree • Build 20250809-215135</title>
+  <link rel="stylesheet" href="style.css?cb=20250809-215135">
 </head>
 <body>
-  <header id="appHeader">
-    <div class="bar">
-      <div class="title">SwipeTree <small>build 20250809-215135</small></div>
-      <div class="jump">
-        <input id="jumpInput" type="text" inputmode="numeric" placeholder="Jump to ID" />
-        <button id="jumpBtn">Go</button>
-      </div>
-    </div>
+  <header>
+    <div class="app-title">SwipeTree</div>
+    <div id="build">build 20250809-215135</div>
   </header>
 
-  <main id="main">
-    <div id="anchorStage" class="stage" aria-label="Swipe area">
-      <div class="slides">
-        <img id="slideA" class="slide" alt="Anchor A" />
-        <img id="slideB" class="slide" alt="Anchor B" />
-      </div>
-      <div id="anchorBadge" class="badge"></div>
-      <div id="hint" class="hint">Swipe ← siblings • → spouse • ↑ parent • ↓ children • Double‑tap: jump • Long‑press: immersive</div>
-      <div id="ripples" class="ripples" aria-hidden="true"></div>
-      <button id="fabJump" class="fab" title="Jump to ID">⌕</button>
-    </div>
+  <main>
+    <section id="anchorArea">
+      <img id="anchorImg" alt="anchor" />
+      <div id="anchorLabel"></div>
+    </section>
 
-    <section id="tray" class="tray">
-      <div class="tray-header">
-        <div id="trayTitle" class="tray-title"></div>
-        <button id="trayClose" class="icon" aria-label="Close">✕</button>
-      </div>
-      <div id="trayGrid" class="grid"></div>
-      <div id="emptyNote" class="empty">No matching images.</div>
+    <section id="childrenArea" class="grid hidden">
+      <!-- 3x3 children grid -->
+      <div class="cell"><img data-slot="0" /><div class="caption"></div></div><div class="cell"><img data-slot="1" /><div class="caption"></div></div><div class="cell"><img data-slot="2" /><div class="caption"></div></div><div class="cell"><img data-slot="3" /><div class="caption"></div></div><div class="cell"><img data-slot="4" /><div class="caption"></div></div><div class="cell"><img data-slot="5" /><div class="caption"></div></div><div class="cell"><img data-slot="6" /><div class="caption"></div></div><div class="cell"><img data-slot="7" /><div class="caption"></div></div><div class="cell"><img data-slot="8" /><div class="caption"></div></div>
+    </section>
+
+    <section id="spouseArea" class="hidden">
+      <img id="spouseImg" alt="spouse"/>
+      <div class="caption" id="spouseCaption"></div>
+    </section>
+
+    <section id="debug">
+      <div><b>Debug</b></div>
+      <pre id="log"></pre>
     </section>
   </main>
 
-  <!-- Quick Jump Modal -->
-  <div id="jumpModal" class="modal" aria-hidden="true">
-    <div class="modal-card">
-      <div class="modal-title">Quick Jump</div>
-      <div class="modal-sub">Enter an ID like <code>140000</code>, <code>140000.1</code>, or <code>140000.1.240000</code></div>
-      <input id="modalInput" type="text" inputmode="numeric" class="modal-input" />
-      <div class="modal-actions">
-        <button id="modalCancel" class="btn">Cancel</button>
-        <button id="modalGo" class="btn primary">Go</button>
-      </div>
-      <div id="modalError" class="modal-error" role="alert"></div>
-    </div>
-  </div>
-
-  <details class="debug" id="debugPanel" open>
-    <summary>Debug</summary>
-    <pre id="debugOut"></pre>
-  </details>
-
-  <script src="script.js?v=20250809-215135"></script>
+  <script>
+    window.SWIPE_TREE_BUILD = "20250809-215135";
+  </script>
+  <script src="script.js?cb=20250809-215135"></script>
 </body>
 </html>
