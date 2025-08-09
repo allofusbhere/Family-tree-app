@@ -2,58 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SwipeTree — Buttons Only (Single Display + Local Index v9)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>SwipeTree — Buttons Only (Full‑Screen)</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<header>
-  <div class="container">
-    <h1>SwipeTree — Buttons Only <span class="badge">Single Display</span></h1>
-    <div class="launch">
-      <label for="startId">Start ID:</label>
-      <input id="startId" type="text" placeholder="e.g., 140000" />
-      <button id="launchBtn">Launch</button>
-      <span id="histStat" class="muted"></span>
-    </div>
-    <div class="load">
-      <label class="muted">Files:</label>
-      <input id="filePicker" type="file" accept=".jpg,.jpeg,.png,.JPG,.JPEG,.PNG,image/*" multiple />
-      <span id="fileCount" class="muted">No files indexed (optional)</span>
-    </div>
-  </div>
-</header>
+  <header>
+    <h1>SwipeTree</h1>
+    <div id="status">Ready</div>
+  </header>
 
-<div class="container">
   <main>
-    <section class="anchor-card card">
-      <h2>Anchor</h2>
-      <div class="imgwrap anchor"><img id="anchorImg" alt="anchor" /></div>
-      <div class="caption"><span id="anchorIdCap">—</span></div>
-    </section>
-
-    <section class="nav-buttons">
-      <button id="btnParent">Parent</button>
-      <button id="btnSiblings">Siblings</button>
-      <button id="btnSpouse">Spouse</button>
-      <button id="btnChildren">Children</button>
-      <button id="btnBack" class="secondary" disabled>Back</button>
-    </section>
-
-    <section class="display card">
-      <div class="display-head">
-        <h2 id="displayTitle">—</h2>
-        <div id="displayStatus" class="status">—</div>
+    <section id="anchorArea">
+      <div class="img-wrap">
+        <img id="anchorImg" alt="Anchor" />
       </div>
-      <div id="displayGrid" class="grid"></div>
+      <div class="right">
+        <div id="anchorId" class="id-text"></div>
+        <div id="nameDob" class="meta"></div>
+        <section id="controls">
+          <button id="btnParent">Parents</button>
+          <button id="btnSiblings">Siblings</button>
+          <button id="btnSpouse">Spouse</button>
+          <button id="btnChildren">Children</button>
+          <button id="btnBack">Back</button>
+        </section>
+      </div>
     </section>
+
+    <section id="grid" class="grid"></section>
   </main>
 
   <footer>
-    <small>All relationships derived dynamically from numeric filenames. Images can be loaded from the same folder or via the optional file index above.</small>
+    <details>
+      <summary>Debug</summary>
+      <div id="debugLog"></div>
+    </details>
   </footer>
-</div>
 
-<script src="script.js"></script>
+  <script>
+    window.APP_CONFIG = {
+      IMAGE_BASE: "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/",
+      MAX_RESULTS: 9
+    };
+  </script>
+  <script src="script.js"></script>
 </body>
 </html>
