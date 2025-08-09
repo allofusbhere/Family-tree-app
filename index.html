@@ -2,37 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Buttons Only (Hide Blanks, 100000 Children Fix) 20250809-182125</title>
-  <link rel="stylesheet" href="style.css?v=20250809-182125" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>SwipeTree — Swipe (iPad) 20250809-202451</title>
+  <link rel="stylesheet" href="style.css?v=20250809-202451" />
 </head>
 <body>
-  <header>SwipeTree <small>build 20250809-182125</small></header>
-
-  <main>
-    <section class="anchor">
-      <div class="panel">
-        <div class="panel-title">Anchor</div>
-        <div class="img-wrap">
-          <img id="anchorImg" alt="Anchor image" />
-        </div>
-        <div id="anchorCaption" class="caption"></div>
-        <div class="btn-row">
-          <button id="btnParents">Parents</button>
-          <button id="btnSiblings">Siblings</button>
-          <button id="btnSpouse">Spouse</button>
-          <button id="btnChildren">Children</button>
-          <button id="btnBack">Back</button>
-        </div>
+  <header>
+    <div class="bar">
+      <div class="title">SwipeTree <small>build 20250809-202451</small></div>
+      <div class="jump">
+        <input id="jumpInput" type="text" inputmode="numeric" placeholder="Jump to ID" />
+        <button id="jumpBtn">Go</button>
       </div>
-    </section>
+    </div>
+  </header>
 
-    <section class="grid">
-      <div class="panel">
-        <div class="panel-title">Results</div>
-        <div id="grid" class="grid-wrap"></div>
-        <div id="emptyNote" class="empty-note">No matching images.</div>
+  <main id="main">
+    <div id="anchorStage" class="stage" aria-label="Swipe area">
+      <img id="anchorImg" alt="Anchor image" />
+      <div id="anchorBadge" class="badge"></div>
+      <div id="hint" class="hint">Swipe ← siblings • → spouse • ↑ parent • ↓ children</div>
+    </div>
+
+    <section id="tray" class="tray">
+      <div class="tray-header">
+        <div id="trayTitle" class="tray-title"></div>
+        <button id="trayClose" class="icon">✕</button>
       </div>
+      <div id="trayGrid" class="grid"></div>
+      <div id="emptyNote" class="empty">No matching images.</div>
     </section>
   </main>
 
@@ -41,6 +39,6 @@
     <pre id="debugOut"></pre>
   </details>
 
-  <script src="script.js?v=20250809-182125"></script>
+  <script src="script.js?v=20250809-202451"></script>
 </body>
 </html>
