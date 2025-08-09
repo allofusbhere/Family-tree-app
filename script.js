@@ -1,7 +1,9 @@
 const CDN_BASE = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
 const EXT_CANDIDATES = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"];
 
+const bodyEl = document.body;
 const stage = document.getElementById("anchorStage");
+const ripples = document.getElementById("ripples");
 const slideA = document.getElementById("slideA");
 const slideB = document.getElementById("slideB");
 const anchorBadge = document.getElementById("anchorBadge");
@@ -13,9 +15,18 @@ const jumpInput = document.getElementById("jumpInput");
 const jumpBtn = document.getElementById("jumpBtn");
 const debugOut = document.getElementById("debugOut");
 
+// Modal
+const modal = document.getElementById("jumpModal");
+const modalInput = document.getElementById("modalInput");
+const modalGo = document.getElementById("modalGo");
+const modalCancel = document.getElementById("modalCancel");
+const modalError = document.getElementById("modalError");
+
 let anchorId = null;
 let historyStack = [];
-let activeIsA = true; // which slide is currently active
+let activeIsA = true;
+let lastTapTime = 0;
+let longPressTimer = null;
 
 function dlog(...args){ debugOut.textContent += args.join(" ") + "\n"; }
 
@@ -52,85 +63,81 @@ function updateBadge(id, missing=false){
   anchorBadge.textContent = missing ? `${id} (image not found)` : `${id}`;
 }
 
+function forceReflow(el){ void el.offsetWidth; }
+
 function setAnchorImmediate(id){
   anchorId = id;
   updateBadge(id);
   const img = getActive();
   const other = getInactive();
-  other.className = "slide offscreen-right"; // park offscreen
+  other.className = "slide offscreen-right";
   setImageFromCandidates(img, id, ok=> updateBadge(id, !ok));
 }
 
 function animateTo(id, direction){
-  // direction: 'left' | 'right' | 'up' | 'down'
   const current = getActive();
   const incoming = getInactive();
-  // position incoming offscreen opposite the direction
+
   incoming.className = "slide " + (direction==='left' ? 'offscreen-right' :
                                    direction==='right' ? 'offscreen-left' :
                                    direction==='up' ? 'offscreen-down' : 'offscreen-up');
+  forceReflow(incoming);
+
   setImageFromCandidates(incoming, id, ok=>{
-    // start animation on next frame
+    current.className = "slide"; forceReflow(current);
     requestAnimationFrame(()=>{
-      // move current off in swipe direction
       current.className = "slide " + (direction==='left' ? 'offscreen-left' :
                                       direction==='right' ? 'offscreen-right' :
                                       direction==='up' ? 'offscreen-up' : 'offscreen-down');
-      // bring incoming to center
       incoming.className = "slide";
-      // swap active after animation
-      setTimeout(()=>{
-        activeIsA = !activeIsA;
-        anchorId = id;
-        updateBadge(id, !ok);
-      }, 300);
+      setTimeout(()=>{ activeIsA = !activeIsA; anchorId = id; updateBadge(id, !ok); }, 380);
     });
   });
 }
 
-function probeHasImage(id){
-  return new Promise(resolve=>{
-    const img = new Image();
-    const urls = buildCandidates(id);
-    let i=0;
-    function next(){
-      if(i>=urls.length) return resolve(false);
-      img.onload = ()=> resolve(true);
-      img.onerror = ()=> next();
-      img.src = urls[i++];
-    }
-    next();
-  });
+/* ===== Tap Ripple Acknowledgment ===== */
+function spawnRipple(x, y){
+  const r = document.createElement('div');
+  r.className = 'ripple';
+  const rect = stage.getBoundingClientRect();
+  r.style.left = (x - rect.left) + 'px';
+  r.style.top  = (y - rect.top) + 'px';
+  ripples.appendChild(r);
+  setTimeout(()=> r.remove(), 500);
 }
 
-async function filterExisting(ids){
-  const out=[];
-  for(const id of ids){
-    if(await probeHasImage(id)) out.push(id);
+/* ===== Modal (Quick Jump) ===== */
+function openModal(prefill=""){
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden","false");
+  modalInput.value = prefill;
+  modalError.textContent = "";
+  setTimeout(()=> modalInput.focus(), 30);
+}
+function closeModal(){
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden","true");
+}
+function submitModal(){
+  const raw = modalInput.value.trim();
+  if(!/^(\d+)(?:\.1(?:\.(\d+))?)?$/.test(raw)){
+    modalError.textContent = "Invalid ID format.";
+    return;
   }
-  return out;
+  historyStack.push(anchorId);
+  animateTo(raw, 'right');
+  if(typeof sessionStorage!=="undefined") sessionStorage.setItem("swipetree_start_id", raw);
+  closeModal();
 }
+modalGo.addEventListener("click", submitModal);
+modalCancel.addEventListener("click", closeModal);
+modal.addEventListener("click", (e)=>{ if(e.target === modal) closeModal(); });
+modalInput.addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") submitModal();
+  if(e.key === "Escape") closeModal();
+});
 
-function clearTray(){ trayGrid.innerHTML = ""; }
-function openTray(title){ trayTitle.textContent = title; tray.classList.add("open"); }
-function closeTray(){ tray.classList.remove("open"); }
-function fillTray(ids, animateDir){
-  clearTray();
-  if(ids.length){
-    for(const id of ids){
-      const card = document.createElement("div"); card.className="card";
-      const box = document.createElement("div"); box.className="imgbox";
-      const img = document.createElement("img"); box.appendChild(img);
-      const cap = document.createElement("div"); cap.textContent = id;
-      card.appendChild(box); card.appendChild(cap);
-      trayGrid.appendChild(card);
-      setImageFromCandidates(img, id, ()=>{});
-      card.addEventListener("click", ()=>{ historyStack.push(anchorId); animateTo(String(id), animateDir); closeTray(); });
-    }
-  }
-}
-
-// Gestures with iPad overrides
+/* ===== Gestures with overrides ===== */
 let startX=0, startY=0, startT=0;
 const SWIPE_DIST = 40;
 const SWIPE_TIME = 600;
@@ -144,9 +151,21 @@ stage.addEventListener("gestureend", cancelNative, { passive:false });
 stage.addEventListener("pointerdown", e=>{
   cancelNative(e);
   startX = e.clientX; startY = e.clientY; startT = e.timeStamp;
+  // Long‑press for immersive
+  clearTimeout(longPressTimer);
+  longPressTimer = setTimeout(()=>{ bodyEl.classList.toggle('immersive'); }, 520);
+  // Immediate visual acknowledgment for the tap location
+  spawnRipple(e.clientX, e.clientY);
 });
 stage.addEventListener("pointerup", async e=>{
   cancelNative(e);
+  clearTimeout(longPressTimer);
+
+  // Double‑tap opens Quick Jump modal
+  const now = performance.now();
+  if(now - lastTapTime < 350){ openModal(anchorId); lastTapTime = 0; return; }
+  lastTapTime = now;
+
   const dx = e.clientX - startX;
   const dy = e.clientY - startY;
   const dt = e.timeStamp - startT;
@@ -154,17 +173,30 @@ stage.addEventListener("pointerup", async e=>{
 
   if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_DIST){
     if(dx < 0){
+      stage.classList.add('nudge-left'); forceReflow(stage);
       const base = parseIdParts(anchorId).base ?? parseInt(anchorId,10);
-      const sibs = await filterExisting(siblingsOf(base));
+      const sibs = await (async()=>{
+        const out=[];
+        for(const id of siblingsOf(base)){
+          const test = new Image();
+          const urls = buildCandidates(id);
+          let i=0, found=false;
+          while(i<urls.length && !found){
+            await new Promise(res=>{ test.onload=()=>{found=True;res();}; test.onerror=()=>res(); test.src=urls[i++]; });
+          }
+          if(found) out.push(id);
+        }
+        return out;
+      })();
       fillTray(sibs, 'left');
       openTray("Siblings");
+      setTimeout(()=> stage.classList.remove('nudge-left'), 240);
     } else {
       const parts = parseIdParts(anchorId);
+      historyStack.push(anchorId);
       if(parts.isSpouse){
-        historyStack.push(anchorId);
         animateTo(String(parts.base), 'right');
       } else {
-        historyStack.push(anchorId);
         animateTo(`${parts.base}.1`, 'right');
       }
     }
@@ -176,21 +208,35 @@ stage.addEventListener("pointerup", async e=>{
       const p = parentIdOf(target);
       if(p !== target){ historyStack.push(anchorId); animateTo(String(p), 'up'); }
     } else {
+      stage.classList.add('nudge-down'); forceReflow(stage);
       const familyBase = parseIdParts(anchorId).base ?? parseInt(anchorId,10);
-      const kids = await filterExisting(childrenOf(familyBase));
+      const kids = await (async()=>{
+        const out=[];
+        for(const id of childrenOf(familyBase)){
+          const test = new Image();
+          const urls = buildCandidates(id);
+          let i=0, found=false;
+          while(i<urls.length && !found){
+            await new Promise(res=>{ test.onload=()=>{found=True;res();}; test.onerror=()=>res(); test.src=urls[i++]; });
+          }
+          if(found) out.push(id);
+        }
+        return out;
+      })();
       fillTray(kids, 'down');
       openTray("Children");
+      setTimeout(()=> stage.classList.remove('nudge-down'), 240);
     }
   }
 });
 
 trayClose.addEventListener("click", closeTray);
 
+// Header jump still works
 function doJump(){
   const raw = (jumpInput.value||"").trim();
   if(!/^(\d+)(?:\.1(?:\.(\d+))?)?$/.test(raw)) return;
   historyStack.push(anchorId);
-  // If jumping, animate from right for visual consistency
   animateTo(raw, 'right');
   if(typeof sessionStorage!=="undefined") sessionStorage.setItem("swipetree_start_id", raw);
 }
