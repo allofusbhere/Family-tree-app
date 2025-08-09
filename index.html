@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>SwipeTree — Swipe (iPad) 20250809-202451</title>
-  <link rel="stylesheet" href="style.css?v=20250809-202451" />
+  <title>SwipeTree — Swipe (iPad) 20250809-203849</title>
+  <link rel="stylesheet" href="style.css?v=20250809-203849" />
 </head>
 <body>
   <header>
     <div class="bar">
-      <div class="title">SwipeTree <small>build 20250809-202451</small></div>
+      <div class="title">SwipeTree <small>build 20250809-203849</small></div>
       <div class="jump">
         <input id="jumpInput" type="text" inputmode="numeric" placeholder="Jump to ID" />
         <button id="jumpBtn">Go</button>
@@ -19,7 +19,10 @@
 
   <main id="main">
     <div id="anchorStage" class="stage" aria-label="Swipe area">
-      <img id="anchorImg" alt="Anchor image" />
+      <div class="slides">
+        <img id="slideA" class="slide" alt="Anchor A" />
+        <img id="slideB" class="slide" alt="Anchor B" />
+      </div>
       <div id="anchorBadge" class="badge"></div>
       <div id="hint" class="hint">Swipe ← siblings • → spouse • ↑ parent • ↓ children</div>
     </div>
@@ -39,6 +42,6 @@
     <pre id="debugOut"></pre>
   </details>
 
-  <script src="script.js?v=20250809-202451"></script>
+  <script src="script.js?v=20250809-203849"></script>
 </body>
 </html>

@@ -2,7 +2,8 @@ const CDN_BASE = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@ma
 const EXT_CANDIDATES = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"];
 
 const stage = document.getElementById("anchorStage");
-const anchorImg = document.getElementById("anchorImg");
+const slideA = document.getElementById("slideA");
+const slideB = document.getElementById("slideB");
 const anchorBadge = document.getElementById("anchorBadge");
 const tray = document.getElementById("tray");
 const trayGrid = document.getElementById("trayGrid");
@@ -14,6 +15,7 @@ const debugOut = document.getElementById("debugOut");
 
 let anchorId = null;
 let historyStack = [];
+let activeIsA = true; // which slide is currently active
 
 function dlog(...args){ debugOut.textContent += args.join(" ") + "\n"; }
 
@@ -43,11 +45,46 @@ function parentIdOf(n){ const f=factorOfRightmostNonZero(n); const digit=Math.fl
 function siblingsOf(n){ const f=factorOfRightmostNonZero(n); const p=parentIdOf(n); const list=[]; for(let d=1; d<=9; d++){ const s=p+d*f; if(s!==n) list.push(s); } return list; }
 function childrenOf(n){ const f=factorOfRightmostNonZero(n); const next=Math.floor(f/10); if(next<=0)return[]; const list=[]; for(let d=1; d<=9; d++){ list.push(n + d*next); } return list; }
 
-function updateAnchor(id){
+function getActive(){ return activeIsA ? slideA : slideB; }
+function getInactive(){ return activeIsA ? slideB : slideA; }
+
+function updateBadge(id, missing=false){
+  anchorBadge.textContent = missing ? `${id} (image not found)` : `${id}`;
+}
+
+function setAnchorImmediate(id){
   anchorId = id;
-  anchorBadge.textContent = id;
-  setImageFromCandidates(anchorImg, id, ok=>{
-    if(!ok) anchorBadge.textContent = `${id} (image not found)`;
+  updateBadge(id);
+  const img = getActive();
+  const other = getInactive();
+  other.className = "slide offscreen-right"; // park offscreen
+  setImageFromCandidates(img, id, ok=> updateBadge(id, !ok));
+}
+
+function animateTo(id, direction){
+  // direction: 'left' | 'right' | 'up' | 'down'
+  const current = getActive();
+  const incoming = getInactive();
+  // position incoming offscreen opposite the direction
+  incoming.className = "slide " + (direction==='left' ? 'offscreen-right' :
+                                   direction==='right' ? 'offscreen-left' :
+                                   direction==='up' ? 'offscreen-down' : 'offscreen-up');
+  setImageFromCandidates(incoming, id, ok=>{
+    // start animation on next frame
+    requestAnimationFrame(()=>{
+      // move current off in swipe direction
+      current.className = "slide " + (direction==='left' ? 'offscreen-left' :
+                                      direction==='right' ? 'offscreen-right' :
+                                      direction==='up' ? 'offscreen-up' : 'offscreen-down');
+      // bring incoming to center
+      incoming.className = "slide";
+      // swap active after animation
+      setTimeout(()=>{
+        activeIsA = !activeIsA;
+        anchorId = id;
+        updateBadge(id, !ok);
+      }, 300);
+    });
   });
 }
 
@@ -77,8 +114,7 @@ async function filterExisting(ids){
 function clearTray(){ trayGrid.innerHTML = ""; }
 function openTray(title){ trayTitle.textContent = title; tray.classList.add("open"); }
 function closeTray(){ tray.classList.remove("open"); }
-
-function fillTray(ids){
+function fillTray(ids, animateDir){
   clearTray();
   if(ids.length){
     for(const id of ids){
@@ -89,7 +125,7 @@ function fillTray(ids){
       card.appendChild(box); card.appendChild(cap);
       trayGrid.appendChild(card);
       setImageFromCandidates(img, id, ()=>{});
-      card.addEventListener("click", ()=>{ historyStack.push(anchorId); updateAnchor(String(id)); closeTray(); });
+      card.addEventListener("click", ()=>{ historyStack.push(anchorId); animateTo(String(id), animateDir); closeTray(); });
     }
   }
 }
@@ -98,7 +134,6 @@ function fillTray(ids){
 let startX=0, startY=0, startT=0;
 const SWIPE_DIST = 40;
 const SWIPE_TIME = 600;
-
 function cancelNative(e){ e.preventDefault(); e.stopPropagation(); }
 
 stage.addEventListener("touchmove", cancelNative, { passive:false });
@@ -121,14 +156,16 @@ stage.addEventListener("pointerup", async e=>{
     if(dx < 0){
       const base = parseIdParts(anchorId).base ?? parseInt(anchorId,10);
       const sibs = await filterExisting(siblingsOf(base));
-      fillTray(sibs);
+      fillTray(sibs, 'left');
       openTray("Siblings");
     } else {
       const parts = parseIdParts(anchorId);
       if(parts.isSpouse){
-        updateAnchor(String(parts.base));
+        historyStack.push(anchorId);
+        animateTo(String(parts.base), 'right');
       } else {
-        updateAnchor(`${parts.base}.1`);
+        historyStack.push(anchorId);
+        animateTo(`${parts.base}.1`, 'right');
       }
     }
   } else if(Math.abs(dy) > SWIPE_DIST){
@@ -137,11 +174,11 @@ stage.addEventListener("pointerup", async e=>{
       let target = base.base;
       if(base.isSpouse && base.spouseOwn) target = base.spouseOwn;
       const p = parentIdOf(target);
-      if(p !== target){ historyStack.push(anchorId); updateAnchor(String(p)); }
+      if(p !== target){ historyStack.push(anchorId); animateTo(String(p), 'up'); }
     } else {
       const familyBase = parseIdParts(anchorId).base ?? parseInt(anchorId,10);
       const kids = await filterExisting(childrenOf(familyBase));
-      fillTray(kids);
+      fillTray(kids, 'down');
       openTray("Children");
     }
   }
@@ -152,7 +189,9 @@ trayClose.addEventListener("click", closeTray);
 function doJump(){
   const raw = (jumpInput.value||"").trim();
   if(!/^(\d+)(?:\.1(?:\.(\d+))?)?$/.test(raw)) return;
-  historyStack.push(anchorId); updateAnchor(raw);
+  historyStack.push(anchorId);
+  // If jumping, animate from right for visual consistency
+  animateTo(raw, 'right');
   if(typeof sessionStorage!=="undefined") sessionStorage.setItem("swipetree_start_id", raw);
 }
 jumpBtn.addEventListener("click", doJump);
@@ -161,5 +200,5 @@ jumpInput.addEventListener("keydown", e=>{ if(e.key==="Enter") doJump(); });
 (function launch(){
   let start = (typeof sessionStorage!=="undefined") ? sessionStorage.getItem("swipetree_start_id") : null;
   if(!start){ start = "140000"; if(typeof sessionStorage!=="undefined") sessionStorage.setItem("swipetree_start_id", start); }
-  updateAnchor(start);
+  setAnchorImmediate(start);
 })();
