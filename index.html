@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>SwipeTree — Grid Swipes (Fix 2)</title>
-  <link rel="stylesheet" href="style.css?v=20250810-212612"/>
+  <title>SwipeTree — Children Grid (No Blanks) + Spouse Toggle</title>
+  <link rel="stylesheet" href="style.css?v=20250810-215738"/>
 </head>
 <body>
   <div id="app">
@@ -14,13 +14,14 @@
     </header>
 
     <main id="stage" aria-live="polite">
+      <!-- 3x3 compass overlay for drag direction -->
       <div id="compassGrid" aria-hidden="true">
         <div class="cell tl"></div>
-        <div class="cell t"  data-label="Parent"></div>
+        <div class="cell t"  data-label="Parents"></div>
         <div class="cell tr"></div>
         <div class="cell l"  data-label="Siblings"></div>
         <div class="cell c"></div>
-        <div class="cell r"  data-label="Spouse"></div>
+        <div class="cell r"  data-label="Spouse</div>
         <div class="cell bl"></div>
         <div class="cell b"  data-label="Children"></div>
         <div class="cell br"></div>
@@ -34,14 +35,39 @@
     <nav class="controls">
       <button id="btnParent"  type="button">Parent ↑</button>
       <button id="btnSibs"    type="button">Siblings ←</button>
-      <button id="btnSpouse"  type="button">Spouse →</button>
+      <button id="btnSpouse"  type="button">Spouse ↔</button>
       <button id="btnKids"    type="button">Children ↓</button>
       <button id="btnBack"    type="button">Back</button>
     </nav>
 
     <button id="startFloater" class="floater">Start</button>
+
+    <!-- Parents picker (1x2, hides missing) -->
+    <div id="parentsOverlay" class="overlay" aria-hidden="true">
+      <div class="sheet" role="dialog" aria-label="Choose a parent">
+        <div class="sheet-head">
+          <div class="sheet-title">Choose a parent</div>
+          <button id="closeParents" class="icon-btn" aria-label="Close">✕</button>
+        </div>
+        <div id="parentsGrid" class="parents-grid"></div>
+      </div>
+      <div class="backdrop"></div>
+    </div>
+
+    <!-- Children picker (adaptive grid, hides missing) -->
+    <div id="childrenOverlay" class="overlay" aria-hidden="true">
+      <div class="sheet" role="dialog" aria-label="Choose a child">
+        <div class="sheet-head">
+          <div class="sheet-title">Choose a child</div>
+          <button id="closeChildren" class="icon-btn" aria-label="Close">✕</button>
+        </div>
+        <div id="childrenGrid" class="children-grid"></div>
+        <div id="childrenEmpty" class="hint" style="display:none;">No child images found for this person.</div>
+      </div>
+      <div class="backdrop"></div>
+    </div>
   </div>
 
-  <script src="script.js?v=20250810-212612"></script>
+  <script src="script.js?v=20250810-215738"></script>
 </body>
 </html>
