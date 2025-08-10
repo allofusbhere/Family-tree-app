@@ -2,41 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <title>SwipeTree — iPad Cloud Version</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>SwipeTree • Build 20250809-215135</title>
-  <link rel="stylesheet" href="style.css?cb=20250809-215135">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <div class="app-title">SwipeTree</div>
-    <div id="build">build 20250809-215135</div>
-  </header>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">SwipeTree</div>
+      <div id="buildTag" class="build"></div>
+    </header>
 
-  <main>
-    <section id="anchorArea">
-      <img id="anchorImg" alt="anchor" />
-      <div id="anchorLabel"></div>
-    </section>
+    <main id="stage" aria-live="polite">
+      <img id="anchorImg" alt="Family member" draggable="false"/>
+      <div id="debug" class="debug" aria-hidden="true"></div>
+    </main>
 
-    <section id="childrenArea" class="grid hidden">
-      <!-- 3x3 children grid -->
-      <div class="cell"><img data-slot="0" /><div class="caption"></div></div><div class="cell"><img data-slot="1" /><div class="caption"></div></div><div class="cell"><img data-slot="2" /><div class="caption"></div></div><div class="cell"><img data-slot="3" /><div class="caption"></div></div><div class="cell"><img data-slot="4" /><div class="caption"></div></div><div class="cell"><img data-slot="5" /><div class="caption"></div></div><div class="cell"><img data-slot="6" /><div class="caption"></div></div><div class="cell"><img data-slot="7" /><div class="caption"></div></div><div class="cell"><img data-slot="8" /><div class="caption"></div></div>
-    </section>
+    <!-- Buttons remain (for parity) but can be hidden on iPad if you want -->
+    <nav class="controls">
+      <button id="btnParent"  type="button">Parent ↑</button>
+      <button id="btnSibs"    type="button">Siblings ←</button>
+      <button id="btnSpouse"  type="button">Spouse →</button>
+      <button id="btnKids"    type="button">Children ↓</button>
+      <button id="btnBack"    type="button">Back</button>
+    </nav>
+  </div>
 
-    <section id="spouseArea" class="hidden">
-      <img id="spouseImg" alt="spouse"/>
-      <div class="caption" id="spouseCaption"></div>
-    </section>
-
-    <section id="debug">
-      <div><b>Debug</b></div>
-      <pre id="log"></pre>
-    </section>
-  </main>
-
-  <script>
-    window.SWIPE_TREE_BUILD = "20250809-215135";
-  </script>
-  <script src="script.js?cb=20250809-215135"></script>
+  <script src="script.js"></script>
 </body>
 </html>
