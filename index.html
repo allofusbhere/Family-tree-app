@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>SwipeTree — Children Grid (No Blanks) + Spouse Toggle</title>
-  <link rel="stylesheet" href="style.css?v=20250810-215738"/>
+  <title>SwipeTree — Full‑Bleed Swipe Hotfix</title>
+  <link rel="stylesheet" href="style.css?v=20250810-220802"/>
 </head>
 <body>
   <div id="app">
@@ -14,20 +14,23 @@
     </header>
 
     <main id="stage" aria-live="polite">
-      <!-- 3x3 compass overlay for drag direction -->
       <div id="compassGrid" aria-hidden="true">
         <div class="cell tl"></div>
         <div class="cell t"  data-label="Parents"></div>
         <div class="cell tr"></div>
         <div class="cell l"  data-label="Siblings"></div>
         <div class="cell c"></div>
-        <div class="cell r"  data-label="Spouse</div>
+        <div class="cell r"  data-label="Spouse"></div>
         <div class="cell bl"></div>
         <div class="cell b"  data-label="Children"></div>
         <div class="cell br"></div>
       </div>
 
-      <img id="anchorImg" alt="Family member" draggable="false"/>
+      <figure class="figure">
+        <img id="anchorImg" alt="Family member" draggable="false"/>
+        <figcaption id="caption" class="caption">—</figcaption>
+      </figure>
+
       <div id="debug" class="debug" aria-hidden="true"></div>
       <pre id="notFound" class="notfound" aria-live="polite"></pre>
     </main>
@@ -42,7 +45,7 @@
 
     <button id="startFloater" class="floater">Start</button>
 
-    <!-- Parents picker (1x2, hides missing) -->
+    <!-- Parents picker -->
     <div id="parentsOverlay" class="overlay" aria-hidden="true">
       <div class="sheet" role="dialog" aria-label="Choose a parent">
         <div class="sheet-head">
@@ -54,7 +57,7 @@
       <div class="backdrop"></div>
     </div>
 
-    <!-- Children picker (adaptive grid, hides missing) -->
+    <!-- Children picker -->
     <div id="childrenOverlay" class="overlay" aria-hidden="true">
       <div class="sheet" role="dialog" aria-label="Choose a child">
         <div class="sheet-head">
@@ -68,6 +71,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=20250810-215738"></script>
+  <script>window.__NAMES_JSON__ = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/people.json";</script>
+  <script src="script.js?v=20250810-220802"></script>
 </body>
 </html>
