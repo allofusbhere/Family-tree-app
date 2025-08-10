@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>SwipeTree — Directional Drag Animations</title>
-  <link rel="stylesheet" href="style.css?v=20250810-210838"/>
+  <title>SwipeTree — Grid Swipes (Fix 2)</title>
+  <link rel="stylesheet" href="style.css?v=20250810-212612"/>
 </head>
 <body>
   <div id="app">
@@ -14,6 +14,18 @@
     </header>
 
     <main id="stage" aria-live="polite">
+      <div id="compassGrid" aria-hidden="true">
+        <div class="cell tl"></div>
+        <div class="cell t"  data-label="Parent"></div>
+        <div class="cell tr"></div>
+        <div class="cell l"  data-label="Siblings"></div>
+        <div class="cell c"></div>
+        <div class="cell r"  data-label="Spouse"></div>
+        <div class="cell bl"></div>
+        <div class="cell b"  data-label="Children"></div>
+        <div class="cell br"></div>
+      </div>
+
       <img id="anchorImg" alt="Family member" draggable="false"/>
       <div id="debug" class="debug" aria-hidden="true"></div>
       <pre id="notFound" class="notfound" aria-live="polite"></pre>
@@ -30,6 +42,6 @@
     <button id="startFloater" class="floater">Start</button>
   </div>
 
-  <script src="script.js?v=20250810-210838"></script>
+  <script src="script.js?v=20250810-212612"></script>
 </body>
 </html>
