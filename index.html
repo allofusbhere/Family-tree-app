@@ -13,12 +13,20 @@
       <div id="buildTag" class="build"></div>
     </header>
 
+    <!-- Start bar -->
+    <div id="startBar" class="startbar">
+      <label for="startId">Start ID:</label>
+      <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 140000" />
+      <button id="startBtn" type="button">Start</button>
+      <small id="startHint">Tip: you can also use ?id=140000</small>
+    </div>
+
     <main id="stage" aria-live="polite">
       <img id="anchorImg" alt="Family member" draggable="false"/>
       <div id="debug" class="debug" aria-hidden="true"></div>
     </main>
 
-    <!-- Buttons remain (for parity) but can be hidden on iPad if you want -->
+    <!-- Buttons (auto-hidden on touch devices) -->
     <nav class="controls">
       <button id="btnParent"  type="button">Parent ↑</button>
       <button id="btnSibs"    type="button">Siblings ←</button>
