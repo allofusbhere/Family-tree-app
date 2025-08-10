@@ -1,23 +1,24 @@
-// SwipeTree with Start ID Bar and swipe/button navigation
+/* SwipeTree — forced Start prompt + floating Start button fallback */
 (() => {
   const img = document.getElementById('anchorImg');
   const debugEl = document.getElementById('debug');
   const buildEl = document.getElementById('buildTag');
-
-  const startBar = document.getElementById('startBar');
-  const startInput = document.getElementById('startId');
-  const startBtn = document.getElementById('startBtn');
+  const floater = document.getElementById('startFloater');
 
   // Build tag
   const t = new Date();
   const pad = n => String(n).padStart(2,'0');
   buildEl.textContent = `build ${t.getFullYear()}${pad(t.getMonth()+1)}${pad(t.getDate())}-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`;
 
+  // Config
   const IMAGE_BASE = "";
   const EXT_VARIANTS = [".jpg",".JPG",".jpeg",".JPEG",".png",".PNG",".webp",".WEBP"];
+
+  // State
   let currentId = null;
   let historyStack = [];
 
+  // Utils
   const showDebug = (msg) => {
     debugEl.textContent = msg;
     debugEl.style.opacity = '1';
@@ -51,10 +52,22 @@
   });
 
   const setAnchorImage = async (id, dir=null, preferSpouse=false) => {
+    if (dir) {
+      img.classList.remove('swipe-in-left','swipe-in-right','swipe-in-up','swipe-in-down');
+      img.classList.add(`swipe-out-${dir}`);
+    }
     try {
       const src = await loadImageForId(id, {spouse:preferSpouse});
-      img.src = src;
-      img.alt = String(id);
+      setTimeout(() => {
+        img.src = src;
+        img.alt = String(id);
+        const inClass = {left:'right', right:'left', up:'down', down:'up'}[dir] || 'down';
+        requestAnimationFrame(()=>{
+          img.classList.remove('swipe-out-left','swipe-out-right','swipe-out-up','swipe-out-down');
+          img.classList.add(`swipe-in-${inClass}`);
+          setTimeout(()=>img.classList.remove('swipe-in-left','swipe-in-right','swipe-in-up','swipe-in-down'), 300);
+        });
+      }, dir ? 60 : 0);
     } catch(e) {
       if (preferSpouse) {
         try {
@@ -67,6 +80,7 @@
     }
   };
 
+  // Relationship math
   const PLACES = [10000,1000,100,10,1];
   const highestNonZeroPlace = (id) => { for (const p of PLACES) { const d=Math.floor(id/p)%10; if (d>0) return p; } return null; };
   const nextLowerPlace = (p) => { const i=PLACES.indexOf(p); return (i<0||i===PLACES.length-1)?null:PLACES[i+1]; };
@@ -74,24 +88,27 @@
   const getChildrenIds = (id) => { const top=highestNonZeroPlace(id); const step=nextLowerPlace(top); if(!step) return []; const out=[]; for(let n=1;n<=9;n++) out.push(id+n*step); return out; };
   const getSiblingsIds = (id) => { const parent=getParentId(id); if(!parent) return []; const top=highestNonZeroPlace(parent)??0; const step=nextLowerPlace(top); if(!step) return []; const res=[]; for(let n=1;n<=9;n++){ const c=parent+n*step; if(c!==id) res.push(c);} return res; };
 
-  const goToId = async (nextId) => {
+  // Navigation
+  const goToId = async (nextId, dir, opts={}) => {
     if (!nextId || nextId===currentId) return;
     historyStack.push(currentId);
     currentId = nextId;
-    await setAnchorImage(currentId);
+    await setAnchorImage(currentId, dir, !!opts.preferSpouseVariant);
   };
-  const goToParent = async ()=>{ const p=getParentId(currentId); if(p) await goToId(p); };
-  const goToChildren = async ()=>{ const kids=getChildrenIds(currentId); if(kids.length) await goToId(kids[0]); };
-  const goToSiblings = async ()=>{ const sibs=getSiblingsIds(currentId); if(sibs.length) await goToId(sibs[0]); };
-  const goToSpouse = async ()=>{ await setAnchorImage(currentId,null,true); };
-  const goBack = async ()=>{ const prev=historyStack.pop(); if(prev) { currentId=prev; await setAnchorImage(currentId); } };
+  const goToParent = async ()=>{ const p=getParentId(currentId); showDebug(`Parent of ${currentId}: ${p??'—'}`); if(p) await goToId(p,'up'); };
+  const goToChildren = async ()=>{ const kids=getChildrenIds(currentId); showDebug(`Children of ${currentId}: ${kids.length?kids.join(', '):'—'}`); if(kids.length) await goToId(kids[0],'down'); };
+  const goToSiblings = async ()=>{ const sibs=getSiblingsIds(currentId); showDebug(`Siblings of ${currentId}: ${sibs.length?sibs.join(', '):'—'}`); if(sibs.length){ const s=sibs.slice().sort((a,b)=>a-b); const prev=s.filter(x=>x<currentId).pop(); await goToId(prev ?? s[0],'left'); } };
+  const goToSpouse = async ()=>{ showDebug(`Spouse of ${currentId}`); await setAnchorImage(currentId,'right',true); };
+  const goBack = async ()=>{ const prev=historyStack.pop(); if(!prev) return; currentId=prev; await setAnchorImage(currentId,'up'); showDebug(`Back → ${currentId}`); };
 
+  // Buttons
   document.getElementById('btnParent').addEventListener('click', goToParent);
   document.getElementById('btnKids').addEventListener('click', goToChildren);
   document.getElementById('btnSibs').addEventListener('click', goToSiblings);
   document.getElementById('btnSpouse').addEventListener('click', goToSpouse);
   document.getElementById('btnBack').addEventListener('click', goBack);
 
+  // Swipes
   let sx=0, sy=0, st=0; const MIN_DIST=40, MAX_TIME=700;
   const onStart = (e)=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; st=performance.now(); };
   const onMove  = (e)=>{ if (e.cancelable) e.preventDefault(); };
@@ -101,24 +118,32 @@
   stage.addEventListener('touchmove',  onMove,  {passive:false});
   stage.addEventListener('touchend',   onEnd,   {passive:true});
 
+  // Start flow with guaranteed prompt/fallback
+  const forcePrompt = () => {
+    const raw = prompt('Enter starting ID (e.g., 140000):', localStorage.getItem('lastStartId') || '');
+    const id = parseId(raw);
+    if (id == null) { floater.style.display = 'block'; return; }
+    localStorage.setItem('lastStartId', String(id));
+    startWithId(id);
+  };
+
   const startWithId = (id) => {
     currentId = id;
     historyStack.length = 0;
-    startBar.style.display = 'none';
-    setAnchorImage(currentId);
+    floater.style.display = 'none';
+    setAnchorImage(currentId, null);
   };
 
-  startBtn.addEventListener('click', () => {
-    const id = parseId(startInput.value);
-    if (id==null) { startInput.focus(); startInput.select(); return; }
-    startWithId(id);
-  });
-  startInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') startBtn.click();
-  });
+  // Floater always available
+  floater.addEventListener('click', forcePrompt);
 
+  // Boot rules:
+  // 1) ?id=... wins
+  // 2) Otherwise prompt once
   if (urlStartId != null) {
-    startInput.value = urlStartId;
-    startBtn.click();
+    localStorage.setItem('lastStartId', String(urlStartId));
+    startWithId(urlStartId);
+  } else {
+    forcePrompt();
   }
 })();

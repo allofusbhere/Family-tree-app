@@ -1,28 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>SwipeTree — Prompted Start</title>
+  <link rel="stylesheet" href="style.css?v=20250810-203853"/>
 </head>
 <body>
-  <div id="startBar">
-    <input id="startId" type="text" placeholder="Enter starting ID">
-    <button id="startBtn">Start</button>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">SwipeTree</div>
+      <div id="buildTag" class="build"></div>
+    </header>
+
+    <main id="stage" aria-live="polite">
+      <img id="anchorImg" alt="Family member" draggable="false"/>
+      <div id="debug" class="debug" aria-hidden="true"></div>
+    </main>
+
+    <!-- Buttons (auto-hidden on touch devices) -->
+    <nav class="controls">
+      <button id="btnParent"  type="button">Parent ↑</button>
+      <button id="btnSibs"    type="button">Siblings ←</button>
+      <button id="btnSpouse"  type="button">Spouse →</button>
+      <button id="btnKids"    type="button">Children ↓</button>
+      <button id="btnBack"    type="button">Back</button>
+    </nav>
+
+    <!-- Floating Start button as guaranteed fallback -->
+    <button id="startFloater" aria-label="Start" title="Start"
+      style="position:fixed; right:14px; bottom:14px; padding:10px 14px; 
+             border-radius:12px; border:1px solid #2a2a2a; background:#1b1b1b; color:#eee; z-index:30;">
+      Start
+    </button>
   </div>
-  <div id="stage">
-    <img id="anchorImg" alt="">
-  </div>
-  <div id="controls">
-    <button id="btnParent">Parent</button>
-    <button id="btnSibs">Siblings</button>
-    <button id="btnSpouse">Spouse</button>
-    <button id="btnKids">Children</button>
-    <button id="btnBack">Back</button>
-  </div>
-  <div id="debug"></div>
-  <div id="buildTag"></div>
-  <script src="script.js"></script>
+
+  <script src="script.js?v=20250810-203853"></script>
 </body>
 </html>
