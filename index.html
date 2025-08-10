@@ -1,43 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>SwipeTree — iPad Cloud Version</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <!-- Cache-busted assets -->
-  <link rel="stylesheet" href="style.20250810-200501.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwipeTree</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
-    <header class="topbar">
-      <div class="brand">SwipeTree</div>
-      <div id="buildTag" class="build"></div>
-    </header>
-
-    <!-- Start bar -->
-    <div id="startBar" class="startbar">
-      <label for="startId">Start ID:</label>
-      <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 140000" />
-      <button id="startBtn" type="button">Start</button>
-      <small id="startHint">Tip: you can also use ?id=140000</small>
-    </div>
-
-    <main id="stage" aria-live="polite">
-      <img id="anchorImg" alt="Family member" draggable="false"/>
-      <div id="debug" class="debug" aria-hidden="true"></div>
-    </main>
-
-    <!-- Buttons (auto-hidden on touch devices) -->
-    <nav class="controls">
-      <button id="btnParent"  type="button">Parent ↑</button>
-      <button id="btnSibs"    type="button">Siblings ←</button>
-      <button id="btnSpouse"  type="button">Spouse →</button>
-      <button id="btnKids"    type="button">Children ↓</button>
-      <button id="btnBack"    type="button">Back</button>
-    </nav>
+  <div id="startBar">
+    <input id="startId" type="text" placeholder="Enter starting ID">
+    <button id="startBtn">Start</button>
   </div>
-
-  <!-- Cache-busted script -->
-  <script src="script.20250810-200501.js"></script>
+  <div id="stage">
+    <img id="anchorImg" alt="">
+  </div>
+  <div id="controls">
+    <button id="btnParent">Parent</button>
+    <button id="btnSibs">Siblings</button>
+    <button id="btnSpouse">Spouse</button>
+    <button id="btnKids">Children</button>
+    <button id="btnBack">Back</button>
+  </div>
+  <div id="debug"></div>
+  <div id="buildTag"></div>
+  <script src="script.js"></script>
 </body>
 </html>
