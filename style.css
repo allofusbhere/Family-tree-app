@@ -8,29 +8,35 @@ body, #app, #stage { touch-action:none; -webkit-user-select:none; user-select:no
 .brand { font-weight:700; letter-spacing:.5px; }
 .build { opacity:.7; font-size:.9rem; }
 
-#stage { display:grid; place-items:center; padding:var(--pad); position:relative; }
-#anchorImg { max-width:min(100%, var(--max-w)); max-height:calc(100svh - 170px); object-fit:contain; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.65); transition:transform var(--anim-ms) ease, opacity var(--anim-ms) ease; will-change:transform, opacity; }
+#stage { display:grid; place-items:center; padding:var(--pad); position:relative; overflow:hidden; }
+#anchorImg { max-width:min(100%, var(--max-w)); max-height:calc(100svh - 170px); object-fit:contain; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.65); will-change:transform, opacity; }
 
 .controls { display:flex; gap:8px; padding:var(--pad); justify-content:center; flex-wrap:wrap; background:#090909; border-top:1px solid #222; }
 .controls button { background:#1b1b1b; color:#eee; border:1px solid #2a2a2a; padding:10px 14px; border-radius:12px; font-size:.95rem; }
 .controls button:active { transform:translateY(1px); }
 
 .debug { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); background:rgba(20,20,20,.8); border:1px solid #333; padding:8px 12px; border-radius:10px; font-size:.9rem; opacity:0; transition:opacity 180ms ease; pointer-events:none; }
+.notfound { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(10,10,10,.85); border:1px solid #333; padding:12px; border-radius:10px; max-width:min(90vw, 780px); white-space:pre-wrap; font-size:.9rem; display:none; }
 
-/* Swipe animations */
-.swipe-out-left  { transform:translateX(-40px); opacity:.35; }
-.swipe-out-right { transform:translateX(40px);  opacity:.35; }
-.swipe-out-up    { transform:translateY(-40px); opacity:.35; }
-.swipe-out-down  { transform:translateY(40px);  opacity:.35; }
-.swipe-in-left  { animation:swipeInLeft  var(--anim-ms) ease; }
-.swipe-in-right { animation:swipeInRight var(--anim-ms) ease; }
-.swipe-in-up    { animation:swipeInUp    var(--anim-ms) ease; }
-.swipe-in-down  { animation:swipeInDown  var(--anim-ms) ease; }
-@keyframes swipeInLeft  { from{ transform:translateX(40px);  opacity:.35 } to{ transform:none; opacity:1 } }
-@keyframes swipeInRight { from{ transform:translateX(-40px); opacity:.35 } to{ transform:none; opacity:1 } }
-@keyframes swipeInUp    { from{ transform:translateY(40px);  opacity:.35 } to{ transform:none; opacity:1 } }
-@keyframes swipeInDown  { from{ transform:translateY(-40px); opacity:.35 } to{ transform:none; opacity:1 } }
+.floater { position:fixed; right:14px; bottom:14px; padding:10px 14px; border-radius:12px; border:1px solid #2a2a2a; background:#1b1b1b; color:#eee; z-index:30; }
 
-/* Hide buttons on touch devices, show on PC */
+/* ===== Drag & release animations ===== */
+.img-anim { transition: transform var(--anim-ms) ease, opacity var(--anim-ms) ease; }
+.img-dragging { transition: none !important; }
+
+/* Exit toward swipe */
+.exit-left  { transform: translateX(-120%) scale(.98); opacity:.3; }
+.exit-right { transform: translateX( 120%) scale(.98); opacity:.3; }
+.exit-up    { transform: translateY(-120%) scale(.98); opacity:.3; }
+.exit-down  { transform: translateY( 120%) scale(.98); opacity:.3; }
+
+/* Enter from opposite side */
+.enter-left  { transform: translateX(120%);  opacity:.3; }
+.enter-right { transform: translateX(-120%); opacity:.3; }
+.enter-up    { transform: translateY(120%);  opacity:.3; }
+.enter-down  { transform: translateY(-120%); opacity:.3; }
+.enter-done  { transform: none; opacity:1; }
+
+/* Hide controls on touch devices, show on PC */
 @media (hover:none) and (pointer:coarse) { .controls { display:none; } }
 @media (hover:hover) and (pointer:fine)   { .controls { display:flex; } }

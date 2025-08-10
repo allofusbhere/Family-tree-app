@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>SwipeTree — Prompted Start</title>
-  <link rel="stylesheet" href="style.css?v=20250810-203853"/>
+  <title>SwipeTree — Directional Drag Animations</title>
+  <link rel="stylesheet" href="style.css?v=20250810-210838"/>
 </head>
 <body>
   <div id="app">
@@ -16,9 +16,9 @@
     <main id="stage" aria-live="polite">
       <img id="anchorImg" alt="Family member" draggable="false"/>
       <div id="debug" class="debug" aria-hidden="true"></div>
+      <pre id="notFound" class="notfound" aria-live="polite"></pre>
     </main>
 
-    <!-- Buttons (auto-hidden on touch devices) -->
     <nav class="controls">
       <button id="btnParent"  type="button">Parent ↑</button>
       <button id="btnSibs"    type="button">Siblings ←</button>
@@ -27,14 +27,9 @@
       <button id="btnBack"    type="button">Back</button>
     </nav>
 
-    <!-- Floating Start button as guaranteed fallback -->
-    <button id="startFloater" aria-label="Start" title="Start"
-      style="position:fixed; right:14px; bottom:14px; padding:10px 14px; 
-             border-radius:12px; border:1px solid #2a2a2a; background:#1b1b1b; color:#eee; z-index:30;">
-      Start
-    </button>
+    <button id="startFloater" class="floater">Start</button>
   </div>
 
-  <script src="script.js?v=20250810-203853"></script>
+  <script src="script.js?v=20250810-210838"></script>
 </body>
 </html>
