@@ -80,6 +80,15 @@
     return kids;
   }
 
+
+  function isBaseGeneration(id) {
+    const s = String(id);
+    // Leftmost non-zero digit must be followed only by zeros
+    // e.g., 100000, 200000, 300000, etc.
+    if (!/^([1-9])0+$/.test(s)) return false;
+    return true;
+  }
+
   function siblingsOf(id, max = 9) {
     const parent = parentIdOf(id);
     if (!parent) return [];
@@ -181,18 +190,15 @@
 
   async function renderParents(id) {
     parentsGrid.innerHTML = "";
+    if (isBaseGeneration(id)) return; // no parents for base generation IDs like 100000
     const parent = parentIdOf(id);
-    if (!parent) return;
+    if (!parent || parent === 0) return;
     parentsGrid.appendChild(await imgCell(parent, { label: `${parent} (Parent)` }));
-    // Try to find a second parent via the spouse of the first parent
     try {
       await loadPersonImageUrl(parent, true);
-      // If the parent has a spouse image <parent>.1.* show it as Parent 2
       const cell = await imgCell(parent, { label: `${parent}.1 (Parent 2)`, spouse: true });
       parentsGrid.appendChild(cell);
-    } catch {
-      // no Parent 2 image — omit (no placeholders)
-    }
+    } catch {}
   }
 
   async function renderChildren(id) {
