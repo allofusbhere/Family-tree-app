@@ -33,6 +33,16 @@
   // --- Utilities ------------------------------------------------------------
 
   const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+  function getQueryParam(name) {
+    const m = new URLSearchParams(window.location.search).get(name);
+    return m ? m.trim() : null;
+  }
+
+  function isBaseGeneration(id) {
+    const s = String(id);
+    return /^[1-9]0+$/.test(s);
+  }
+
 
   function padId(x) {
     return String(x);
@@ -190,6 +200,7 @@
 
   async function renderParents(id) {
     parentsGrid.innerHTML = "";
+    if (isBaseGeneration(id)) return;
     if (isBaseGeneration(id)) return; // no parents for base generation IDs like 100000
     const parent = parentIdOf(id);
     if (!parent || parent === 0) return;
@@ -363,6 +374,13 @@
 
   // Auto-open START on first launch
   window.addEventListener("load", () => {
+    const startParam = getQueryParam("start");
+    if (startParam && /^\d+(\.1)?$/.test(startParam)) {
+      const numeric = Number(String(startParam).replace(".1",""));
+      spouseViewOf = null;
+      setAnchor(numeric);
+      return;
+    }
     setTimeout(() => startBtn.click(), 50);
   });
 
