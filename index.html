@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>SwipeTree — Swipe Grid Build 2025-08-11</title>
+  <title>SwipeTree — Swipe Grid Build 2025-08-11 (fix1)</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -12,7 +12,10 @@
       <div class="brand">SwipeTree</div>
       <div class="status">
         <span id="anchorLabel"></span>
-        <button id="backBtn" class="btn small" title="Back">Back</button>
+        <div class="right-controls">
+          <button id="startBtn" class="btn small" title="Go to Start">Start</button>
+          <button id="backBtn" class="btn small" title="Back">Back</button>
+        </div>
       </div>
     </header>
 
@@ -33,8 +36,6 @@
   </div>
 
   <script>
-    // User configurable CDN root (default points to your repo path used last time).
-    // Example: https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/
     window.SWIPETREE_CDN_ROOT = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
   </script>
   <script src="script.js"></script>
