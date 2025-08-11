@@ -1,4 +1,4 @@
-/* SwipeTree Build 20250811b (root drop-in) — JPG-only, safe IMAGE_BASE fallback */
+/* SwipeTree Build 20250811b (root drop-in) — JPG-only, safe IMAGE_BASE fallback, lazy-children, left=siblings */
 (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -9,6 +9,8 @@
   const stage = $("#stage");
   const parentsGrid = $("#parentsGrid");
   const childrenGrid = $("#childrenGrid");
+  const childrenLane = childrenGrid.closest('.lane'); // whole children/siblings section
+  const childrenLaneTitle = childrenLane.querySelector('.lane-title');
   const anchorArea = $("#anchorArea");
   const backBtn = $("#backBtn");
   const startBtn = $("#startBtn");
@@ -60,7 +62,14 @@
     for (let k = 1; k <= max; k++) kids.push(parentBase + k * step);
     return kids;
   }
+  function siblingsOf(id) {
+    const p = parentIdOf(id);
+    if (!p) return [];
+    const sibs = childrenOf(p).filter(x => Number(x) !== Number(id));
+    return sibs;
+  }
 
+  // ----- Image loader: JPG only -----
   async function loadPersonImageUrl(id, isSpouse = false) {
     const stem = isSpouse ? `${padId(id)}.1` : `${padId(id)}`;
     const url = `${IMAGE_BASE}${stem}.jpg`;
@@ -73,7 +82,7 @@
   }
 
   async function imgCell(id, opts = {}) {
-    const { label = null, spouse = false } = opts;
+    const { label = null, spouse = false, tag = "" } = opts;
     const cell = document.createElement("div");
     cell.className = "cell";
     cell.dataset.id = String(id);
@@ -123,7 +132,7 @@
 
   async function renderParents(id) {
     parentsGrid.innerHTML = "";
-    if (isBaseGeneration(id)) return;
+    if (isBaseGeneration(id)) return; // base IDs have NO parents
     const parent = parentIdOf(id);
     if (!parent) return;
     parentsGrid.appendChild(await imgCell(parent, { label: `${parent} (Parent)` }));
@@ -132,10 +141,29 @@
     } catch (err) { console.warn(err.message); }
   }
 
+  function showChildrenLane(titleText) {
+    childrenLaneTitle.textContent = titleText;
+    childrenLane.classList.remove("hidden");
+  }
+  function hideChildrenLane() {
+    childrenLane.classList.add("hidden");
+    childrenGrid.innerHTML = "";
+  }
+
   async function renderChildren(id) {
+    showChildrenLane("Children");
     childrenGrid.innerHTML = "";
     for (const kid of childrenOf(id)) {
       childrenGrid.appendChild(await imgCell(kid, { label: `${kid} (Child)` }));
+    }
+  }
+
+  async function renderSiblings(id) {
+    showChildrenLane("Siblings");
+    childrenGrid.innerHTML = "";
+    const sibs = siblingsOf(id);
+    for (const sib of sibs) {
+      childrenGrid.appendChild(await imgCell(sib, { label: `${sib} (Sibling)` }));
     }
   }
 
@@ -143,7 +171,7 @@
     anchorId = Number(id);
     await renderAnchor(anchorId);
     await renderParents(anchorId);
-    await renderChildren(anchorId);
+    hideChildrenLane(); // start hidden; reveal on swipe
     spouseViewOf = null;
   }
   function pushHistory(id) { if (id != null) historyStack.push(id); }
@@ -173,9 +201,11 @@
       cap.textContent = `${anchorId}.1`;
       cell.appendChild(cap);
       anchorArea.appendChild(cell);
+      spouseViewOf = anchorId; // mark spouse view
     } catch (err) { console.warn(err.message); }
   }
 
+  // Gestures
   let tracking = false, startX = 0, startY = 0, dx = 0, dy = 0;
   const SWIPE_THRESHOLD = 50;
   function onPointerDown(e) { tracking = true; startX = e.clientX; startY = e.clientY; dx = dy = 0; }
@@ -187,10 +217,10 @@
     if (ax < SWIPE_THRESHOLD && ay < SWIPE_THRESHOLD) return;
     if (ax > ay) {
       if (dx > 0) tryShowSpouse();
-      else if (spouseViewOf != null) { const o = spouseViewOf; spouseViewOf = null; pushHistory(anchorId); setAnchor(o); }
+      else renderSiblings(anchorId); // LEFT = Siblings (Back is the button now)
     } else {
       if (dy < 0) renderParents(anchorId);
-      else renderChildren(anchorId);
+      else renderChildren(anchorId); // show & populate only when swiped down
     }
   }
   document.addEventListener("gesturestart", (e) => e.preventDefault());
