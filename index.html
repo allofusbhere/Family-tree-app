@@ -2,76 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>SwipeTree — Full‑Bleed Swipe Hotfix</title>
-  <link rel="stylesheet" href="style.css?v=20250810-220802"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>SwipeTree — Swipe Grid Build 2025-08-11</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
+  <div id="app" class="app" aria-live="polite">
     <header class="topbar">
       <div class="brand">SwipeTree</div>
-      <div id="buildTag" class="build"></div>
+      <div class="status">
+        <span id="anchorLabel"></span>
+        <button id="backBtn" class="btn small" title="Back">Back</button>
+      </div>
     </header>
 
-    <main id="stage" aria-live="polite">
-      <div id="compassGrid" aria-hidden="true">
-        <div class="cell tl"></div>
-        <div class="cell t"  data-label="Parents"></div>
-        <div class="cell tr"></div>
-        <div class="cell l"  data-label="Siblings"></div>
-        <div class="cell c"></div>
-        <div class="cell r"  data-label="Spouse"></div>
-        <div class="cell bl"></div>
-        <div class="cell b"  data-label="Children"></div>
-        <div class="cell br"></div>
-      </div>
-
-      <figure class="figure">
-        <img id="anchorImg" alt="Family member" draggable="false"/>
-        <figcaption id="caption" class="caption">—</figcaption>
-      </figure>
-
-      <div id="debug" class="debug" aria-hidden="true"></div>
-      <pre id="notFound" class="notfound" aria-live="polite"></pre>
+    <main class="stage" id="stage" aria-label="Swipe area">
+      <div id="gridA" class="grid active"></div>
+      <div id="gridB" class="grid"></div>
+      <div id="toast" class="toast" role="status" aria-live="assertive"></div>
     </main>
 
-    <nav class="controls">
-      <button id="btnParent"  type="button">Parent ↑</button>
-      <button id="btnSibs"    type="button">Siblings ←</button>
-      <button id="btnSpouse"  type="button">Spouse ↔</button>
-      <button id="btnKids"    type="button">Children ↓</button>
-      <button id="btnBack"    type="button">Back</button>
-    </nav>
-
-    <button id="startFloater" class="floater">Start</button>
-
-    <!-- Parents picker -->
-    <div id="parentsOverlay" class="overlay" aria-hidden="true">
-      <div class="sheet" role="dialog" aria-label="Choose a parent">
-        <div class="sheet-head">
-          <div class="sheet-title">Choose a parent</div>
-          <button id="closeParents" class="icon-btn" aria-label="Close">✕</button>
-        </div>
-        <div id="parentsGrid" class="parents-grid"></div>
+    <footer class="bottombar">
+      <div class="controls">
+        <button id="parentBtn" class="btn">Parents (↑)</button>
+        <button id="siblingsBtn" class="btn">Siblings (↔)</button>
+        <button id="childrenBtn" class="btn">Children (↓)</button>
+        <button id="spouseBtn" class="btn">Spouse (→)</button>
       </div>
-      <div class="backdrop"></div>
-    </div>
-
-    <!-- Children picker -->
-    <div id="childrenOverlay" class="overlay" aria-hidden="true">
-      <div class="sheet" role="dialog" aria-label="Choose a child">
-        <div class="sheet-head">
-          <div class="sheet-title">Choose a child</div>
-          <button id="closeChildren" class="icon-btn" aria-label="Close">✕</button>
-        </div>
-        <div id="childrenGrid" class="children-grid"></div>
-        <div id="childrenEmpty" class="hint" style="display:none;">No child images found for this person.</div>
-      </div>
-      <div class="backdrop"></div>
-    </div>
+    </footer>
   </div>
 
-  <script>window.__NAMES_JSON__ = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/people.json";</script>
-  <script src="script.js?v=20250810-220802"></script>
+  <script>
+    // User configurable CDN root (default points to your repo path used last time).
+    // Example: https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/
+    window.SWIPETREE_CDN_ROOT = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
+  </script>
+  <script src="script.js"></script>
 </body>
 </html>

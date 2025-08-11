@@ -1,269 +1,339 @@
-/* SwipeTree — Hotfix: universal swipe listeners + full‑bleed + names & double‑tap kept */
+/* SwipeTree — Swipe Grid Build (2025-08-11)
+   - Smooth roll-in/out for horizontal (siblings/spouse) and vertical (parents/children)
+   - Reliable single-swipe gesture handling (locked per swipe)
+   - Dynamic ID math per user's rules (fixed-length, generation-by-digit)
+   - No blanks: we hide empty slots; show a toast when none found
+*/
+
 (() => {
-  const img = document.getElementById('anchorImg');
+  const CDN = (window.SWIPETREE_CDN_ROOT || "").trim().replace(/\/+$/, '/') + '';
   const stage = document.getElementById('stage');
-  const grid = document.getElementById('compassGrid');
-  const debugEl = document.getElementById('debug');
-  const buildEl = document.getElementById('buildTag');
-  const floater = document.getElementById('startFloater');
-  const notFoundEl = document.getElementById('notFound');
-  const caption = document.getElementById('caption');
+  const gridA = document.getElementById('gridA');
+  const gridB = document.getElementById('gridB');
+  const toast = document.getElementById('toast');
+  const anchorLabel = document.getElementById('anchorLabel');
+  const backBtn = document.getElementById('backBtn');
+  const parentBtn = document.getElementById('parentBtn');
+  const siblingsBtn = document.getElementById('siblingsBtn');
+  const childrenBtn = document.getElementById('childrenBtn');
+  const spouseBtn = document.getElementById('spouseBtn');
 
-  // Overlays (optional in this build)
-  const parentsOverlay = document.getElementById('parentsOverlay');
-  const closeParents = document.getElementById('closeParents');
-  const parentsGrid = document.getElementById('parentsGrid');
-  const childrenOverlay = document.getElementById('childrenOverlay');
-  const closeChildren = document.getElementById('closeChildren');
-  const childrenGrid = document.getElementById('childrenGrid');
-  const childrenEmpty = document.getElementById('childrenEmpty');
+  let activeGrid = gridA;
+  let bufferGrid = gridB;
+  let anchorId = null;
+  const historyStack = [];
 
-  // Build tag
-  const t = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  buildEl.textContent = `build ${t.getFullYear()}${pad(t.getMonth()+1)}${pad(t.getDate())}-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`;
-
-  // Config
-  const DEFAULT_BASE = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
-  const q = new URLSearchParams(location.search);
-  const urlBase = q.get('base');
-  const namesUrlOverride = q.get('names');
-  const IMAGE_BASE = (urlBase && /\/$/.test(urlBase)) ? urlBase : DEFAULT_BASE;
-  const NAMES_URL = namesUrlOverride || (window.__NAMES_JSON__ || (IMAGE_BASE + "people.json"));
-  const EXT_VARIANTS = [".jpg",".JPG",".jpeg",".JPEG",".png",".PNG",".webp",".WEBP"];
-
-  // State
-  let currentId = null;
-  let historyStack = [];
-  let hideMsgTimer = 0;
-  let spouseShown = false;
-  let names = {};
-
-  // Names (optional)
-  (async () => {
-    try { const res = await fetch(NAMES_URL, {cache:"no-store"}); if (res.ok) names = await res.json(); } catch {}
-  })();
-  const nameFor = (id, spouse=false) => names[spouse?`${id}.1`:`${id}`] || (spouse?`${id}.1`:`${id}`);
-  const setCaption = (id, spouse=false) => { caption.textContent = nameFor(id, spouse); };
-
-  // Utils
-  const showDebug = (msg) => { debugEl.textContent = msg; debugEl.style.opacity = '1'; clearTimeout(showDebug._t); showDebug._t = setTimeout(() => (debugEl.style.opacity = '0'), 1200); };
-  const clearMsgSoon = (ms=800) => { clearTimeout(hideMsgTimer); hideMsgTimer = setTimeout(() => { notFoundEl.style.display='none'; notFoundEl.textContent=''; }, ms); };
-  const tryFetch = (url) => new Promise((resolve, reject) => { const t=new Image(); t.onload=()=>resolve(url); t.onerror=()=>reject(url); t.decoding="async"; t.loading="eager"; t.src=url; });
-  const loadImageForBaseName = async (baseName) => { for (const ext of EXT_VARIANTS){ const url = IMAGE_BASE + baseName + ext; try { return await tryFetch(url);} catch{} } return null; };
-  const loadImageForId = (id, {spouse=false}={}) => loadImageForBaseName(spouse?`${id}.1`:`${id}`);
-  const showNotFound = (id, spouse) => { notFoundEl.style.display="block"; notFoundEl.textContent = `Image not found for ID ${id}${spouse?" (spouse)":""} at base:\n` + IMAGE_BASE; };
-
-  // Relationship math
-  const placesFor = (id) => { const arr=[]; let p=1; while (p<=id){ arr.unshift(p); p*=10; } if(!arr.length) arr.push(1); return arr; };
-  const highestNonZeroPlace = (id) => { const P=placesFor(id); for (const place of P){ const d=Math.floor(id/place)%10; if(d>0) return place; } return null; };
-  const lowestNonZeroPlace  = (id) => { const P=placesFor(id); for (let i=P.length-1;i>=0;i--){ const place=P[i]; const d=Math.floor(id/place)%10; if(d>0) return place; } return null; };
-  const nextLowerPlace = (place, id) => { const P=placesFor(id); const i=P.indexOf(place); return (i<0||i===P.length-1)?null:P[i+1]; };
-  const getParentId = (id) => { const p=lowestNonZeroPlace(id); if(!p) return null; const d=Math.floor(id/p)%10; return id - d*p; };
-  const getChildrenIds = (id) => { const low=lowestNonZeroPlace(id); const step=nextLowerPlace(low,id); if(!step) return []; const out=[]; for(let n=1;n<=9;n++) out.push(id+n*step); return out; };
-  const getSiblingsIds = (id) => { const parent=getParentId(id); if(!parent) return []; const top=highestNonZeroPlace(parent)??0; const step=nextLowerPlace(top,parent); if(!step) return []; const res=[]; for(let n=1;n<=9;n++){ const c=parent+n*step; if(c!==id) res.push(c);} return res; };
-
-  // Grid helpers
-  const clearGrid = () => grid.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
-  const highlightGrid = (dir) => { clearGrid(); const map={left:'.l',right:'.r',up:'.t',down:'.b'}; const el=grid.querySelector(map[dir]); if(el) el.classList.add('active'); };
-
-  // Animations
-  const animateSwap = async (direction, nextSrc, nextId, nextIsSpouse=false) => {
-    img.classList.add('img-anim');
-    const exitClass = { left:'exit-left', right:'exit-right', up:'exit-up', down:'exit-down' }[direction];
-    img.classList.add(exitClass);
-    await new Promise(r => setTimeout(r, 260));
-    img.classList.remove(exitClass);
-    const enterClass = { left:'enter-right', right:'enter-left', up:'enter-down', down:'enter-up' }[direction];
-    img.classList.add(enterClass);
-    img.src = nextSrc; img.alt = String(nextId);
-    setCaption(nextId, nextIsSpouse);
-    void img.offsetWidth;
-    img.classList.add('enter-done');
-    await new Promise(r => setTimeout(r, 260));
-    img.classList.remove('enter-right','enter-left','enter-up','enter-down','enter-done');
-    clearGrid();
-    clearMsgSoon(800);
+  // === Utilities ===
+  const showToast = (msg) => {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove('show'), 1400);
   };
 
-  const goToId = async (nextId, dir, opts={}) => {
-    if (!nextId || nextId===currentId) return;
-    const preferSpouse = !!opts.preferSpouseVariant;
-    const nextSrc = await loadImageForId(nextId, {spouse:preferSpouse});
-    if (!nextSrc) {
-      if (preferSpouse) {
-        const fb = await loadImageForId(nextId, {spouse:false});
-        if (!fb) { showNotFound(nextId, false); return; }
-        await animateSwap(dir, fb, nextId, false);
-        spouseShown = false;
-      } else { showNotFound(nextId, false); return; }
+  const padLike = (numStr, likeStr) => numStr.padStart(likeStr.length, '0');
+
+  const splitId = (idStr) => {
+    // Support spouse extension like "140000.1" (partner image id)
+    const [main, ext] = idStr.split('.', 2);
+    return { main, ext: ext || '' };
+  };
+
+  const joinId = (main, ext) => ext ? `${main}.${ext}` : main;
+
+  const findRightmostNonZeroIndex = (numStr) => {
+    for (let i = numStr.length - 1; i >= 0; i--) {
+      if (numStr[i] !== '0') return i;
+    }
+    return -1; // root-like (all zeros) — rare for our use
+  };
+
+  const computeParent = (idStr) => {
+    const { main } = splitId(idStr);
+    let s = main;
+    const idx = findRightmostNonZeroIndex(s);
+    if (idx <= 0) return null; // no parent known
+    s = s.substring(0, idx) + '0' + s.substring(idx + 1);
+    // If there are any non-zero digits to the right, zero them (keep generation boundary clean)
+    s = s.substring(0, idx + 1) + '0'.repeat(s.length - (idx + 1));
+    return s;
+  };
+
+  const computeChildren = (idStr) => {
+    const { main } = splitId(idStr);
+    const s = main;
+    const idx = findRightmostNonZeroIndex(s);
+    let childPos = idx + 1;
+    if (childPos >= s.length) return []; // cannot go deeper
+    const arr = [];
+    for (let d = 1; d <= 9; d++) {
+      const child = s.substring(0, childPos) + String(d) + '0'.repeat(s.length - childPos - 1);
+      arr.push(child);
+    }
+    return arr;
+  };
+
+  const computeSiblings = (idStr) => {
+    const { main } = splitId(idStr);
+    const s = main;
+    const idx = findRightmostNonZeroIndex(s);
+    if (idx <= 0) return []; // no siblings if top-most
+    const siblings = [];
+    const currentDigit = Number(s[idx]);
+    for (let d = 1; d <= 9; d++) {
+      if (d === currentDigit) continue;
+      const sib = s.substring(0, idx) + String(d) + '0'.repeat(s.length - idx - 1);
+      siblings.push(sib);
+    }
+    return siblings;
+  };
+
+  const computeSpouses = (idStr) => {
+    // Minimal rule set consistent with prior tests:
+    // - If anchor is "140000", preferred partner is "140000.1" (if exists).
+    // - If anchor is "140000.1", partner anchor is "140000" (base).
+    // - Additionally, try the reverse-link style "<other>.1.<anchorMain>" if present — future-facing.
+    const { main, ext } = splitId(idStr);
+    const candidates = [];
+    if (!ext) {
+      candidates.push(`${main}.1`);
     } else {
-      await animateSwap(dir, nextSrc, nextId, preferSpouse);
-      spouseShown = preferSpouse;
+      candidates.push(main);
     }
-    historyStack.push(currentId);
-    currentId = nextId;
+    // Extended guess: try to discover reciprocal numbered partner by scanning known images later.
+    return candidates;
   };
 
-  // Parents overlay (names-aware, hides missing)
-  const makeParentCard = (labelTop, sub, src, onClick) => {
-    const card = document.createElement('button');
-    card.className = "parent-card";
-    const imgEl = document.createElement('img'); imgEl.src = src;
-    const lab = document.createElement('div'); lab.className="label"; lab.textContent = labelTop;
-    const subEl = document.createElement('div'); subEl.className="sub"; subEl.textContent = sub;
-    card.appendChild(imgEl); card.appendChild(lab); card.appendChild(subEl);
-    card.addEventListener('click', onClick);
-    return card;
-  };
-  const openParentsPicker = async (parentId) => {
-    if (!parentsOverlay) { await goToId(parentId, 'up'); return; }
-    parentsGrid.innerHTML = "";
-    const p1Src = await loadImageForId(parentId);
-    if (p1Src) parentsGrid.appendChild(makeParentCard(nameFor(parentId,false), String(parentId), p1Src, async () => { closeParentsPicker(); await goToId(parentId,'up'); }));
-    const p2Src = await loadImageForId(parentId, {spouse:true});
-    if (p2Src) parentsGrid.appendChild(makeParentCard(nameFor(parentId,true), String(parentId)+".1", p2Src, async () => { closeParentsPicker(); await goToId(parentId,'up'); const spouseSrc = await loadImageForId(parentId, {spouse:true}); if (spouseSrc) { spouseShown=true; await animateSwap('right', spouseSrc, parentId, true); } }));
-    if (!parentsGrid.children.length) { await goToId(parentId, 'up'); return; }
-    parentsOverlay.classList.add('show'); parentsOverlay.setAttribute('aria-hidden','false');
-  };
-  const closeParentsPicker = () => { parentsOverlay.classList.remove('show'); parentsOverlay.setAttribute('aria-hidden','true'); };
-  if (closeParents) closeParents.addEventListener('click', closeParentsPicker);
-  if (parentsOverlay) parentsOverlay.addEventListener('click', (e) => { if (e.target.classList.contains('backdrop')) closeParentsPicker(); });
+  // Image helper that resolves first existing variant (jpg/JPG/JPEG/jpeg/png/PNG)
+  const EXT_LIST = ['.jpg','.JPG','.jpeg','.JPEG','.png','.PNG'];
+  const urlForId = (idCore, ext) => CDN + idCore + ext;
 
-  // Children overlay (names-aware, hides missing)
-  const makeChildCard = (id, src) => {
-    const card = document.createElement('button');
-    card.className = "child-card";
-    const imgEl = document.createElement('img'); imgEl.src = src; imgEl.alt = String(id);
-    const lab = document.createElement('div'); lab.className="label"; lab.textContent = nameFor(id,false);
-    const sub = document.createElement('div'); sub.className="sub"; sub.textContent = String(id);
-    card.appendChild(imgEl); card.appendChild(lab); card.appendChild(sub);
-    card.addEventListener('click', async () => { closeChildrenPicker(); await goToId(id, 'down'); });
-    card.addEventListener('dblclick', async () => { closeChildrenPicker(); await goToId(id, 'down'); });
-    return card;
+  const loadFirstExisting = (idCore) => {
+    return new Promise((resolve) => {
+      let done = false;
+      let chosenUrl = null;
+
+      const tryOne = (i) => {
+        if (done || i >= EXT_LIST.length) return resolve(null);
+        const testUrl = urlForId(idCore, EXT_LIST[i]);
+        const img = new Image();
+        img.onload = () => { done = true; chosenUrl = testUrl; resolve(chosenUrl); };
+        img.onerror = () => tryOne(i + 1);
+        // Avoid interfering with gestures
+        img.decoding = 'async';
+        img.src = testUrl;
+      };
+      tryOne(0);
+    });
   };
-  const openChildrenPicker = async (id) => {
-    if (!childrenOverlay) { return; }
-    childrenGrid.innerHTML = ""; childrenEmpty.style.display = "none";
-    const kids = getChildrenIds(id);
-    let found = 0;
-    for (let i=0;i<kids.length;i++) {
-      const kidId = kids[i];
-      const src = await loadImageForId(kidId);
-      if (!src) continue;
-      found++; childrenGrid.appendChild(makeChildCard(kidId, src));
+
+  const loadManyExisting = async (ids) => {
+    const out = [];
+    for (const id of ids) {
+      const url = await loadFirstExisting(id);
+      if (url) out.push({ id, url });
     }
-    if (found === 0) { childrenEmpty.style.display = "block"; }
-    childrenOverlay.classList.add('show'); childrenOverlay.setAttribute('aria-hidden','false');
+    return out;
   };
-  const closeChildrenPicker = () => { childrenOverlay.classList.remove('show'); childrenOverlay.setAttribute('aria-hidden','true'); };
 
-  // Navigation wrappers
-  const goToParent = async ()=>{ const p=getParentId(currentId); showDebug(`Parent(s) of ${currentId}: ${p??'—'}`); if(!p) { showNotFound('—', false); clearMsgSoon(); return; } highlightGrid('up'); await openParentsPicker(p); };
-  const goToChildren = async ()=>{ const kids=getChildrenIds(currentId); showDebug(`Children of ${currentId}: ${kids.length?kids.join(', '):'—'}`); if(!kids.length) { showNotFound('—', false); clearMsgSoon(); return; } highlightGrid('down'); await openChildrenPicker(currentId); };
-  const goToSiblings = async ()=>{ const sibs=getSiblingsIds(currentId); showDebug(`Siblings of ${currentId}: ${sibs.length?sibs.join(', '):'—'}`); if(sibs.length){ const s=sibs.slice().sort((a,b)=>a-b); const prev=s.filter(x=>x<currentId).pop(); highlightGrid('left'); await goToId(prev ?? s[0],'left'); } else { showNotFound('—', false); clearMsgSoon(); } };
-  const toggleSpouse = async () => {
-    if (currentId == null) return;
-    if (!spouseShown) { const src = await loadImageForId(currentId, {spouse:true}); if (!src) { showNotFound(currentId, true); clearMsgSoon(); return; } await animateSwap('right', src, currentId, true); spouseShown = true; }
-    else { const src = await loadImageForId(currentId, {spouse:false}); if (!src) { showNotFound(currentId, false); clearMsgSoon(); return; } await animateSwap('left', src, currentId, false); spouseShown = false; }
+  const setAnchor = async (newAnchor, pushHistory = true) => {
+    if (!newAnchor) return;
+    if (pushHistory && anchorId) historyStack.push(anchorId);
+    anchorId = newAnchor;
+    anchorLabel.textContent = `Anchor: ${anchorId}`;
+    // Render the anchor card grid (just the single anchor centered) initially
+    await renderCards([{ id: anchorId, url: await loadFirstExisting(anchorId) }], 'none');
   };
-  const goBack = async ()=>{ const prev=historyStack.pop(); if(!prev) return; const src = await loadImageForId(prev); if (!src) { showNotFound(prev, false); clearMsgSoon(); return; } highlightGrid('up'); await animateSwap('up', src, prev, false); currentId=prev; spouseShown=false; };
+
+  const swapGrids = () => {
+    activeGrid.classList.remove('active');
+    bufferGrid.classList.add('active');
+    [activeGrid, bufferGrid] = [bufferGrid, activeGrid];
+    // Reset old buffer position
+    bufferGrid.style.transform = 'translate3d(0,0,0)';
+    bufferGrid.innerHTML = '';
+  };
+
+  const renderCards = async (items, direction) => {
+    // Build content in bufferGrid, then animate in
+    bufferGrid.innerHTML = '';
+    if (!items || items.length === 0 || !items[0] || !items[0].url) {
+      // show only the current anchor if available
+      const anchorUrl = await loadFirstExisting(anchorId);
+      if (anchorUrl) {
+        items = [{ id: anchorId, url: anchorUrl }];
+      } else {
+        items = [];
+      }
+    }
+
+    items.forEach(({ id, url }) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = id;
+      img.draggable = false;
+      const tag = document.createElement('div');
+      tag.className = 'tag';
+      tag.textContent = id;
+      card.appendChild(img);
+      card.appendChild(tag);
+      // Tap to set as new anchor
+      card.addEventListener('click', () => setAnchor(id));
+      bufferGrid.appendChild(card);
+    });
+
+    // Fill to 3x3 visually by stretching cards with CSS grid if fewer — no explicit blanks added.
+    // Animate
+    const w = stage.clientWidth;
+    const h = stage.clientHeight;
+
+    const dir = direction || 'none';
+    let from = 'translate3d(0,0,0)';
+    let to = 'translate3d(0,0,0)';
+    if (dir === 'left')  { from = `translate3d(${w}px,0,0)`; to = `translate3d(-${w}px,0,0)`; }
+    if (dir === 'right') { from = `translate3d(-${w}px,0,0)`; to = `translate3d(${w}px,0,0)`; }
+    if (dir === 'up')    { from = `translate3d(0,${h}px,0)`; to = `translate3d(0,-${h}px,0)`; }
+    if (dir === 'down')  { from = `translate3d(0,-${h}px,0)`; to = `translate3d(0,${h}px,0)`; }
+
+    bufferGrid.style.transform = from;
+    bufferGrid.classList.add('active');
+    activeGrid.classList.remove('active');
+
+    // Force layout then animate
+    bufferGrid.getBoundingClientRect();
+    bufferGrid.style.transform = 'translate3d(0,0,0)';
+    activeGrid.style.transform = to;
+
+    return new Promise((resolve) => {
+      const onEnd = () => {
+        activeGrid.removeEventListener('transitionend', onEnd);
+        swapGrids();
+        resolve();
+      };
+      activeGrid.addEventListener('transitionend', onEnd, { once: true });
+    });
+  };
+
+  // === Navigation actions ===
+  const showChildren = async () => {
+    const kids = computeChildren(anchorId);
+    const found = await loadManyExisting(kids);
+    if (found.length === 0) showToast('No children found');
+    await renderCards(found, 'down');
+  };
+
+  const showParents = async () => {
+    const p = computeParent(anchorId);
+    const arr = p ? [p] : [];
+    const found = await loadManyExisting(arr);
+    if (found.length === 0) showToast('No parent found');
+    await renderCards(found, 'up');
+  };
+
+  const showSiblings = async () => {
+    const sibs = computeSiblings(anchorId);
+    const found = await loadManyExisting(sibs);
+    if (found.length === 0) showToast('No siblings found');
+    await renderCards(found, 'left'); // horizontal swap
+  };
+
+  const showSpouse = async () => {
+    const cands = computeSpouses(anchorId);
+    // Try primary candidates first
+    let found = await loadManyExisting(cands);
+    // If none, try heuristic: scan for "<X>.1.<anchorMain>" by sampling same generation prefixes (lightweight)
+    if (found.length === 0) {
+      const { main } = splitId(anchorId);
+      // Try scanning a small set of likely partner ids (same generation bucket)
+      const idx = findRightmostNonZeroIndex(main);
+      const bucketPrefix = main.substring(0, idx) || '';
+      const guess = [];
+      for (let d = 1; d <= 9; d++) {
+        const maybe = bucketPrefix + String(d) + '0'.repeat(main.length - idx - 1);
+        if (maybe !== main) guess.push(`${maybe}.1.${main}`);
+      }
+      found = await loadManyExisting(guess);
+    }
+    if (found.length === 0) showToast('No spouse found');
+    await renderCards(found, 'right');
+  };
 
   // Buttons
-  document.getElementById('btnParent').addEventListener('click', goToParent);
-  document.getElementById('btnKids').addEventListener('click', goToChildren);
-  document.getElementById('btnSibs').addEventListener('click', goToSiblings);
-  document.getElementById('btnSpouse').addEventListener('click', toggleSpouse);
-  document.getElementById('btnBack').addEventListener('click', goBack);
-
-  // ===== Universal swipe listeners (fix for 80214) =====
-  // Attach to BOTH stage and img to avoid cases where a wrapper captures events.
-  let sx=0, sy=0, st=0, dragging=false, lockedAxis=null;
-  const MIN_DIST=40, MAX_TIME=700;
-  const RESIST=0.85;
-  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-  const computeDir = (dx, dy) => {
-    const ax=Math.abs(dx), ay=Math.abs(dy);
-    const BIAS=1.2;
-    if (lockedAxis === 'x' || (ax > ay*BIAS && ax > MIN_DIST)) return dx>0 ? 'right' : 'left';
-    if (lockedAxis === 'y' || (ay > ax*BIAS && ay > MIN_DIST)) return dy<0 ? 'up' : 'down';
-    return ax>ay ? (dx>0?'right':'left') : (dy<0?'up':'down');
-  };
-  const onStart = (x, y) => { dragging=true; sx=x; sy=y; st=performance.now(); lockedAxis=null; img.classList.add('img-dragging'); stage.classList.add('dragging'); };
-  const onMove  = (x, y, allowPreventDefault) => {
-    if(!dragging) return;
-    const dx=(x-sx)*RESIST, dy=(y-sy)*RESIST;
-    if (!lockedAxis) {
-      if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)*1.1) lockedAxis='x';
-      else if (Math.abs(dy) > 24 && Math.abs(dy) > Math.abs(dx)*1.1) lockedAxis='y';
-    }
-    const dir = computeDir(dx,dy);
-    highlightGrid(dir);
-    img.style.transform = `translate(${dx}px, ${dy}px)`;
-    img.style.opacity = String(clamp(1 - (Math.abs(dx)+Math.abs(dy))/800, .3, 1));
-  };
-  const onEnd   = async (x, y) => {
-    if(!dragging) return;
-    dragging=false; lockedAxis=null;
-    img.classList.remove('img-dragging'); stage.classList.remove('dragging');
-    img.style.transform=''; img.style.opacity='';
-    const dx=x-sx, dy=y-sy, dt=performance.now()-st;
-    const ax=Math.abs(dx), ay=Math.abs(dy);
-    if (dt>MAX_TIME || (ax<MIN_DIST && ay<MIN_DIST)) { clearGrid(); return; }
-    const dir = computeDir(dx,dy);
-    if (dir==='left')      await goToSiblings();
-    else if (dir==='right')await toggleSpouse();
-    else if (dir==='up')   await goToParent();
-    else                   await goToChildren();
-  };
-
-  const bindTouch = (el) => {
-    el.addEventListener('touchstart', e=>{ const t=e.changedTouches[0]; onStart(t.clientX,t.clientY); }, {passive:true});
-    el.addEventListener('touchmove',  e=>{ if (e.cancelable) e.preventDefault(); const t=e.changedTouches[0]; onMove(t.clientX,t.clientY, true); }, {passive:false});
-    el.addEventListener('touchend',   e=>{ const t=e.changedTouches[0]; onEnd(t.clientX,t.clientY); }, {passive:true});
-  };
-  const bindMouse = (el) => {
-    let mouseDown=false;
-    el.addEventListener('mousedown', e=>{ mouseDown=true; onStart(e.clientX,e.clientY); });
-    el.addEventListener('mousemove', e=>{ if(mouseDown) onMove(e.clientX,e.clientY, false); });
-    el.addEventListener('mouseup',   e=>{ if(mouseDown) onEnd(e.clientX,e.clientY); mouseDown=false; });
-    el.addEventListener('mouseleave',()=>{ mouseDown=false; dragging=false; lockedAxis=null; img.classList.remove('img-dragging'); stage.classList.remove('dragging'); img.style.transform=''; img.style.opacity=''; clearGrid(); });
-  };
-
-  // Bind to stage AND img
-  [stage, img].forEach(el => { bindTouch(el); bindMouse(el); });
-
-  // Double‑tap spouse toggle on main image
-  let lastTapTime = 0;
-  const TAP_GAP = 300;
-  img.addEventListener('touchend', (e) => {
-    if (e.changedTouches.length!==1) return;
-    const now = performance.now();
-    if (now - lastTapTime < TAP_GAP) toggleSpouse();
-    lastTapTime = now;
-  }, {passive:true});
-  img.addEventListener('dblclick', (e) => { e.preventDefault(); toggleSpouse(); });
-
-  // Start
-  const startWithId = async (id) => {
-    const src = await loadImageForId(id);
-    if (!src) { showNotFound(id, false); return; }
-    img.classList.add('img-anim');
-    img.src = src; img.alt = String(id);
-    setCaption(id, false);
-    historyStack.length = 0;
-    currentId = id;
-    spouseShown = false;
-    clearMsgSoon(800);
-  };
-  floater.addEventListener('click', () => {
-    const raw = prompt('Enter starting ID (e.g., 140000):', localStorage.getItem('lastStartId') || '');
-    const id = Number(String(raw||'').trim().split('.')[0]);
-    if (!Number.isFinite(id)) return;
-    localStorage.setItem('lastStartId', String(id));
-    startWithId(id);
+  parentBtn.addEventListener('click', showParents);
+  siblingsBtn.addEventListener('click', showSiblings);
+  childrenBtn.addEventListener('click', showChildren);
+  spouseBtn.addEventListener('click', showSpouse);
+  backBtn.addEventListener('click', () => {
+    const prev = historyStack.pop();
+    if (prev) setAnchor(prev, false);
+    else showToast('No history');
   });
-  const urlStartId = Number(String(q.get('id')||'').trim().split('.')[0]);
-  if (Number.isFinite(urlStartId)) { localStorage.setItem('lastStartId', String(urlStartId)); startWithId(urlStartId); }
-  else { floater.click(); }
+
+  // === Gesture handling ===
+  let touchStartX = 0, touchStartY = 0, tracking = false, swipeLocked = false;
+  const THRESH = 32; // pixels
+
+  const onTouchStart = (e) => {
+    if (swipeLocked) return;
+    const t = e.touches ? e.touches[0] : e;
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    tracking = true;
+  };
+  const onTouchMove = (e) => {
+    if (!tracking) return;
+    // prevent native scroll/zoom
+    if (e.cancelable) e.preventDefault();
+  };
+  const onTouchEnd = async (e) => {
+    if (!tracking || swipeLocked) return;
+    tracking = false;
+    const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
+    const endX = t ? t.clientX : (e.clientX || touchStartX);
+    const endY = t ? t.clientY : (e.clientY || touchStartY);
+    const dx = endX - touchStartX;
+    const dy = endY - touchStartY;
+
+    if (Math.abs(dx) < THRESH && Math.abs(dy) < THRESH) return; // ignore small moves
+    swipeLocked = true; // ensure single action per swipe
+
+    try {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal
+        if (dx > 0) await showSpouse(); else await showSiblings();
+      } else {
+        // Vertical
+        if (dy > 0) await showParents(); else await showChildren();
+      }
+    } finally {
+      setTimeout(() => { swipeLocked = false; }, 80);
+    }
+  };
+
+  stage.addEventListener('touchstart', onTouchStart, { passive: false });
+  stage.addEventListener('touchmove', onTouchMove, { passive: false });
+  stage.addEventListener('touchend', onTouchEnd, { passive: false });
+  // Also support mouse for desktop testing
+  stage.addEventListener('mousedown', onTouchStart);
+  window.addEventListener('mouseup', onTouchEnd);
+
+  // Prevent gestures outside stage too
+  ['gesturestart','gesturechange','gestureend'].forEach(evt => {
+    window.addEventListener(evt, (e) => e.preventDefault(), { passive:false });
+  });
+
+  // === Init ===
+  (async () => {
+    let start = window.localStorage.getItem('swipetree_start_id') || '';
+    if (!start) {
+      start = prompt('Enter starting ID (e.g., 140000):') || '';
+    }
+    start = (start || '').trim();
+    if (!start) start = '100000'; // fallback
+    window.localStorage.setItem('swipetree_start_id', start);
+    await setAnchor(start, false);
+  })();
+
 })();
