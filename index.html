@@ -1,43 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>SwipeTree — Swipe Grid Build 2025-08-11 (fix1)</title>
+  <title>SwipeTree — iPad Test Build</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app" class="app" aria-live="polite">
+  <div id="app" class="app" tabindex="0">
     <header class="topbar">
       <div class="brand">SwipeTree</div>
-      <div class="status">
-        <span id="anchorLabel"></span>
-        <div class="right-controls">
-          <button id="startBtn" class="btn small" title="Go to Start">Start</button>
-          <button id="backBtn" class="btn small" title="Back">Back</button>
-        </div>
+      <div class="controls">
+        <button id="startBtn" class="btn small">START</button>
+        <button id="backBtn" class="btn small">BACK</button>
       </div>
     </header>
 
-    <main class="stage" id="stage" aria-label="Swipe area">
-      <div id="gridA" class="grid active"></div>
-      <div id="gridB" class="grid"></div>
-      <div id="toast" class="toast" role="status" aria-live="assertive"></div>
+    <main id="stage" class="stage" aria-live="polite">
+      <section class="lane parents" aria-label="Parents">
+        <div class="lane-title">Parents</div>
+        <div id="parentsGrid" class="grid"></div>
+      </section>
+
+      <section class="lane anchor" aria-label="Anchor">
+        <div class="lane-title">Anchor</div>
+        <div id="anchorArea" class="anchor-wrap"></div>
+      </section>
+
+      <section class="lane children" aria-label="Children">
+        <div class="lane-title">Children</div>
+        <div id="childrenGrid" class="grid"></div>
+      </section>
     </main>
 
-    <footer class="bottombar">
-      <div class="controls">
-        <button id="parentBtn" class="btn">Parents (↑)</button>
-        <button id="siblingsBtn" class="btn">Siblings (↔)</button>
-        <button id="childrenBtn" class="btn">Children (↓)</button>
-        <button id="spouseBtn" class="btn">Spouse (→)</button>
+    <div id="promptModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-card">
+        <h2 id="modalTitle">Set Starting ID</h2>
+        <input id="startInput" type="text" inputmode="numeric" placeholder="e.g., 140000" />
+        <div class="row">
+          <button id="confirmStart" class="btn">Load</button>
+          <button id="cancelStart" class="btn ghost">Cancel</button>
+        </div>
       </div>
-    </footer>
+    </div>
   </div>
 
   <script>
-    window.SWIPETREE_CDN_ROOT = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
+    // Configure your image base here (e.g., your jsDelivr path)
+    window.IMAGE_BASE_URL = window.IMAGE_BASE_URL || "";
+    // Example (uncomment and set to your repo): 
+    window.IMAGE_BASE_URL = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
   </script>
-  <script src="script.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
