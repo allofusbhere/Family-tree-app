@@ -1,9 +1,6 @@
-/* SwipeTree Night Test Build 20250811c (root drop-in)
-   - JPG-only, safe IMAGE_BASE fallback
-   - On-demand Parents (UP) & Children (DOWN) — lanes hidden until asked
-   - LEFT = Siblings as FULL-SCREEN GRID overlay (Close button + swipe-down to dismiss)
-   - RIGHT = Spouse toggle in Anchor
-   - BACK button = Close overlay if open, else go back to previous anchor
+/* SwipeTree Night Test Build 20250811e (root drop-in)
+   - HOTFIX++: Anchor full-fit (no cropping) — removes parent overflow, uses viewport-based max-height
+   - Keeps: on-demand Parents/Children, LEFT=Siblings overlay, RIGHT=Spouse, BACK behavior
 */
 (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -14,12 +11,12 @@
 
   const stage = $("#stage");
   const parentsGrid = $("#parentsGrid");
-  const parentsLane = parentsGrid.closest('.lane');
-  const parentsLaneTitle = parentsLane.querySelector('.lane-title');
+  const parentsLane = parentsGrid?.closest?.('.lane');
+  const parentsLaneTitle = parentsLane?.querySelector?.('.lane-title');
 
   const childrenGrid = $("#childrenGrid");
-  const childrenLane = childrenGrid.closest('.lane'); // reused infra
-  const childrenLaneTitle = childrenLane.querySelector('.lane-title');
+  const childrenLane = childrenGrid?.closest?.('.lane');
+  const childrenLaneTitle = childrenLane?.querySelector?.('.lane-title');
 
   const anchorArea = $("#anchorArea");
   const backBtn = $("#backBtn");
@@ -33,7 +30,7 @@
   let anchorId = null;
   let spouseViewOf = null;
 
-  // --- helpers ---
+  // ===== Utilities =====
   function getQueryParam(name) {
     const m = new URLSearchParams(window.location.search).get(name);
     return m ? m.trim() : null;
@@ -73,9 +70,9 @@
     return childrenOf(p).filter(x => Number(x)!==Number(id));
   }
 
-  // image loader JPG-only
+  // ===== Image loader (JPG only) =====
   async function loadPersonImageUrl(id, isSpouse=false){
-    const stem = isSpouse ? `${padId(id)}.1` : `${padId(id)}`;
+    const stem = isSpouse ? `${String(id)}.1` : `${String(id)}`;
     const url = `${IMAGE_BASE}${stem}.jpg`;
     return new Promise((resolve,reject)=>{
       const img = new Image();
@@ -83,6 +80,50 @@
       img.onerror = ()=>reject(new Error("not found: "+url));
       img.src = url;
     });
+  }
+
+  // ===== Styles: strong full-fit for anchor (and spouse solo) =====
+  function ensureAnchorFullFitStyles(){
+    if (document.getElementById("stAnchorFullFitStyles")) return;
+    const css = document.createElement("style");
+    css.id = "stAnchorFullFitStyles";
+    css.textContent = `
+      /* Make sure no parent clips the anchor image */
+      #anchorArea, #anchorArea * { overflow: visible !important; }
+      #anchorArea { display:flex; justify-content:center; align-items:flex-start; padding: 8px 0 12px; }
+
+      /* Anchor wrapper */
+      #anchorArea .cell {
+        background: transparent;
+        height: auto;
+        max-width: min(92vw, 720px);
+        margin: 0 auto;
+      }
+
+      /* Full-fit image: scale within viewport without cropping */
+      #anchorArea img.person.anchor-fit {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: calc(100vh - 220px); /* leave room for header/buttons */
+        object-fit: contain;
+        object-position: center center;
+        border-radius: 8px;
+      }
+
+      /* Label styling under anchor */
+      #anchorArea .label {
+        position: relative;
+        margin-top: 6px;
+        text-align: center;
+        background: rgba(255,255,255,.08);
+        color: #ddd;
+        border-radius: 8px;
+        padding: 4px 8px;
+        display: inline-block;
+      }
+    `;
+    document.head.appendChild(css);
   }
 
   async function imgCell(id, {label=null, spouse=false}={}){
@@ -101,17 +142,12 @@
     cap.className = "label";
     cap.textContent = label ?? String(id);
     cell.appendChild(cap);
-
-    cell.addEventListener("click", ()=>{
-      pushHistory(anchorId);
-      spouseViewOf = null;
-      setAnchor(id);
-      if (overlayActive) closeOverlay();
-    });
+    cell.addEventListener("click", ()=>{ pushHistory(anchorId); spouseViewOf=null; setAnchor(id); if (overlayActive) closeOverlay(); });
     return cell;
   }
 
   async function renderAnchor(id){
+    ensureAnchorFullFitStyles();
     anchorArea.innerHTML = "";
     const wrap = document.createElement("div");
     wrap.className = "cell";
@@ -119,7 +155,7 @@
     try{
       const url = await loadPersonImageUrl(id, false);
       const img = document.createElement("img");
-      img.className = "person";
+      img.className = "person anchor-fit"; // fit class prevents cropping
       img.alt = String(id);
       img.src = url;
       wrap.appendChild(img);
@@ -131,32 +167,32 @@
     anchorArea.appendChild(wrap);
   }
 
-  // Parents lane (on-demand)
-  function showParentsLane(){ parentsLaneTitle.textContent = "Parents"; parentsLane.classList.remove("hidden"); }
-  function hideParentsLane(){ parentsLane.classList.add("hidden"); parentsGrid.innerHTML=""; }
+  // ===== Parents (on-demand) =====
+  function showParentsLane(){ if (!parentsLane) return; parentsLaneTitle.textContent="Parents"; parentsLane.classList.remove("hidden"); }
+  function hideParentsLane(){ if (!parentsLane) return; parentsLane.classList.add("hidden"); parentsGrid.innerHTML=""; }
   async function renderParents(id){
     parentsGrid.innerHTML = "";
     if (isBaseGeneration(id)) return hideParentsLane();
     const p = parentIdOf(id);
     if (!p) return hideParentsLane();
     showParentsLane();
-    parentsGrid.appendChild(await imgCell(p, {label:`${p} (Parent)`}));
-    try{ parentsGrid.appendChild(await imgCell(p, {label:`${p}.1 (Parent 2)`, spouse:true})); }catch{}
+    parentsGrid.appendChild(await imgCell(p,{label:`${p} (Parent)`}));
+    try{ parentsGrid.appendChild(await imgCell(p,{label:`${p}.1 (Parent 2)`, spouse:true})); }catch{}
   }
 
-  // Children/Siblings lane infra (children uses lane, siblings uses overlay)
-  function showChildrenLane(title){ childrenLaneTitle.textContent = title; childrenLane.classList.remove("hidden"); }
-  function hideChildrenLane(){ childrenLane.classList.add("hidden"); childrenGrid.innerHTML=""; }
+  // ===== Children (on-demand) =====
+  function showChildrenLane(title){ if (!childrenLane) return; childrenLaneTitle.textContent=title; childrenLane.classList.remove("hidden"); }
+  function hideChildrenLane(){ if (!childrenLane) return; childrenLane.classList.add("hidden"); childrenGrid.innerHTML=""; }
   async function renderChildren(id){
     showChildrenLane("Children");
-    childrenGrid.innerHTML = "";
+    childrenGrid.innerHTML="";
     for (const kid of childrenOf(id)) childrenGrid.appendChild(await imgCell(kid,{label:`${kid} (Child)`}));
   }
 
-  // ---------- SIBLINGS OVERLAY -----------
-  let overlayActive = false;
+  // ===== Siblings Overlay =====
+  let overlayActive=false;
   function ensureOverlayStyles(){
-    if ($("#stOverlayStyles")) return;
+    if (document.getElementById("stOverlayStyles")) return;
     const css = document.createElement("style");
     css.id = "stOverlayStyles";
     css.textContent = `
@@ -198,10 +234,9 @@
     grid.id = "stOverlayGrid";
     body.appendChild(grid);
 
-    overlay.appendChild(bar);
-    overlay.appendChild(body);
+    overlay.appendChild(bar); overlay.appendChild(body);
 
-    // swipe-down-to-close inside overlay
+    // swipe-down-to-close
     let t=false,sx=0,sy=0,dx=0,dy=0;
     overlay.addEventListener("pointerdown",(e)=>{ t=true; sx=e.clientX; sy=e.clientY; dx=dy=0; });
     overlay.addEventListener("pointermove",(e)=>{ if(!t) return; dx=e.clientX-sx; dy=e.clientY-sy; });
@@ -215,17 +250,17 @@
   function closeOverlay(){
     overlayActive = false;
     document.body.classList.remove("st-overlay-active");
-    const ov = $("#stOverlay");
+    const ov = document.getElementById("stOverlay");
     if (ov) ov.remove();
   }
   async function showSiblingsOverlay(id){
     const grid = openOverlay();
-    grid.innerHTML = "";
+    grid.innerHTML="";
     const sibs = siblingsOf(id);
-    for (const s of sibs) grid.appendChild(await imgCell(s, {label:`${s} (Sibling)`}));
+    for (const s of sibs) grid.appendChild(await imgCell(s,{label:`${s} (Sibling)`}));
   }
 
-  // ----- anchor / history -----
+  // ===== Anchor / History =====
   async function setAnchor(id){
     anchorId = Number(id);
     await renderAnchor(anchorId);
@@ -242,7 +277,7 @@
     setAnchor(prev);
   }
 
-  // spouse toggle
+  // ===== Spouse toggle =====
   async function tryShowSpouse(){
     if (spouseViewOf!=null){
       const o = spouseViewOf;
@@ -258,7 +293,7 @@
       cell.className = "cell";
       cell.dataset.id = `${anchorId}.1`;
       const img = document.createElement("img");
-      img.className = "person";
+      img.className = "person anchor-fit"; // fit spouse solo as well
       img.alt = `${anchorId}.1 (spouse)`;
       img.src = `${IMAGE_BASE}${anchorId}.1.jpg`;
       cell.appendChild(img);
@@ -271,7 +306,7 @@
     }catch(err){ console.warn(err.message); }
   }
 
-  // gestures
+  // ===== Gestures =====
   let tracking=false,startX=0,startY=0,dx=0,dy=0;
   const SWIPE_THRESHOLD=50;
   function onPointerDown(e){ tracking=true; startX=e.clientX; startY=e.clientY; dx=dy=0; }
@@ -290,10 +325,8 @@
     }
   }
 
-  // don't block scroll when overlay is open
   document.addEventListener("touchmove",(e)=>{ if(!overlayActive) e.preventDefault(); },{passive:false});
   document.addEventListener("gesturestart",(e)=>e.preventDefault());
-
   stage.addEventListener("pointerdown", onPointerDown);
   stage.addEventListener("pointermove", onPointerMove);
   stage.addEventListener("pointerup", onPointerUp);
@@ -301,9 +334,9 @@
   backBtn.addEventListener("click", goBack);
 
   // start prompt
-  startBtn.addEventListener("click",()=>{ promptModal.classList.remove("hidden"); startInput.value=""; startInput.focus(); });
-  cancelStart.addEventListener("click",()=>promptModal.classList.add("hidden"));
-  confirmStart.addEventListener("click",()=>{
+  startBtn?.addEventListener("click",()=>{ promptModal.classList.remove("hidden"); startInput.value=""; startInput.focus(); });
+  cancelStart?.addEventListener("click",()=>promptModal.classList.add("hidden"));
+  confirmStart?.addEventListener("click",()=>{
     const v = startInput.value.trim();
     if (!/^\d+(\.1)?$/.test(v)){ startInput.focus(); return; }
     promptModal.classList.add("hidden");
@@ -311,7 +344,7 @@
     spouseViewOf = null;
     setAnchor(Number(v.replace(".1","")));
   });
-  startInput.addEventListener("keydown",(e)=>{ if(e.key==="Enter") confirmStart.click(); if(e.key==="Escape") cancelStart.click(); });
+  startInput?.addEventListener("keydown",(e)=>{ if(e.key==="Enter") confirmStart.click(); if(e.key==="Escape") cancelStart.click(); });
 
   // boot
   window.addEventListener("load",()=>{
