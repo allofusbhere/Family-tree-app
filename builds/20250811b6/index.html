@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>SwipeTree — iPad Test Build (20250811b6)</title>
+  <link rel="stylesheet" href="style.20250811b6.css" />
+  <script>window.IMAGE_BASE_URL = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";</script>
+</head>
+<body>
+  <div id="app" class="app" tabindex="0">
+    <header class="topbar">
+      <div class="brand">SwipeTree <span class="ver">• 20250811b6</span></div>
+      <div class="controls">
+        <button id="startBtn" class="btn small">START</button>
+        <button id="backBtn" class="btn small">BACK</button>
+      </div>
+    </header>
+
+    <main id="stage" class="stage" aria-live="polite">
+      <section class="lane parents" aria-label="Parents">
+        <div class="lane-title">Parents</div>
+        <div id="parentsGrid" class="grid"></div>
+      </section>
+
+      <section class="lane anchor" aria-label="Anchor">
+        <div class="lane-title">Anchor</div>
+        <div id="anchorArea" class="anchor-wrap"></div>
+      </section>
+
+      <section class="lane children" aria-label="Children">
+        <div class="lane-title">Children</div>
+        <div id="childrenGrid" class="grid"></div>
+      </section>
+    </main>
+
+    <div id="promptModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-card">
+        <h2 id="modalTitle">Set Starting ID</h2>
+        <input id="startInput" type="text" inputmode="numeric" placeholder="e.g., 140000" />
+        <div class="row">
+          <button id="confirmStart" class="btn">Load</button>
+          <button id="cancelStart" class="btn ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.20250811b6.js"></script>
+</body>
+</html>
