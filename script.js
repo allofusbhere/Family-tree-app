@@ -1,211 +1,166 @@
-// ===== SwipeTree GitHub CDN Script (2025-08-12 — patch A) =====
-const startBtn = document.getElementById('startBtn');
-const backBtn = document.getElementById('backBtn');
-const settingsBtn = document.getElementById('settingsBtn');
-const anchorImg = document.getElementById('anchorImg');
-const anchorCaption = document.getElementById('anchorCaption');
-const gridArea = document.getElementById('gridArea');
-const stage = document.getElementById('stage');
+// SwipeTree — ButtonsOnly Fixed (siblings calc corrected)
+(function(){
+  const q = (sel, el=document) => el.querySelector(sel);
+  const grid = q('#grid');
+  const anchorWrap = q('#anchorWrap');
+  const anchorImg  = q('#anchorImg');
+  const anchorLabel= q('#anchorLabel');
 
-let historyStack = [];
-let anchorId = null;
-let mode = null; // 'parents'|'children'|'siblings'|'spouse'
+  const btnStart = q('#btnStart');
+  const btnBack = q('#btnBack');
+  const btnParent = q('#btnParent');
+  const btnSiblings = q('#btnSiblings');
+  const btnChildren = q('#btnChildren');
 
-// ===== Settings: BASE_URL for images =====
-const DEFAULT_BASE_URL = "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/";
-function getBaseUrl() {
-  const v = localStorage.getItem('swipetree:base_url');
-  return v ? v : DEFAULT_BASE_URL;
-}
-function setBaseUrl(u) {
-  localStorage.setItem('swipetree:base_url', u);
-}
+  const exts = ['.jpg', '.JPG', '.jpeg', '.png', '.PNG', '.JPEG'];
+  let anchorId = null;
+  let historyStack = [];
 
-// ===== Profile storage (name/DOB) =====
-function idKey(id) { return `profile:${id}`; }
-function saveProfile(id, data) { localStorage.setItem(idKey(id), JSON.stringify(data)); }
-function loadProfile(id) {
-  try { return JSON.parse(localStorage.getItem(idKey(id))) || null; } catch { return null; }
-}
-function captionFor(id) {
-  const p = loadProfile(id);
-  const name = (p && p.name) ? p.name : "";
-  const dob  = (p && p.dob)  ? p.dob  : "";
-  if (name || dob) {
-    const sep = (name && dob) ? " · " : "";
-    return `${name}${sep}${dob}`;
-  }
-  return "";
-}
-
-// ===== Robust image loader with extension fallbacks =====
-const EXT_CANDIDATES = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"];
-function setImageWithFallback(imgEl, id, onDone) {
-  const base = getBaseUrl();
-  let i = 0;
-  function tryNext() {
-    if (i >= EXT_CANDIDATES.length) { if (onDone) onDone(false); return; }
-    const url = `${base}${id}${EXT_CANDIDATES[i++]}`;
-    imgEl.onerror = tryNext;
-    imgEl.onload = () => { if (onDone) onDone(true); };
-    imgEl.src = url;
-    imgEl.alt = `${id}`;
-  }
-  tryNext();
-}
-
-// ===== Anchor handling =====
-function setAnchor(id, animateTrail = true) {
-  anchorId = id;
-  anchorImg.classList.remove('anchor-trail');
-  setImageWithFallback(anchorImg, id, function() {
-    if (animateTrail) requestAnimationFrame(function() { anchorImg.classList.add('anchor-trail'); });
-  });
-  anchorCaption.textContent = captionFor(id);
-}
-
-// ===== Double-tap editor (anchor & cells) =====
-const dblTapThreshold = 280;
-let lastTapTime = 0;
-function handleDoubleTap(targetId) {
-  const now = Date.now();
-  if (now - lastTapTime < dblTapThreshold) {
-    const current = loadProfile(targetId) || {};
-    const promptName = prompt('Edit name', current.name || '');
-    const name = ((promptName === null || promptName === undefined) ? current.name : promptName) || '';
-    const promptDob = prompt('Edit DOB', current.dob || '');
-    const dob  = ((promptDob === null || promptDob === undefined) ? current.dob : promptDob) || '';
-    saveProfile(targetId, { name, dob });
-    if (targetId === anchorId) {
-      anchorCaption.textContent = captionFor(targetId);
-    } else {
-      const label = gridArea.querySelector(`[data-id="${targetId}"] .label`);
-      if (label) label.textContent = captionFor(targetId);
+  function countTrailingZeros(n){
+    const s = String(n);
+    let c = 0;
+    for (let i = s.length-1; i >= 0; i--){
+      if (s[i] === '0') c++; else break;
     }
+    return c;
   }
-  lastTapTime = now;
-}
+  const pow10 = k => Math.pow(10, k);
 
-// ===== Tap highlight feedback =====
-function flashTap(el) {
-  el.classList.remove('tapped');
-  void el.offsetWidth;
-  el.classList.add('tapped');
-}
+  // Given a parent-like id, return its children ids
+  function getChildrenIds(parentId){
+    const tz = countTrailingZeros(parentId);
+    if (tz <= 0) return [];
+    const inc = pow10(tz - 1); // e.g., 140000 -> 1000
+    const out = [];
+    for (let k = 1; k <= 9; k++) out.push(parentId + k*inc);
+    return out;
+  }
 
-// ===== Swipe detection =====
-let touchStartX = 0, touchStartY = 0, swiping = false;
-stage.addEventListener('touchstart', function(e) {
-  const t = e.touches[0];
-  touchStartX = t.clientX; touchStartY = t.clientY;
-  swiping = true;
-}, { passive: true });
-stage.addEventListener('touchend', function(e) {
-  if (!swiping) return; swiping = false;
-  const t = e.changedTouches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
-  const absX = Math.abs(dx), absY = Math.abs(dy);
-  const threshold = 40;
-  if (absX < threshold && absY < threshold) return;
-  if (absX > absY) { if (dx > 0) showSpouse(); else showSiblings(); }
-  else { if (dy > 0) showChildren(); else showParents(); }
-}, { passive: true });
+  // Parent of an id (e.g., 141000 -> 140000)
+  function getParentId(id){
+    const tz = countTrailingZeros(id);
+    const block = pow10(tz + 1);
+    const parent = Math.floor(id / block) * block;
+    return parent === id ? null : parent;
+  }
 
-// ===== Grid rendering =====
-function setGrid(items, kind, animInClass) {
-  mode = kind;
-  const n = items.length;
-  gridArea.className = `grid-area visible grid-${Math.max(1, Math.min(9, n || 1))}`;
-  gridArea.innerHTML = '';
+  // Siblings of an id: use the PARENT'S child increment (not the child's)
+  function getSiblingsIds(id){
+    const parent = getParentId(id);
+    if (!parent) return [];
+    const tzParent = countTrailingZeros(parent);
+    const inc = pow10(tzParent - 1); // e.g., parent 140000 -> 1000
+    const out = [];
+    for (let k = 1; k <= 9; k++){
+      const sib = parent + k*inc;
+      if (sib !== id) out.push(sib);
+    }
+    return out;
+  }
 
-  items.forEach(function(id) {
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    cell.dataset.id = String(id);
+  // Try to load id with multiple file extensions
+  function tryLoadImage(id, el){
+    let idx = 0;
+    function tryNext(){
+      if (idx >= exts.length){
+        el.dataset.missing = "1";
+        el.src = "";
+        el.parentElement?.classList.add('hidden');
+        return;
+      }
+      const url = `${id}${exts[idx]}`;
+      el.onerror = () => { idx++; tryNext(); };
+      el.onload = () => { el.dataset.missing = "0"; el.parentElement?.classList.remove('hidden'); };
+      el.src = url;
+    }
+    tryNext();
+  }
 
-    const img = document.createElement('img');
-    setImageWithFallback(img, id, function(ok) { if (!ok) cell.classList.add('hidden'); });
+  function setAnchor(id, pushHistory=true){
+    if (anchorId && pushHistory){
+      historyStack.push(anchorId);
+      btnBack.disabled = historyStack.length === 0;
+    }
+    anchorId = id;
+    grid.classList.add('hidden');
+    anchorWrap.classList.remove('hidden');
 
-    const label = document.createElement('div');
-    label.className = 'label';
-    label.textContent = captionFor(id);
+    btnParent.disabled = getParentId(anchorId) == null;
+    btnSiblings.disabled = false;
+    btnChildren.disabled = false;
 
-    cell.appendChild(img);
-    cell.appendChild(label);
-    gridArea.appendChild(cell);
+    anchorWrap.classList.remove('highlight');
+    tryLoadImage(anchorId, anchorImg);
+  }
 
-    cell.addEventListener('touchstart', function() { flashTap(cell); handleDoubleTap(id); }, { passive: true });
-    cell.addEventListener('click', function() { flashTap(cell); handleDoubleTap(id); });
+  function showGrid(ids, tagLabel){
+    anchorWrap.classList.add('hidden');
+    grid.innerHTML = "";
+    ids.slice(0,9).forEach((id, i) => {
+      const card = document.createElement('div');
+      card.className = 'grid-card';
+      const img = document.createElement('img');
+      const tag = document.createElement('div');
+      tag.className = 'tag';
+      tag.textContent = `${tagLabel} ${i+1}`;
+      card.appendChild(img);
+      card.appendChild(tag);
+      grid.appendChild(card);
+
+      tryLoadImage(id, img);
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setAnchor(id, true);
+      }, {passive:true});
+    });
+    grid.classList.remove('hidden');
+  }
+
+  // Buttons
+  btnStart.addEventListener('click', () => {
+    const v = prompt("Enter starting ID (e.g., 140000):", anchorId ?? "");
+    if (!v) return;
+    const id = parseInt(String(v).replace(/\D/g, ""), 10);
+    if (!Number.isFinite(id)) return;
+    setAnchor(id, false);
   });
 
-  gridArea.classList.add(animInClass);
-  setTimeout(function() { gridArea.classList.remove(animInClass); }, 260);
-}
+  btnBack.addEventListener('click', () => {
+    if (historyStack.length === 0) return;
+    const prev = historyStack.pop();
+    btnBack.disabled = historyStack.length === 0;
+    setAnchor(prev, false);
+  });
 
-function hideGrid() {
-  if (!gridArea.classList.contains('visible')) return;
-  gridArea.classList.add('slide-out-down');
-  setTimeout(function() { gridArea.classList.remove('visible', 'slide-out-down'); gridArea.innerHTML = ''; }, 200);
-}
+  btnParent.addEventListener('click', () => {
+    const p = getParentId(anchorId);
+    if (p) setAnchor(p, true);
+  });
 
-// ===== Relationship stubs (replace with your calculators) =====
-function getParents(id) {
-  const base = String(id).replace(/\..*$/, '');
-  const first = base[0] || '1';
-  const p1 = first + '00000';
-  const p2 = String(Number(first)+1) + '00000';
-  return [p1, p2];
-}
-function getChildren(id) {
-  const count = (Number(String(id).slice(-1)) % 5);
-  const plain = Number(String(id).replace(/\..*$/, ''));
-  const out = [];
-  for (let i=0;i<count;i++) out.push(plain + (i+1)*1000);
-  return out;
-}
-function getSiblings(id) {
-  const base = Number(String(id).slice(0,1)) * 100000;
-  return [base + 10000, base + 20000, base + 30000].filter(function(v){ return String(v) !== String(id); });
-}
-function getSpouse(id) {
-  const s = String(id);
-  return s.indexOf('.1') !== -1 ? s.replace('.1','') : s + '.1';
-}
+  btnSiblings.addEventListener('click', () => {
+    showGrid(getSiblingsIds(anchorId), "Sibling");
+  });
 
-// ===== Views =====
-function showParents()  { historyStack.push({ anchorId, mode }); setGrid(getParents(anchorId),  'parents',  'slide-in-up'); }
-function showChildren() { historyStack.push({ anchorId, mode }); setGrid(getChildren(anchorId), 'children', 'slide-in-down'); }
-function showSiblings() { historyStack.push({ anchorId, mode }); setGrid(getSiblings(anchorId), 'siblings', 'slide-in-left'); }
-function showSpouse()   { historyStack.push({ anchorId, mode }); setGrid([getSpouse(anchorId)], 'spouse', 'slide-in-right'); }
+  btnChildren.addEventListener('click', () => {
+    showGrid(getChildrenIds(anchorId), "Child");
+  });
 
-// ===== Buttons =====
-backBtn.addEventListener('click', function() {
-  if (!historyStack.length) { hideGrid(); return; }
-  hideGrid();
-  historyStack.pop();
-});
+  // Anchor gestures
+  anchorWrap.addEventListener('click', () => {
+    if (!grid.classList.contains('hidden')) return;
+    anchorWrap.classList.add('highlight');
+    setTimeout(() => anchorWrap.classList.remove('highlight'), 250);
+  }, {passive:true});
 
-startBtn.addEventListener('click', function() {
-  const input = prompt('Enter starting ID (e.g., 140000):', anchorId || '');
-  if (!input) return;
-  if (anchorId) historyStack.push({ anchorId, mode: null });
-  setAnchor(input);
-  hideGrid();
-});
+  anchorWrap.addEventListener('dblclick', () => {
+    if (!grid.classList.contains('hidden')) return;
+    const existing = localStorage.getItem(`name:${anchorId}`) || "";
+    const name = prompt("Edit name (stored locally):", existing);
+    if (name !== null){
+      localStorage.setItem(`name:${anchorId}`, name);
+      anchorLabel.textContent = name;
+      anchorLabel.style.display = name ? 'block' : 'none';
+    }
+  });
 
-settingsBtn.addEventListener('click', function() {
-  const current = getBaseUrl();
-  const next = prompt('Set image BASE URL (end with /)', current);
-  if (next && next.endsWith('/')) setBaseUrl(next);
-  else if (next) alert('Please ensure the URL ends with a slash /');
-});
-
-anchorImg.addEventListener('touchstart', function() { handleDoubleTap(anchorId); }, { passive: true });
-anchorImg.addEventListener('click', function() { handleDoubleTap(anchorId); });
-
-// ===== Init =====
-(function init() {
-  const initial = prompt('Enter starting ID (e.g., 140000):', '') || '140000';
-  setAnchor(initial, true);
 })();

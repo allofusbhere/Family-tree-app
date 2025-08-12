@@ -2,34 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>SwipeTree — GitHub CDN Build (2025-08-12 — patch A)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SwipeTree — ButtonsOnly Fixed</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
-    <header class="topbar">
-      <div class="brand">SwipeTree</div>
-      <div class="controls">
-        <button id="startBtn" class="btn">Start</button>
-        <button id="backBtn" class="btn">Back</button>
-        <button id="settingsBtn" class="btn">Settings</button>
-      </div>
-    </header>
+  <header class="topbar">
+    <div class="brand">SwipeTree</div>
+    <div class="controls">
+      <button id="btnStart" class="btn">Start</button>
+      <button id="btnBack" class="btn" disabled>Back</button>
+      <button id="btnParent" class="btn" disabled>Parent</button>
+      <button id="btnSiblings" class="btn" disabled>Siblings</button>
+      <button id="btnChildren" class="btn" disabled>Children</button>
+      <button id="btnSettings" class="btn btn-ghost">Settings</button>
+    </div>
+  </header>
 
-    <main id="stage" class="stage no-scroll">
-      <section id="anchorArea" class="anchor-area">
-        <img id="anchorImg" alt="Anchor" draggable="false" />
-        <div id="anchorCaption" class="caption"></div>
-      </section>
+  <main id="stage">
+    <div id="anchorWrap">
+      <img id="anchorImg" alt="anchor" />
+      <div id="anchorLabel"></div>
+    </div>
 
-      <section id="gridArea" class="grid-area"></section>
-    </main>
-
-    <footer class="bottombar">
-      <div class="hint">Swipe: ↑ Parents • ↓ Children • ← Siblings • → Spouse</div>
-    </footer>
-  </div>
+    <section id="grid" class="hidden"></section>
+  </main>
 
   <script src="script.js"></script>
 </body>
