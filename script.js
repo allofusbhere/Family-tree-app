@@ -1,4 +1,5 @@
-// SwipeTree — ButtonsOnly Fixed (siblings calc corrected)
+// SwipeTree — Full Replacement (2025-08-12)
+// Baseline behaviors + swipe gestures mapped to button actions.
 (function(){
   const q = (sel, el=document) => el.querySelector(sel);
   const grid = q('#grid');
@@ -19,24 +20,20 @@
   function countTrailingZeros(n){
     const s = String(n);
     let c = 0;
-    for (let i = s.length-1; i >= 0; i--){
-      if (s[i] === '0') c++; else break;
-    }
+    for (let i = s.length-1; i >= 0; i--) { if (s[i]==='0') c++; else break; }
     return c;
   }
-  const pow10 = k => Math.pow(10, k);
+  const pow10 = k => Math.pow(10,k);
 
-  // Given a parent-like id, return its children ids
   function getChildrenIds(parentId){
     const tz = countTrailingZeros(parentId);
     if (tz <= 0) return [];
-    const inc = pow10(tz - 1); // e.g., 140000 -> 1000
+    const inc = pow10(tz - 1);
     const out = [];
     for (let k = 1; k <= 9; k++) out.push(parentId + k*inc);
     return out;
   }
 
-  // Parent of an id (e.g., 141000 -> 140000)
   function getParentId(id){
     const tz = countTrailingZeros(id);
     const block = pow10(tz + 1);
@@ -44,12 +41,11 @@
     return parent === id ? null : parent;
   }
 
-  // Siblings of an id: use the PARENT'S child increment (not the child's)
   function getSiblingsIds(id){
     const parent = getParentId(id);
     if (!parent) return [];
     const tzParent = countTrailingZeros(parent);
-    const inc = pow10(tzParent - 1); // e.g., parent 140000 -> 1000
+    const inc = pow10(tzParent - 1);
     const out = [];
     for (let k = 1; k <= 9; k++){
       const sib = parent + k*inc;
@@ -58,7 +54,6 @@
     return out;
   }
 
-  // Try to load id with multiple file extensions
   function tryLoadImage(id, el){
     let idx = 0;
     function tryNext(){
@@ -70,7 +65,7 @@
       }
       const url = `${id}${exts[idx]}`;
       el.onerror = () => { idx++; tryNext(); };
-      el.onload = () => { el.dataset.missing = "0"; el.parentElement?.classList.remove('hidden'); };
+      el.onload  = () => { el.dataset.missing = "0"; el.parentElement?.classList.remove('hidden'); };
       el.src = url;
     }
     tryNext();
@@ -106,12 +101,8 @@
       card.appendChild(img);
       card.appendChild(tag);
       grid.appendChild(card);
-
       tryLoadImage(id, img);
-      card.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setAnchor(id, true);
-      }, {passive:true});
+      card.addEventListener('click', (e) => { e.stopPropagation(); setAnchor(id, true); }, {passive:true});
     });
     grid.classList.remove('hidden');
   }
@@ -137,15 +128,33 @@
     if (p) setAnchor(p, true);
   });
 
-  btnSiblings.addEventListener('click', () => {
-    showGrid(getSiblingsIds(anchorId), "Sibling");
-  });
+  btnSiblings.addEventListener('click', () => showGrid(getSiblingsIds(anchorId), "Sibling"));
+  btnChildren.addEventListener('click', () => showGrid(getChildrenIds(anchorId), "Child"));
 
-  btnChildren.addEventListener('click', () => {
-    showGrid(getChildrenIds(anchorId), "Child");
-  });
+  // Swipes (only when grid hidden)
+  let sx=0, sy=0, st=0;
+  const SWIPE_MIN_DIST = 40, SWIPE_MAX_TIME = 800, SWIPE_DIR_RATIO = 1.25;
+  function onTouchStart(e){ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; st=Date.now(); }
+  function onTouchEnd(e){
+    const gridHidden = grid.classList.contains('hidden');
+    if (!gridHidden) return;
+    const t=e.changedTouches[0];
+    const dx=t.clientX-sx, dy=t.clientY-sy, dt=Date.now()-st;
+    if (dt>SWIPE_MAX_TIME) return;
+    const ax=Math.abs(dx), ay=Math.abs(dy);
+    if (ax<SWIPE_MIN_DIST && ay<SWIPE_MIN_DIST) return;
+    if (ax>ay*SWIPE_DIR_RATIO){
+      if (dx<0){ btnSiblings.click(); } // left
+    } else if (ay>ax*SWIPE_DIR_RATIO){
+      if (dy>0){ btnChildren.click(); } // down
+      else { btnParent.click(); }       // up
+    }
+  }
+  const stage=document.getElementById('stage');
+  stage.addEventListener('touchstart', onTouchStart, {passive:true});
+  stage.addEventListener('touchend', onTouchEnd, {passive:true});
 
-  // Anchor gestures
+  // Anchor taps
   anchorWrap.addEventListener('click', () => {
     if (!grid.classList.contains('hidden')) return;
     anchorWrap.classList.add('highlight');
@@ -162,5 +171,4 @@
       anchorLabel.style.display = name ? 'block' : 'none';
     }
   });
-
 })();
