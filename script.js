@@ -1,309 +1,253 @@
-/* SwipeTree — Swipe Grid Build (fix1, 2025-08-11)
-Fixes: center anchor, spouse toggle, back/start, up/down mapping, tap ack.
-*/
-(() => {
-  const CDN = (window.SWIPETREE_CDN_ROOT || "").trim().replace(/\/+$/, '/') + '';
-  const stage = document.getElementById('stage');
-  const gridA = document.getElementById('gridA');
-  const gridB = document.getElementById('gridB');
-  const toast = document.getElementById('toast');
-  const anchorLabel = document.getElementById('anchorLabel');
-  const backBtn = document.getElementById('backBtn');
-  const startBtn = document.getElementById('startBtn');
-  const parentBtn = document.getElementById('parentBtn');
-  const siblingsBtn = document.getElementById('siblingsBtn');
-  const childrenBtn = document.getElementById('childrenBtn');
-  const spouseBtn = document.getElementById('spouseBtn');
+// ===== SwipeTree iPad Test Script (2025-08-12) =====
+// Focus: (1) Hide unused grid cells + auto sizing, (2) Tap highlight feedback & visible anchor motion,
+// (3) Double-tap name/DOB editor, (4) Prevent "half-face" cropping via object-fit:contain & centering.
+// NOTE: Relationship calculations are assumed to exist; here we stub with demo functions so UI can be tested.
 
-  let activeGrid = gridA;
-  let bufferGrid = gridB;
-  let anchorId = null;
-  let startAnchor = null;
-  const historyStack = [];
+const startBtn = document.getElementById('startBtn');
+const backBtn = document.getElementById('backBtn');
+const anchorImg = document.getElementById('anchorImg');
+const anchorCaption = document.getElementById('anchorCaption');
+const gridArea = document.getElementById('gridArea');
+const stage = document.getElementById('stage');
 
-  const showToast = (msg) => {
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => toast.classList.remove('show'), 1400);
-  };
+let historyStack = [];
+let anchorId = null;
+let mode = null; // 'parents'|'children'|'siblings'|'spouse' for which grid is visible
 
-  const splitId = (idStr) => {
-    const [main, ext] = idStr.split('.', 2);
-    return { main, ext: ext || '' };
-  };
+// ===== Utilities =====
+function idKey(id) { return `profile:${id}`; }
+function saveProfile(id, data) {
+  localStorage.setItem(idKey(id), JSON.stringify(data));
+}
+function loadProfile(id) {
+  try {
+    return JSON.parse(localStorage.getItem(idKey(id))) || null;
+  } catch { return null; }
+}
+function nameFor(id) {
+  const p = loadProfile(id);
+  return p?.name || '';
+}
+function dobFor(id) {
+  const p = loadProfile(id);
+  return p?.dob || '';
+}
+function captionFor(id) {
+  const name = nameFor(id);
+  const dob = dobFor(id);
+  return name || dob ? `${name}${name && dob ? ' · ' : ''}${dob}` : '';
+}
 
-  const findRightmostNonZeroIndex = (numStr) => {
-    for (let i = numStr.length - 1; i >= 0; i--) {
-      if (numStr[i] !== '0') return i;
+// ===== Image helpers =====
+function imgPathFor(id) {
+  // Support .jpg/.JPG/.jpeg/.JPEG
+  // For cloud builds this could be a CDN base; for local tests files sit next to HTML.
+  const candidates = [`${id}.jpg`, `${id}.JPG`, `${id}.jpeg`, `${id}.JPEG`];
+  return candidates[0]; // UI only; actual existence is handled by <img onerror>
+}
+
+function setAnchor(id, animateTrail = true) {
+  anchorId = id;
+  const src = imgPathFor(id);
+  anchorImg.classList.remove('anchor-trail');
+  anchorImg.src = src;
+  anchorImg.alt = `Anchor ${id}`;
+  anchorCaption.textContent = captionFor(id);
+  // Reflow then animate subtle trail for visibility
+  if (animateTrail) requestAnimationFrame(() => anchorImg.classList.add('anchor-trail'));
+}
+
+// ===== Double-tap editor (works on anchor & grid cells) =====
+const dblTapThreshold = 280; // ms
+let lastTapTime = 0;
+function handleDoubleTap(targetId) {
+  const now = Date.now();
+  if (now - lastTapTime < dblTapThreshold) {
+    // Open inline prompts (minimal for now)
+    const current = loadProfile(targetId) || {};
+    const name = prompt('Edit name', current.name || '') ?? current.name || '';
+    const dob = prompt('Edit DOB', current.dob || '') ?? current.dob || '';
+    saveProfile(targetId, { name, dob });
+    if (targetId === anchorId) {
+      anchorCaption.textContent = captionFor(targetId);
+    } else {
+      const cell = gridArea.querySelector(`[data-id="${targetId}"] .label`);
+      if (cell) cell.textContent = captionFor(targetId);
     }
-    return -1;
-  };
+  }
+  lastTapTime = now;
+}
 
-  const computeParent = (idStr) => {
-    const { main } = splitId(idStr);
-    let s = main;
-    const idx = findRightmostNonZeroIndex(s);
-    if (idx <= 0) return null;
-    s = s.substring(0, idx) + '0' + s.substring(idx + 1);
-    s = s.substring(0, idx + 1) + '0'.repeat(s.length - (idx + 1));
-    return s;
-  };
+// ===== Tap highlight feedback =====
+function flashTap(el) {
+  el.classList.remove('tapped');
+  // force reflow so animation can replay
+  void el.offsetWidth;
+  el.classList.add('tapped');
+}
 
-  const computeChildren = (idStr) => {
-    const { main } = splitId(idStr);
-    const s = main;
-    const idx = findRightmostNonZeroIndex(s);
-    const childPos = idx + 1;
-    if (childPos >= s.length) return [];
-    const arr = [];
-    for (let d = 1; d <= 9; d++) {
-      const child = s.substring(0, childPos) + String(d) + '0'.repeat(s.length - childPos - 1);
-      arr.push(child);
-    }
-    return arr;
-  };
+// ===== Swipe detection =====
+let touchStartX = 0, touchStartY = 0;
+let swiping = false;
 
-  const computeSiblings = (idStr) => {
-    const { main } = splitId(idStr);
-    const s = main;
-    const idx = findRightmostNonZeroIndex(s);
-    if (idx <= 0) return [];
-    const siblings = [];
-    const currentDigit = Number(s[idx]);
-    for (let d = 1; d <= 9; d++) {
-      if (d === currentDigit) continue;
-      const sib = s.substring(0, idx) + String(d) + '0'.repeat(s.length - idx - 1);
-      siblings.push(sib);
-    }
-    return siblings;
-  };
+stage.addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  touchStartX = t.clientX; touchStartY = t.clientY;
+  swiping = true;
+}, { passive: true });
 
-  const computeSpouseId = async (idStr) => {
-    const { main, ext } = splitId(idStr);
-    const candidates = ext ? [main] : [`${main}.1`];
-    for (const c of candidates) {
-      const url = await loadFirstExisting(c);
-      if (url) return c;
-    }
-    return null;
-  };
+stage.addEventListener('touchmove', (e) => {
+  // We intentionally do not translate UI with finger to keep it snappy & simple.
+}, { passive: true });
 
-  const EXT_LIST = ['.jpg','.JPG','.jpeg','.JPEG','.png','.PNG'];
-  const urlForId = (idCore, ext) => CDN + idCore + ext;
+stage.addEventListener('touchend', (e) => {
+  if (!swiping) return;
+  swiping = false;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  const absX = Math.abs(dx), absY = Math.abs(dy);
+  const threshold = 40; // px
 
-  const loadFirstExisting = (idCore) => {
-    return new Promise((resolve) => {
-      let done = false;
-      const tryOne = (i) => {
-        if (done || i >= EXT_LIST.length) return resolve(null);
-        const testUrl = urlForId(idCore, EXT_LIST[i]);
-        const img = new Image();
-        img.onload = () => { done = true; resolve(testUrl); };
-        img.onerror = () => tryOne(i + 1);
-        img.decoding = 'async';
-        img.src = testUrl;
-      };
-      tryOne(0);
+  if (absX < threshold && absY < threshold) return; // tap, not swipe
+  if (absX > absY) {
+    if (dx > 0) showSpouse(); else showSiblings();
+  } else {
+    if (dy > 0) showChildren(); else showParents();
+  }
+});
+
+// ===== Grid rendering =====
+function setGrid(items, kind, animInClass) {
+  mode = kind;
+  // Decide columns based on count
+  const n = items.length;
+  gridArea.className = `grid-area visible grid-${Math.max(1, Math.min(9, n || 1))}`;
+
+  // Clear & rebuild
+  gridArea.innerHTML = '';
+  items.forEach(id => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.id = String(id);
+
+    const img = document.createElement('img');
+    img.alt = `${kind} ${id}`;
+    img.src = imgPathFor(id);
+    img.onerror = () => {
+      // Hide cell if image missing
+      cell.classList.add('hidden');
+    };
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = captionFor(id);
+
+    cell.appendChild(img);
+    cell.appendChild(label);
+    gridArea.appendChild(cell);
+
+    // Tap / double-tap handlers
+    cell.addEventListener('touchstart', () => {
+      flashTap(cell);
+      handleDoubleTap(id);
+    }, { passive: true });
+
+    cell.addEventListener('click', () => {
+      flashTap(cell);
+      handleDoubleTap(id);
     });
-  };
-
-  const loadManyExisting = async (ids) => {
-    const out = [];
-    for (const id of ids) {
-      const url = await loadFirstExisting(id);
-      if (url) out.push({ id, url });
-    }
-    return out;
-  };
-
-  const setAnchor = async (newAnchor, pushHistory = true, animateDir = 'none') => {
-    if (!newAnchor) return;
-    if (pushHistory && anchorId) historyStack.push(anchorId);
-    anchorId = newAnchor;
-    anchorLabel.textContent = `Anchor: ${anchorId}`;
-    const url = await loadFirstExisting(anchorId);
-    await renderCards(url ? [{ id: anchorId, url }] : [], animateDir);
-  };
-
-  const swapGrids = () => {
-    activeGrid.classList.remove('active');
-    bufferGrid.classList.add('active');
-    [activeGrid, bufferGrid] = [bufferGrid, activeGrid];
-    bufferGrid.style.transform = 'translate3d(0,0,0)';
-    bufferGrid.classList.remove('single');
-    bufferGrid.innerHTML = '';
-  };
-
-  const renderCards = async (items, direction) => {
-    bufferGrid.innerHTML = '';
-    bufferGrid.classList.remove('single');
-
-    if (!items || items.length === 0 || !items[0] || !items[0].url) {
-      const anchorUrl = await loadFirstExisting(anchorId);
-      if (anchorUrl) items = [{ id: anchorId, url: anchorUrl }];
-      else items = [];
-    }
-
-    items.forEach(({ id, url }) => {
-      const card = document.createElement('div');
-      card.className = 'card';
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = id;
-      img.draggable = false;
-      const tag = document.createElement('div');
-      tag.className = 'tag';
-      tag.textContent = id;
-      card.appendChild(img);
-      card.appendChild(tag);
-
-      const acknowledgeTap = () => {
-        card.classList.add('tapped');
-        setTimeout(() => card.classList.remove('tapped'), 160);
-      };
-      card.addEventListener('touchstart', acknowledgeTap, { passive:true });
-      card.addEventListener('mousedown', acknowledgeTap);
-      card.addEventListener('click', () => setAnchor(id));
-
-      bufferGrid.appendChild(card);
-    });
-
-    if (items.length === 1) bufferGrid.classList.add('single');
-
-    const w = stage.clientWidth;
-    const h = stage.clientHeight;
-
-    const dir = direction || 'none';
-    let from = 'translate3d(0,0,0)';
-    let to = 'translate3d(0,0,0)';
-    if (dir === 'left')  { from = `translate3d(${w}px,0,0)`; to = `translate3d(-${w}px,0,0)`; }
-    if (dir === 'right') { from = `translate3d(-${w}px,0,0)`; to = `translate3d(${w}px,0,0)`; }
-    if (dir === 'up')    { from = `translate3d(0,${h}px,0)`; to = `translate3d(0,-${h}px,0)`; }
-    if (dir === 'down')  { from = `translate3d(0,-${h}px,0)`; to = `translate3d(0,${h}px,0)`; }
-
-    bufferGrid.style.transform = from;
-    bufferGrid.classList.add('active');
-    activeGrid.classList.remove('active');
-
-    bufferGrid.getBoundingClientRect();
-    bufferGrid.style.transform = 'translate3d(0,0,0)';
-    activeGrid.style.transform = to;
-
-    return new Promise((resolve) => {
-      const onEnd = () => {
-        activeGrid.removeEventListener('transitionend', onEnd);
-        swapGrids();
-        resolve();
-      };
-      activeGrid.addEventListener('transitionend', onEnd, { once: true });
-    });
-  };
-
-  const showChildren = async () => {
-    const kids = computeChildren(anchorId);
-    const found = await loadManyExisting(kids);
-    if (found.length === 0) showToast('No children found');
-    await renderCards(found, 'down');
-  };
-
-  const showParents = async () => {
-    const p = computeParent(anchorId);
-    const arr = p ? [p] : [];
-    const found = await loadManyExisting(arr);
-    if (found.length === 0) showToast('No parent found');
-    await renderCards(found, 'up');
-  };
-
-  const showSiblings = async () => {
-    const sibs = computeSiblings(anchorId);
-    const found = await loadManyExisting(sibs);
-    if (found.length === 0) showToast('No siblings found');
-    await renderCards(found, 'left');
-  };
-
-  const toggleSpouse = async (dirHint = 'right') => {
-    const spouseId = await computeSpouseId(anchorId);
-    if (!spouseId) {
-      showToast('No spouse found');
-      await renderCards([], dirHint);
-      return;
-    }
-    const { ext } = splitId(anchorId);
-    const goingToSpouse = !ext;
-    await setAnchor(spouseId, true, goingToSpouse ? 'right' : 'left');
-  };
-
-  parentBtn.addEventListener('click', showParents);
-  siblingsBtn.addEventListener('click', showSiblings);
-  childrenBtn.addEventListener('click', showChildren);
-  spouseBtn.addEventListener('click', () => toggleSpouse('right'));
-  backBtn.addEventListener('click', () => {
-    const prev = historyStack.pop();
-    if (prev) setAnchor(prev, false, 'left');
-    else showToast('No history');
-  });
-  startBtn.addEventListener('click', () => {
-    if (startAnchor) setAnchor(startAnchor, true, 'up');
   });
 
-  let touchStartX = 0, touchStartY = 0, tracking = false, swipeLocked = false;
-  const THRESH = 32;
-  const ANGLE_GUARD = 1.25;
+  // Apply entrance animation to grid for visibility
+  gridArea.classList.add(animInClass);
+  setTimeout(() => gridArea.classList.remove(animInClass), 260);
 
-  const onTouchStart = (e) => {
-    if (swipeLocked) return;
-    const t = e.touches ? e.touches[0] : e;
-    touchStartX = t.clientX;
-    touchStartY = t.clientY;
-    tracking = true;
-  };
-  const onTouchMove = (e) => {
-    if (!tracking) return;
-    if (e.cancelable) e.preventDefault();
-  };
-  const onTouchEnd = async (e) => {
-    if (!tracking || swipeLocked) return;
-    tracking = false;
-    const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
-    const endX = t ? t.clientX : (e.clientX || touchStartX);
-    const endY = t ? t.clientY : (e.clientY || touchStartY);
-    const dx = endX - touchStartX;
-    const dy = endY - touchStartY;
+  // Hide anchor behind grid while grid is visible
+  // (anchor still centered; we keep it visible so the "trail" remains perceptible)
+}
 
-    if (Math.abs(dx) < THRESH && Math.abs(dy) < THRESH) return;
-    swipeLocked = true;
+// Hide grid (when moving back to anchor-only view)
+function hideGrid(animOutClass) {
+  if (!gridArea.classList.contains('visible')) return;
+  gridArea.classList.add(animOutClass);
+  setTimeout(() => {
+    gridArea.classList.remove('visible', animOutClass);
+    gridArea.innerHTML = '';
+  }, 200);
+}
 
-    try {
-      if (Math.abs(dx) > Math.abs(dy) * ANGLE_GUARD) {
-        if (dx > 0) await toggleSpouse('right'); else await showSiblings();
-      } else if (Math.abs(dy) > Math.abs(dx) * ANGLE_GUARD) {
-        if (dy > 0) await showChildren(); else await showParents();
-      } else {
-        // ambiguous: ignore
-      }
-    } finally {
-      setTimeout(() => { swipeLocked = false; }, 80);
-    }
-  };
+// ===== Relationship stubs (replace with real calculators in your build) =====
+function getParents(id) {
+  // Stub: if id ends with '000', return two placeholder-ish parent IDs
+  const base = String(id).replace(/\..*$/, '');
+  const p1 = base.length > 1 ? base[0] + '00000' : '000000';
+  const p2 = base.length > 1 ? String(Number(base[0]) + 1) + '00000' : '100000';
+  return [p1, p2];
+}
+function getChildren(id) {
+  // Stub: produce 0..5 synthetic children for demo
+  const count = (Number(String(id).slice(-1)) % 5);
+  return Array.from({length: count}, (_,i) => Number(id) + (i+1) * 1000);
+}
+function getSiblings(id) {
+  // Stub: some synthetic siblings for demo
+  const base = Number(String(id).slice(0,1)) * 100000;
+  return [base + 10000, base + 20000, base + 30000].filter(v => String(v) !== String(id));
+}
+function getSpouse(id) {
+  // Supports .1 partner variant
+  const s = String(id);
+  return s.includes('.1') ? s.replace('.1','') : s + '.1';
+}
 
-  stage.addEventListener('touchstart', onTouchStart, { passive: false });
-  stage.addEventListener('touchmove', onTouchMove, { passive: false });
-  stage.addEventListener('touchend', onTouchEnd, { passive: false });
-  stage.addEventListener('mousedown', onTouchStart);
-  window.addEventListener('mouseup', onTouchEnd);
+// ===== Navigation views =====
+function showParents() {
+  historyStack.push({ anchorId, mode });
+  const items = getParents(anchorId);
+  setGrid(items, 'parents', 'slide-in-up');
+}
+function showChildren() {
+  historyStack.push({ anchorId, mode });
+  const items = getChildren(anchorId);
+  setGrid(items, 'children', 'slide-in-down');
+}
+function showSiblings() {
+  historyStack.push({ anchorId, mode });
+  const items = getSiblings(anchorId);
+  setGrid(items, 'siblings', 'slide-in-left');
+}
+function showSpouse() {
+  historyStack.push({ anchorId, mode });
+  const sp = getSpouse(anchorId);
+  setGrid([sp], 'spouse', 'slide-in-right');
+}
 
-  ['gesturestart','gesturechange','gestureend'].forEach(evt => {
-    window.addEventListener(evt, (e) => e.preventDefault(), { passive:false });
-  });
+// ===== Back & Start =====
+backBtn.addEventListener('click', () => {
+  if (!historyStack.length) { hideGrid('slide-out-down'); return; }
+  // First hide current grid
+  hideGrid('slide-out-down');
+  const prev = historyStack.pop();
+  // Return to previous anchor view (we keep same anchor)
+});
 
-  (async () => {
-    let start = window.localStorage.getItem('swipetree_start_id') || '';
-    if (!start) start = prompt('Enter starting ID (e.g., 140000):') || '';
-    start = (start || '').trim();
-    if (!start) start = '100000';
-    window.localStorage.setItem('swipetree_start_id', start);
-    startAnchor = start;
-    await setAnchor(start, false);
-  })();
+startBtn.addEventListener('click', () => {
+  const input = prompt('Enter starting ID (e.g., 140000):', anchorId || '');
+  if (!input) return;
+  // Push current to history then set
+  if (anchorId) historyStack.push({ anchorId, mode: null });
+  setAnchor(input);
+  hideGrid('slide-out-down');
+});
+
+// Clicking the anchor: double-tap edit & subtle trail
+anchorImg.addEventListener('touchstart', () => handleDoubleTap(anchorId), { passive: true });
+anchorImg.addEventListener('click', () => handleDoubleTap(anchorId));
+
+// ===== Init =====
+(function init() {
+  // Ask for an ID at launch to avoid hardcoding
+  const initial = prompt('Enter starting ID (e.g., 140000):', '') || '140000';
+  setAnchor(initial, /* trail */ true);
 })();
