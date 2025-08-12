@@ -1,165 +1,38 @@
-/* ===== SwipeTree GitHub CDN Styles (2025-08-12) ===== */
+/* (same CSS as prior build) */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
-body {
-  margin: 0;
-  background: #000;
-  color: #f2f2f2;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  touch-action: none;
-}
-
-.btn {
-  background: #1f1f1f;
-  border: 1px solid #333;
-  color: #eaeaea;
-  padding: 10px 14px;
-  border-radius: 14px;
-  font-size: 16px;
-}
+body { margin: 0; background: #000; color: #f2f2f2; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; touch-action: none; }
+.btn { background: #1f1f1f; border: 1px solid #333; color: #eaeaea; padding: 10px 14px; border-radius: 14px; font-size: 16px; }
 .btn:active { transform: translateY(1px); }
-
-.topbar, .bottombar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-}
+.topbar, .bottombar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; }
 .topbar { background: #0a0a0a; position: sticky; top: 0; z-index: 5; }
 .bottombar { opacity: 0.8; font-size: 14px; }
-
 .brand { font-weight: 700; letter-spacing: 0.4px; }
-
-.stage {
-  position: relative;
-  height: calc(100vh - 112px);
-  overflow: hidden;
-}
-
-.anchor-area {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  z-index: 1;
-  pointer-events: none;
-}
-
-#anchorImg {
-  max-width: min(85vw, 820px);
-  max-height: min(70vh, 820px);
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: 18px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-  transform: translateZ(0);
-}
-
-.caption {
-  text-align: center;
-  margin-top: 10px;
-  font-size: 16px;
-  color: #cfcfcf;
-}
-
-.grid-area {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-  align-content: center;
-  justify-items: center;
-  opacity: 0;
-  transform: translateY(10px);
-  pointer-events: none;
-}
-
-.grid-area.visible {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-  transition: opacity 180ms ease, transform 180ms ease;
-}
-
-.cell {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background: #101010;
-  border: 1px solid #222;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  position: relative;
-}
+.stage { position: relative; height: calc(100vh - 112px); overflow: hidden; }
+.anchor-area { position: absolute; inset: 0; display: grid; place-items: center; z-index: 1; pointer-events: none; }
+#anchorImg { max-width: min(85vw, 820px); max-height: min(70vh, 820px); width: auto; height: auto; object-fit: contain; border-radius: 18px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); transform: translateZ(0); }
+.caption { text-align: center; margin-top: 10px; font-size: 16px; color: #cfcfcf; }
+.grid-area { position: absolute; inset: 0; display: grid; gap: 10px; padding: 16px; align-content: center; justify-items: center; opacity: 0; transform: translateY(10px); pointer-events: none; }
+.grid-area.visible { opacity: 1; transform: translateY(0); pointer-events: auto; transition: opacity 180ms ease, transform 180ms ease; }
+.cell { width: 100%; aspect-ratio: 1 / 1; background: #101010; border: 1px solid #222; border-radius: 14px; display: grid; place-items: center; overflow: hidden; position: relative; }
 .cell.hidden { display: none; }
-
-.cell img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  user-select: none;
-  pointer-events: none;
-}
-
-.cell .label {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: #ddd;
-  background: rgba(0,0,0,0.45);
-  border-radius: 10px;
-}
-
-/* Tap highlight feedback */
-.cell.tapped::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 14px;
-  outline: 3px solid rgba(255,255,255,0.75);
-  filter: drop-shadow(0 0 8px rgba(255,255,255,0.35));
-  animation: tapfade 380ms ease-out forwards;
-}
-@keyframes tapfade {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-/* Swipe slide animations */
+.cell img { width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; }
+.cell .label { position: absolute; left: 8px; bottom: 8px; padding: 4px 8px; font-size: 12px; color: #ddd; background: rgba(0,0,0,0.45); border-radius: 10px; }
+.cell.tapped::after { content: ""; position: absolute; inset: 0; border-radius: 14px; outline: 3px solid rgba(255,255,255,0.75); filter: drop-shadow(0 0 8px rgba(255,255,255,0.35)); animation: tapfade 380ms ease-out forwards; }
+@keyframes tapfade { from { opacity: 1; } to { opacity: 0; } }
 .slide-in-left  { animation: slideInLeft  220ms ease both; }
 .slide-in-right { animation: slideInRight 220ms ease both; }
 .slide-in-up    { animation: slideInUp    220ms ease both; }
 .slide-in-down  { animation: slideInDown  220ms ease both; }
 .slide-out-down { animation: slideOutDown 200ms ease both; }
-
 @keyframes slideInLeft  { from { transform: translateX(12%); opacity: 0; filter: blur(2px);} to { transform: translateX(0); opacity: 1; filter: blur(0);} }
 @keyframes slideInRight { from { transform: translateX(-12%); opacity: 0; filter: blur(2px);} to { transform: translateX(0); opacity: 1; filter: blur(0);} }
 @keyframes slideInUp    { from { transform: translateY(12%); opacity: 0; filter: blur(2px);} to { transform: translateY(0); opacity: 1; filter: blur(0);} }
 @keyframes slideInDown  { from { transform: translateY(-12%); opacity: 0; filter: blur(2px);} to { transform: translateY(0); opacity: 1; filter: blur(0);} }
 @keyframes slideOutDown { to   { transform: translateY(12%); opacity: 0; filter: blur(2px);} }
-
-/* Anchor "trail" */
 .anchor-trail { animation: anchorTrail 260ms ease-out both; }
-@keyframes anchorTrail {
-  0% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: translateY(0); }
-  60% { filter: drop-shadow(0 0 18px rgba(255,255,255,0.35)); transform: translateY(-3px); }
-  100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: translateY(0); }
-}
-
-/* Dynamic grid sizing by count */
+@keyframes anchorTrail { 0% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: translateY(0); } 60% { filter: drop-shadow(0 0 18px rgba(255,255,255,0.35)); transform: translateY(-3px); } 100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: translateY(0); } }
 .grid-1  { grid-template-columns: 1fr; }
-.grid-2,
-.grid-3  { grid-template-columns: repeat(2, 1fr); }
-.grid-4,
-.grid-5,
-.grid-6,
-.grid-7,
-.grid-8,
-.grid-9  { grid-template-columns: repeat(3, 1fr); }
-
+.grid-2, .grid-3 { grid-template-columns: repeat(2, 1fr); }
+.grid-4, .grid-5, .grid-6, .grid-7, .grid-8, .grid-9 { grid-template-columns: repeat(3, 1fr); }
 .no-scroll, .no-scroll * { overscroll-behavior: contain; }
