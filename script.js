@@ -1,6 +1,6 @@
-// SwipeTree — Full Replacement (2025-08-12)
-// Baseline behaviors + swipe gestures mapped to button actions.
+// SwipeTree — Multi-Base + Build Tag + Cache-Busted Images
 (function(){
+  const BUILD_TAG = (window.__BUILD_TAG__ || new URLSearchParams(location.search).get('build') || 'dev').trim();
   const q = (sel, el=document) => el.querySelector(sel);
   const grid = q('#grid');
   const anchorWrap = q('#anchorWrap');
@@ -13,14 +13,26 @@
   const btnSiblings = q('#btnSiblings');
   const btnChildren = q('#btnChildren');
 
+  // Display build tag in header & console for easy verification
+  const brand = q('#brand');
+  if (brand) brand.textContent = `SwipeTree • ${BUILD_TAG}`;
+  console.info('[SwipeTree] Build:', BUILD_TAG);
+
+  // Images may live in a separate repo/folder. Try multiple bases then extensions.
+  const IMAGE_BASES = [
+    "./",
+    "https://allofusbhere.github.io/family-tree-images/",
+    "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/"
+  ];
   const exts = ['.jpg', '.JPG', '.jpeg', '.png', '.PNG', '.JPEG'];
+
   let anchorId = null;
   let historyStack = [];
 
   function countTrailingZeros(n){
     const s = String(n);
     let c = 0;
-    for (let i = s.length-1; i >= 0; i--) { if (s[i]==='0') c++; else break; }
+    for (let i = s.length-1; i >= 0; i--){ if (s[i]==='0') c++; else break; }
     return c;
   }
   const pow10 = k => Math.pow(10,k);
@@ -54,17 +66,26 @@
     return out;
   }
 
+  // Try multiple base URLs and extensions; append cache-buster so Safari/iPad fetches fresh
   function tryLoadImage(id, el){
-    let idx = 0;
+    let baseIdx = 0, extIdx = 0;
     function tryNext(){
-      if (idx >= exts.length){
+      if (baseIdx >= IMAGE_BASES.length){
         el.dataset.missing = "1";
         el.src = "";
         el.parentElement?.classList.add('hidden');
         return;
       }
-      const url = `${id}${exts[idx]}`;
-      el.onerror = () => { idx++; tryNext(); };
+      if (extIdx >= exts.length){ baseIdx++; extIdx = 0; }
+      if (baseIdx >= IMAGE_BASES.length){
+        el.dataset.missing = "1";
+        el.src = "";
+        el.parentElement?.classList.add('hidden');
+        return;
+      }
+      const cache = BUILD_TAG ? `?b=${encodeURIComponent(BUILD_TAG)}` : "";
+      const url = `${IMAGE_BASES[baseIdx]}${id}${exts[extIdx]}${cache}`;
+      el.onerror = () => { extIdx++; tryNext(); };
       el.onload  = () => { el.dataset.missing = "0"; el.parentElement?.classList.remove('hidden'); };
       el.src = url;
     }
