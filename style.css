@@ -1,6 +1,4 @@
-/* ===== SwipeTree iPad Test Styles (2025-08-12) ===== */
-
-/* Reset-ish */
+/* ===== SwipeTree GitHub CDN Styles (2025-08-12) ===== */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body {
@@ -8,7 +6,7 @@ body {
   background: #000;
   color: #f2f2f2;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  touch-action: none; /* stop native pinch/scroll fighting gestures */
+  touch-action: none;
 }
 
 .btn {
@@ -35,7 +33,6 @@ body {
 .stage {
   position: relative;
   height: calc(100vh - 112px);
-  /*  topbar + bottombar approximate total height  */
   overflow: hidden;
 }
 
@@ -45,7 +42,7 @@ body {
   display: grid;
   place-items: center;
   z-index: 1;
-  pointer-events: none; /* let swipes pass through */
+  pointer-events: none;
 }
 
 #anchorImg {
@@ -53,10 +50,9 @@ body {
   max-height: min(70vh, 820px);
   width: auto;
   height: auto;
-  object-fit: contain; /* prevents half-a-face cropping */
+  object-fit: contain;
   border-radius: 18px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-  image-rendering: auto;
   transform: translateZ(0);
 }
 
@@ -77,7 +73,7 @@ body {
   justify-items: center;
   opacity: 0;
   transform: translateY(10px);
-  pointer-events: none; /* disabled when hidden */
+  pointer-events: none;
 }
 
 .grid-area.visible {
@@ -103,9 +99,9 @@ body {
 .cell img {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* no cropping for grid images */
+  object-fit: contain;
   user-select: none;
-  pointer-events: none; /* we listen on the cell */
+  pointer-events: none;
 }
 
 .cell .label {
@@ -134,26 +130,20 @@ body {
   to { opacity: 0; }
 }
 
-/* Swipe slide animations (with a soft "trail") */
-.slide-out-left   { animation: slideOutLeft 220ms ease both; }
-.slide-in-left    { animation: slideInLeft  220ms ease both; }
-.slide-out-right  { animation: slideOutRight 220ms ease both; }
-.slide-in-right   { animation: slideInRight  220ms ease both; }
-.slide-out-up     { animation: slideOutUp 220ms ease both; }
-.slide-in-up      { animation: slideInUp  220ms ease both; }
-.slide-out-down   { animation: slideOutDown 220ms ease both; }
-.slide-in-down    { animation: slideInDown  220ms ease both; }
+/* Swipe slide animations */
+.slide-in-left  { animation: slideInLeft  220ms ease both; }
+.slide-in-right { animation: slideInRight 220ms ease both; }
+.slide-in-up    { animation: slideInUp    220ms ease both; }
+.slide-in-down  { animation: slideInDown  220ms ease both; }
+.slide-out-down { animation: slideOutDown 200ms ease both; }
 
-@keyframes slideOutLeft  { to { transform: translateX(-12%); opacity: 0.0; filter: blur(2px); } }
-@keyframes slideInLeft   { from { transform: translateX(12%); opacity: 0.0; filter: blur(2px);} to { transform: translateX(0); opacity: 1; filter: blur(0);} }
-@keyframes slideOutRight { to { transform: translateX(12%); opacity: 0.0; filter: blur(2px); } }
-@keyframes slideInRight  { from { transform: translateX(-12%); opacity: 0.0; filter: blur(2px);} to { transform: translateX(0); opacity: 1; filter: blur(0);} }
-@keyframes slideOutUp    { to { transform: translateY(-12%); opacity: 0.0; filter: blur(2px); } }
-@keyframes slideInUp     { from { transform: translateY(12%); opacity: 0.0; filter: blur(2px);} to { transform: translateY(0); opacity: 1; filter: blur(0);} }
-@keyframes slideOutDown  { to { transform: translateY(12%); opacity: 0.0; filter: blur(2px); } }
-@keyframes slideInDown   { from { transform: translateY(-12%); opacity: 0.0; filter: blur(2px);} to { transform: translateY(0); opacity: 1; filter: blur(0);} }
+@keyframes slideInLeft  { from { transform: translateX(12%); opacity: 0; filter: blur(2px);} to { transform: translateX(0); opacity: 1; filter: blur(0);} }
+@keyframes slideInRight { from { transform: translateX(-12%); opacity: 0; filter: blur(2px);} to { transform: translateX(0); opacity: 1; filter: blur(0);} }
+@keyframes slideInUp    { from { transform: translateY(12%); opacity: 0; filter: blur(2px);} to { transform: translateY(0); opacity: 1; filter: blur(0);} }
+@keyframes slideInDown  { from { transform: translateY(-12%); opacity: 0; filter: blur(2px);} to { transform: translateY(0); opacity: 1; filter: blur(0);} }
+@keyframes slideOutDown { to   { transform: translateY(12%); opacity: 0; filter: blur(2px);} }
 
-/* Anchor "trail" when it updates */
+/* Anchor "trail" */
 .anchor-trail { animation: anchorTrail 260ms ease-out both; }
 @keyframes anchorTrail {
   0% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: translateY(0); }
