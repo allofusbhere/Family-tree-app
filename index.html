@@ -3,23 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Morning Baseline (static placeholders)</title>
+  <title>SwipeTree — Morning Baseline (global stubs)</title>
   <link rel="stylesheet" href="./style.20250810-200501.css">
-  <style>
-    #bundle, #build, #buildId, #buildid, #buildLabel, #buildlabel, #buildText, #buildtext { display:none; }
-  </style>
 </head>
 <body>
-  <!-- Static legacy placeholders expected by the morning script -->
-  <span id="bundle"></span>
-  <span id="build"></span>
-  <span id="buildId"></span>
-  <span id="buildid"></span>
-  <span id="buildLabel"></span>
-  <span id="buildlabel"></span>
-  <span id="buildText"></span>
-  <span id="buildtext"></span>
-
   <header class="topbar">
     <div class="brand">SwipeTree</div>
     <div class="actions">
@@ -36,9 +23,38 @@
   </main>
 
   <footer class="hint">
-    Morning Baseline: static placeholders for legacy script; no new logic.
+    Morning Baseline test. No logic changed.
   </footer>
 
+  <!-- Define tolerant global stubs BEFORE the morning script runs -->
+  <script>
+    (function(){
+      function noEl(id){
+        return {
+          _t: '',
+          set textContent(v){ this._t = v; },
+          get textContent(){ return this._t; }
+        };
+      }
+      var ids = ['bundle','build','buildId','buildid','buildLabel','buildlabel','buildText','buildtext'];
+      ids.forEach(function(id){
+        var el = document.getElementById(id);
+        if (!el) {
+          // Create hidden span for DOM lookup
+          el = document.createElement('span');
+          el.id = id;
+          el.style.display = 'none';
+          document.body.appendChild(el);
+        }
+        // Also expose as globals in case legacy code uses a global var
+        if (!(id in window) || window[id] == null) {
+          try { window[id] = el || noEl(id); } catch (e) {}
+        }
+      });
+    })();
+  </script>
+
+  <!-- Load the known-good morning script -->
   <script src="./script.20250810-200501.js"></script>
 </body>
 </html>
