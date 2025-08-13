@@ -4,10 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SwipeTree — Stable (Morning Build)</title>
-  <!-- Point to the morning versions already in your repo -->
+  <!-- Use the morning CSS/JS already in your repo -->
   <link rel="stylesheet" href="./style.20250810-200501.css">
+  <style>
+    /* keep placeholders invisible */
+    #build, #buildId, #buildLabel { display:none; }
+  </style>
 </head>
 <body>
+  <!-- placeholders required by the morning script -->
+  <span id="build"></span>
+  <span id="buildId"></span>
+  <span id="buildLabel"></span>
+
   <header class="topbar">
     <div class="brand">SwipeTree</div>
     <div class="actions">
@@ -27,7 +36,6 @@
     Swipe: ↑ parents • ↓ children • ← siblings • → spouse / → back to spouse • Double-tap image to set a name.
   </footer>
 
-  <!-- Use the morning script -->
   <script src="./script.20250810-200501.js"></script>
 </body>
 </html>
