@@ -1,9 +1,13 @@
 
-/* SwipeTree script.js — 2025-08-13 (debug patch)
- * Adds console logging of each attempted image URL and includes PNG fallbacks.
+/* SwipeTree script.js — 2025-08-13 (stable image hosts)
+ * Minimal change: load images ONLY from jsDelivr and raw.githubusercontent.com.
+ * No dependency on GitHub Pages. Keeps double-tap naming, spouse/back, highlight.
  */
 (() => {
-  const IMG_BASE = 'https://allofusbhere.github.io/family-tree-images/';
+  const IMG_BASES = [
+    'https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/',
+    'https://raw.githubusercontent.com/allofusbhere/family-tree-images/main/',
+  ];
   const EXT_CANDIDATES = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG'];
   const DOUBLE_TAP_MS = 350;
 
@@ -22,28 +26,36 @@
     touch: { x0: 0, y0: 0, t0: 0 }
   };
 
-  function buildSrc(id, ext) {
-    return IMG_BASE + String(id).trim() + ext;
+  function buildSrc(base, id, ext) {
+    return base + String(id).trim() + ext;
   }
 
   function resolveImageSrc(id) {
     id = String(id).trim();
     return new Promise((resolve, reject) => {
-      let i = 0;
-      const tryNext = () => {
-        if (i >= EXT_CANDIDATES.length) {
-          reject(new Error('No matching extension found for ' + id));
+      let bi = 0, ei;
+      const tryNextBase = () => {
+        if (bi >= IMG_BASES.length) {
+          reject(new Error('No host had ' + id));
           return;
         }
-        const ext = EXT_CANDIDATES[i++];
-        const src = buildSrc(id, ext);
-        console.log('[SwipeTree] trying:', src);
-        const testImg = new Image();
-        testImg.onload = () => resolve(src);
-        testImg.onerror = tryNext;
-        testImg.src = src;
+        const base = IMG_BASES[bi++];
+        ei = 0;
+        const tryNextExt = () => {
+          if (ei >= EXT_CANDIDATES.length) {
+            tryNextBase();
+            return;
+          }
+          const ext = EXT_CANDIDATES[ei++];
+          const src = buildSrc(base, id, ext);
+          const testImg = new Image();
+          testImg.onload = () => resolve(src);
+          testImg.onerror = tryNextExt;
+          testImg.src = src;
+        };
+        tryNextExt();
       };
-      tryNext();
+      tryNextBase();
     });
   }
 
@@ -68,7 +80,6 @@
       setAnchorHighlight(true);
       renderCaption(state.anchorId);
     } catch (err) {
-      console.warn('Image not found for', id, err);
       el.anchorImg?.removeAttribute('src');
       state.anchorId = String(id).trim();
       if (pushHistory) state.history.push(state.anchorId);
