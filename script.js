@@ -1,171 +1,195 @@
+// SwipeTree — Multi-Base + Build Tag + Cache-Busted Images
+(function(){
+  const BUILD_TAG = (window.__BUILD_TAG__ || new URLSearchParams(location.search).get('build') || 'dev').trim();
+  const q = (sel, el=document) => el.querySelector(sel);
+  const grid = q('#grid');
+  const anchorWrap = q('#anchorWrap');
+  const anchorImg  = q('#anchorImg');
+  const anchorLabel= q('#anchorLabel');
 
-/* SwipeTree script.js — 2025-08-13 (stable image hosts)
- * Minimal change: load images ONLY from jsDelivr and raw.githubusercontent.com.
- * No dependency on GitHub Pages. Keeps double-tap naming, spouse/back, highlight.
- */
-(() => {
-  const IMG_BASES = [
-    'https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/',
-    'https://raw.githubusercontent.com/allofusbhere/family-tree-images/main/',
+  const btnStart = q('#btnStart');
+  const btnBack = q('#btnBack');
+  const btnParent = q('#btnParent');
+  const btnSiblings = q('#btnSiblings');
+  const btnChildren = q('#btnChildren');
+
+  // Display build tag in header & console for easy verification
+  const brand = q('#brand');
+  if (brand) brand.textContent = `SwipeTree • ${BUILD_TAG}`;
+  console.info('[SwipeTree] Build:', BUILD_TAG);
+
+  // Images may live in a separate repo/folder. Try multiple bases then extensions.
+  const IMAGE_BASES = [
+    "./",
+    "https://allofusbhere.github.io/family-tree-images/",
+    "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/"
   ];
-  const EXT_CANDIDATES = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG'];
-  const DOUBLE_TAP_MS = 350;
+  const exts = ['.jpg', '.JPG', '.jpeg', '.png', '.PNG', '.JPEG'];
 
-  const el = {
-    anchorImg: document.getElementById('anchorImg'),
-    anchorFrame: document.getElementById('anchorFrame') || document.body,
-    anchorCaption: document.getElementById('anchorCaption'),
-    btnStart: document.getElementById('btnStart'),
-    btnBack: document.getElementById('btnBack'),
-  };
+  let anchorId = null;
+  let historyStack = [];
 
-  const state = {
-    anchorId: null,
-    lastAnchorBeforeSpouse: null,
-    history: [],
-    touch: { x0: 0, y0: 0, t0: 0 }
-  };
+  function countTrailingZeros(n){
+    const s = String(n);
+    let c = 0;
+    for (let i = s.length-1; i >= 0; i--){ if (s[i]==='0') c++; else break; }
+    return c;
+  }
+  const pow10 = k => Math.pow(10,k);
 
-  function buildSrc(base, id, ext) {
-    return base + String(id).trim() + ext;
+  function getChildrenIds(parentId){
+    const tz = countTrailingZeros(parentId);
+    if (tz <= 0) return [];
+    const inc = pow10(tz - 1);
+    const out = [];
+    for (let k = 1; k <= 9; k++) out.push(parentId + k*inc);
+    return out;
   }
 
-  function resolveImageSrc(id) {
-    id = String(id).trim();
-    return new Promise((resolve, reject) => {
-      let bi = 0, ei;
-      const tryNextBase = () => {
-        if (bi >= IMG_BASES.length) {
-          reject(new Error('No host had ' + id));
-          return;
-        }
-        const base = IMG_BASES[bi++];
-        ei = 0;
-        const tryNextExt = () => {
-          if (ei >= EXT_CANDIDATES.length) {
-            tryNextBase();
-            return;
-          }
-          const ext = EXT_CANDIDATES[ei++];
-          const src = buildSrc(base, id, ext);
-          const testImg = new Image();
-          testImg.onload = () => resolve(src);
-          testImg.onerror = tryNextExt;
-          testImg.src = src;
-        };
-        tryNextExt();
-      };
-      tryNextBase();
-    });
+  function getParentId(id){
+    const tz = countTrailingZeros(id);
+    const block = pow10(tz + 1);
+    const parent = Math.floor(id / block) * block;
+    return parent === id ? null : parent;
   }
 
-  function setAnchorHighlight(on) {
-    el.anchorFrame?.classList.toggle('anchor-selected', !!on);
-  }
-  function saveName(id, name) { localStorage.setItem('swipetree:name:' + id, name); }
-  function getName(id) { return localStorage.getItem('swipetree:name:' + id) || ''; }
-  function renderCaption(id) {
-    if (!el.anchorCaption) return;
-    const saved = getName(id);
-    el.anchorCaption.textContent = saved ? saved : String(id);
-  }
-
-  async function showAnchor(id, pushHistory = true) {
-    if (!id) return;
-    try {
-      const src = await resolveImageSrc(id);
-      el.anchorImg.src = src;
-      state.anchorId = String(id).trim();
-      if (pushHistory) state.history.push(state.anchorId);
-      setAnchorHighlight(true);
-      renderCaption(state.anchorId);
-    } catch (err) {
-      el.anchorImg?.removeAttribute('src');
-      state.anchorId = String(id).trim();
-      if (pushHistory) state.history.push(state.anchorId);
-      setAnchorHighlight(true);
-      renderCaption(state.anchorId);
+  function getSiblingsIds(id){
+    const parent = getParentId(id);
+    if (!parent) return [];
+    const tzParent = countTrailingZeros(parent);
+    const inc = pow10(tzParent - 1);
+    const out = [];
+    for (let k = 1; k <= 9; k++){
+      const sib = parent + k*inc;
+      if (sib !== id) out.push(sib);
     }
+    return out;
   }
 
-  function goBack() {
-    if (state.history.length <= 1) return;
-    state.history.pop();
-    showAnchor(state.history[state.history.length - 1], false);
-  }
-
-  (function wireDoubleTap() {
-    let lastTap = 0;
-    const handler = () => {
-      const now = Date.now();
-      if (now - lastTap <= DOUBLE_TAP_MS) {
-        const current = state.anchorId || '';
-        const existing = getName(current);
-        const name = prompt('Set a display name for ' + current, existing || '');
-        if (name !== null) {
-          saveName(current, name.trim());
-          renderCaption(current);
-        }
+  // Try multiple base URLs and extensions; append cache-buster so Safari/iPad fetches fresh
+  function tryLoadImage(id, el){
+    let baseIdx = 0, extIdx = 0;
+    function tryNext(){
+      if (baseIdx >= IMAGE_BASES.length){
+        el.dataset.missing = "1";
+        el.src = "";
+        el.parentElement?.classList.add('hidden');
+        return;
       }
-      lastTap = now;
-    };
-    el.anchorImg?.addEventListener('touchend', handler);
-    el.anchorImg?.addEventListener('dblclick', () => {
-      const current = state.anchorId || '';
-      const existing = getName(current);
-      const name = prompt('Set a display name for ' + current, existing || '');
-      if (name !== null) {
-        saveName(current, name.trim());
-        renderCaption(current);
+      if (extIdx >= exts.length){ baseIdx++; extIdx = 0; }
+      if (baseIdx >= IMAGE_BASES.length){
+        el.dataset.missing = "1";
+        el.src = "";
+        el.parentElement?.classList.add('hidden');
+        return;
       }
+      const cache = BUILD_TAG ? `?b=${encodeURIComponent(BUILD_TAG)}` : "";
+      const url = `${IMAGE_BASES[baseIdx]}${id}${exts[extIdx]}${cache}`;
+      el.onerror = () => { extIdx++; tryNext(); };
+      el.onload  = () => { el.dataset.missing = "0"; el.parentElement?.classList.remove('hidden'); };
+      el.src = url;
+    }
+    tryNext();
+  }
+
+  function setAnchor(id, pushHistory=true){
+    if (anchorId && pushHistory){
+      historyStack.push(anchorId);
+      btnBack.disabled = historyStack.length === 0;
+    }
+    anchorId = id;
+    grid.classList.add('hidden');
+    anchorWrap.classList.remove('hidden');
+
+    btnParent.disabled = getParentId(anchorId) == null;
+    btnSiblings.disabled = false;
+    btnChildren.disabled = false;
+
+    anchorWrap.classList.remove('highlight');
+    tryLoadImage(anchorId, anchorImg);
+  }
+
+  function showGrid(ids, tagLabel){
+    anchorWrap.classList.add('hidden');
+    grid.innerHTML = "";
+    ids.slice(0,9).forEach((id, i) => {
+      const card = document.createElement('div');
+      card.className = 'grid-card';
+      const img = document.createElement('img');
+      const tag = document.createElement('div');
+      tag.className = 'tag';
+      tag.textContent = `${tagLabel} ${i+1}`;
+      card.appendChild(img);
+      card.appendChild(tag);
+      grid.appendChild(card);
+      tryLoadImage(id, img);
+      card.addEventListener('click', (e) => { e.stopPropagation(); setAnchor(id, true); }, {passive:true});
     });
-  })();
-
-  function onTouchStart(e) {
-    const t = e.changedTouches[0];
-    state.touch = { x0: t.clientX, y0: t.clientY, t0: Date.now() };
-  }
-  function onTouchEnd(e) {
-    const t = e.changedTouches[0];
-    const dx = t.clientX - state.touch.x0;
-    const dy = t.clientY - state.touch.y0;
-    const ax = Math.abs(dx), ay = Math.abs(dy);
-    const THRESH = 30;
-    if (ax < THRESH && ay < THRESH) return;
-    if (ax > ay) {
-      if (dx > 0) spouseOrBack();
-      else window.SwipeTree?.showSiblings?.(state.anchorId);
-    } else {
-      if (dy < 0) window.SwipeTree?.showParents?.(state.anchorId);
-      else window.SwipeTree?.showChildren?.(state.anchorId);
-    }
-  }
-  function spouseOrBack() {
-    if (!state.anchorId) return;
-    if (String(state.anchorId).includes('.1')) {
-      if (state.lastAnchorBeforeSpouse) showAnchor(state.lastAnchorBeforeSpouse);
-      return;
-    }
-    const spouseId = String(state.anchorId).trim() + '.1';
-    state.lastAnchorBeforeSpouse = state.anchorId;
-    showAnchor(spouseId);
+    grid.classList.remove('hidden');
   }
 
-  el.btnBack?.addEventListener('click', goBack);
-  el.btnStart?.addEventListener('click', () => {
-    const id = prompt('Enter a starting ID (e.g., 140000):', state.anchorId || '');
-    if (id) showAnchor(String(id).trim());
+  // Buttons
+  btnStart.addEventListener('click', () => {
+    const v = prompt("Enter starting ID (e.g., 140000):", anchorId ?? "");
+    if (!v) return;
+    const id = parseInt(String(v).replace(/\D/g, ""), 10);
+    if (!Number.isFinite(id)) return;
+    setAnchor(id, false);
   });
 
-  (function init() {
-    el.anchorImg?.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.anchorImg?.addEventListener('touchend', onTouchEnd, { passive: true });
-    setAnchorHighlight(true);
-    let boot = location.hash ? location.hash.slice(1) : (localStorage.getItem('swipetree:lastAnchor') || '');
-    if (boot) showAnchor(boot);
-    const obs = new MutationObserver(() => {
-      if (state.anchorId) localStorage.setItem('swipetree:lastAnchor', state.anchorId);
-    });
-    if (el.anchorImg) obs.observe(el.anchorImg, { attributes: true, attributeFilter: ['src'] });
-  })();
+  btnBack.addEventListener('click', () => {
+    if (historyStack.length === 0) return;
+    const prev = historyStack.pop();
+    btnBack.disabled = historyStack.length === 0;
+    setAnchor(prev, false);
+  });
+
+  btnParent.addEventListener('click', () => {
+    const p = getParentId(anchorId);
+    if (p) setAnchor(p, true);
+  });
+
+  btnSiblings.addEventListener('click', () => showGrid(getSiblingsIds(anchorId), "Sibling"));
+  btnChildren.addEventListener('click', () => showGrid(getChildrenIds(anchorId), "Child"));
+
+  // Swipes (only when grid hidden)
+  let sx=0, sy=0, st=0;
+  const SWIPE_MIN_DIST = 40, SWIPE_MAX_TIME = 800, SWIPE_DIR_RATIO = 1.25;
+  function onTouchStart(e){ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; st=Date.now(); }
+  function onTouchEnd(e){
+    const gridHidden = grid.classList.contains('hidden');
+    if (!gridHidden) return;
+    const t=e.changedTouches[0];
+    const dx=t.clientX-sx, dy=t.clientY-sy, dt=Date.now()-st;
+    if (dt>SWIPE_MAX_TIME) return;
+    const ax=Math.abs(dx), ay=Math.abs(dy);
+    if (ax<SWIPE_MIN_DIST && ay<SWIPE_MIN_DIST) return;
+    if (ax>ay*SWIPE_DIR_RATIO){
+      if (dx<0){ btnSiblings.click(); } // left
+    } else if (ay>ax*SWIPE_DIR_RATIO){
+      if (dy>0){ btnChildren.click(); } // down
+      else { btnParent.click(); }       // up
+    }
+  }
+  const stage=document.getElementById('stage');
+  stage.addEventListener('touchstart', onTouchStart, {passive:true});
+  stage.addEventListener('touchend', onTouchEnd, {passive:true});
+
+  // Anchor taps
+  anchorWrap.addEventListener('click', () => {
+    if (!grid.classList.contains('hidden')) return;
+    anchorWrap.classList.add('highlight');
+    setTimeout(() => anchorWrap.classList.remove('highlight'), 250);
+  }, {passive:true});
+
+  anchorWrap.addEventListener('dblclick', () => {
+    if (!grid.classList.contains('hidden')) return;
+    const existing = localStorage.getItem(`name:${anchorId}`) || "";
+    const name = prompt("Edit name (stored locally):", existing);
+    if (name !== null){
+      localStorage.setItem(`name:${anchorId}`, name);
+      anchorLabel.textContent = name;
+      anchorLabel.style.display = name ? 'block' : 'none';
+    }
+  });
 })();

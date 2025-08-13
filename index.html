@@ -2,59 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Morning Baseline (global stubs)</title>
-  <link rel="stylesheet" href="./style.20250810-200501.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>SwipeTree — Full Replacement (Multi-Base + Build Tag)</title>
+  <link rel="stylesheet" href="style.css?v=2025-08-12-mb-02" />
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">SwipeTree</div>
-    <div class="actions">
-      <button id="btnStart" class="btn">START</button>
-      <button id="btnBack" class="btn btn-ghost">BACK</button>
+    <div class="brand" id="brand">SwipeTree</div>
+    <div class="controls">
+      <button id="btnStart" class="btn">Start</button>
+      <button id="btnBack" class="btn" disabled>Back</button>
+      <button id="btnParent" class="btn" disabled>Parent</button>
+      <button id="btnSiblings" class="btn" disabled>Siblings</button>
+      <button id="btnChildren" class="btn" disabled>Children</button>
+      <button id="btnSettings" class="btn btn-ghost">Settings</button>
     </div>
   </header>
 
-  <main class="stage" id="stage">
-    <div id="anchorFrame" class="anchor-frame">
-      <img id="anchorImg" alt="anchor" draggable="false" />
-      <div id="anchorCaption" class="caption">—</div>
+  <main id="stage">
+    <div id="anchorWrap">
+      <img id="anchorImg" alt="anchor" />
+      <div id="anchorLabel"></div>
     </div>
+
+    <section id="grid" class="hidden"></section>
   </main>
 
-  <footer class="hint">
-    Morning Baseline test. No logic changed.
-  </footer>
-
-  <!-- Define tolerant global stubs BEFORE the morning script runs -->
-  <script>
-    (function(){
-      function noEl(id){
-        return {
-          _t: '',
-          set textContent(v){ this._t = v; },
-          get textContent(){ return this._t; }
-        };
-      }
-      var ids = ['bundle','build','buildId','buildid','buildLabel','buildlabel','buildText','buildtext'];
-      ids.forEach(function(id){
-        var el = document.getElementById(id);
-        if (!el) {
-          // Create hidden span for DOM lookup
-          el = document.createElement('span');
-          el.id = id;
-          el.style.display = 'none';
-          document.body.appendChild(el);
-        }
-        // Also expose as globals in case legacy code uses a global var
-        if (!(id in window) || window[id] == null) {
-          try { window[id] = el || noEl(id); } catch (e) {}
-        }
-      });
-    })();
-  </script>
-
-  <!-- Load the known-good morning script -->
-  <script src="./script.20250810-200501.js"></script>
+  <script>window.__BUILD_TAG__ = "2025-08-12-mb-02";</script>
+  <script src="script.js?v=2025-08-12-mb-02" defer></script>
 </body>
 </html>
