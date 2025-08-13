@@ -54,8 +54,8 @@ function setAnchor(id, { fromSpouse = false } = {}) {
   const tryExts = ['.jpg','.JPG','.jpeg','.JPEG','.png','.PNG','.webp','.WEBP'];
   // Use the first extension that succeeds by optimistic path; your loader may replace this.
   // We set a default; a more robust loader can be swapped in later.
-  el.anchorImg.src = `${id}.jpg`;
-  el.anchorImg.onerror = () => { el.anchorImg.src = `${id}.JPG`; };
+  el.anchorImg.src = `../family-tree-images/${id}.jpg`;
+  el.anchorImg.onerror = () => { el.anchorImg.src = `../family-tree-images/${id}.JPG`; };
   el.anchorLabel.textContent = labelFor(id);
 
   el.anchorCard.dataset.personId = id;
