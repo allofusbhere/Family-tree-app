@@ -1,250 +1,216 @@
 
-/* SwipeTree — interaction enhancements (2025‑08‑13)
-   What this file does (drop‑in, non‑invasive to your relationship math):
-   1) Enables swipe‑right to "spouse back" (returns to pre‑spouse anchor).
-   2) Restores double‑tap editing to save a Name (and optional DOB).
-   3) Renders the person's Name label under each image (from localStorage).
-   4) Keeps the anchor highlight ON until a new anchor is chosen.
-   5) Provides tiny helper hooks you can call from your existing logic.
-*/
+/* SwipeTree script.js — 2025-08-13
+ * Focus: fix 404s by using the correct GitHub images path + case-insensitive extensions,
+ * keep anchor highlight ON, enable double‑tap to set/display name, and enable spouse-back on swipe→.
+ *
+ * This file does NOT change your relationship math. It only touches image loading + UI wiring.
+ * If your existing HTML had different element IDs, update the selectors near the top.
+ */
 
-// ======= Simple state =======
-const el = {
-  stage: document.getElementById('stage'),
-  startBtn: document.getElementById('startBtn'),
-  backBtn: document.getElementById('backBtn'),
-  anchorCard: document.getElementById('anchorCard'),
-  anchorImg: document.getElementById('anchorImg'),
-  anchorLabel: document.getElementById('anchorLabel'),
-};
+(() => {
+  // ---------- CONFIG ----------
+  // Point to your image repo (flat folder with files like 140000.jpg, 140000.1.jpg, etc.)
+  const IMG_BASE = 'https://allofusbhere.github.io/family-tree-images/';
+  // Allowed extensions we will try in order:
+  const EXT_CANDIDATES = ['.jpg', '.JPG', '.jpeg', '.JPEG'];
+  // How long between taps to count as a "double-tap" (ms)
+  const DOUBLE_TAP_MS = 350;
 
-// Your app should manage this via history. We add a light spouse memory.
-let currentId = null;
-let spouseBackId = null;     // set when we jump to spouse via swipe-left
-let lastGesture = null;      // 'spouse' | other
-
-// ======= Storage helpers (name & dob) =======
-function getName(id) {
-  return localStorage.getItem(`name:${id}`) || '';
-}
-function setName(id, name) {
-  if (name) localStorage.setItem(`name:${id}`, name.trim());
-}
-function getDOB(id) {
-  return localStorage.getItem(`dob:${id}`) || '';
-}
-function setDOB(id, dob) {
-  if (dob) localStorage.setItem(`dob:${id}`, dob.trim());
-}
-
-// Compose label text shown under each image
-function labelFor(id) {
-  const nm = getName(id);
-  const dob = getDOB(id);
-  if (nm && dob) return `${nm} — ${dob}`;
-  if (nm) return nm;
-  return String(id || '');
-}
-
-// ======= Rendering: anchor image + persistent highlight =======
-function setAnchor(id, { fromSpouse = false } = {}) {
-  currentId = id;
-  // Update image src using your existing filename scheme. We keep it simple:
-  // Expect images to live next to the app; adjust pathing if your repo differs.
-  const tryExts = ['.jpg','.JPG','.jpeg','.JPEG','.png','.PNG','.webp','.WEBP'];
-  // Use the first extension that succeeds by optimistic path; your loader may replace this.
-  // We set a default; a more robust loader can be swapped in later.
-  el.anchorImg.src = `../family-tree-images/${id}.jpg`;
-  el.anchorImg.onerror = () => { el.anchorImg.src = `../family-tree-images/${id}.JPG`; };
-  el.anchorLabel.textContent = labelFor(id);
-
-  el.anchorCard.dataset.personId = id;
-  // Persistent highlight
-  el.anchorCard.classList.add('active');
-
-  // If we just came back from spouse via swipe-right, clear spouse context
-  if (fromSpouse) {
-    lastGesture = null;
-  }
-}
-
-// ======= Spouse navigation hooks =======
-// Call this when moving TO spouse (e.g., on swipe-left)
-function goToSpouse(spouseId) {
-  if (!currentId) return;
-  spouseBackId = currentId;   // remember where we came from
-  lastGesture = 'spouse';
-  setAnchor(spouseId);
-}
-
-// Called on swipe-right; returns to previous anchor IF last move was spouse
-function spouseBack() {
-  if (lastGesture === 'spouse' && spouseBackId) {
-    const prev = spouseBackId;
-    spouseBackId = null;
-    setAnchor(prev, { fromSpouse: true });
-    return true;
-  }
-  return false;
-}
-
-// ======= Double‑tap support =======
-const DoubleTap = (function() {
-  const THRESH_MS = 300;
-  let lastTap = 0;
-  return function onTap(target, onDouble) {
-    const now = Date.now();
-    if (now - lastTap < THRESH_MS) {
-      lastTap = 0;
-      onDouble();
-    } else {
-      lastTap = now;
-      // brief visual feedback on single tap
-      const card = target.closest('.person-card');
-      if (card) {
-        card.classList.add('tapped');
-        setTimeout(() => card.classList.remove('tapped'), 150);
-      }
-    }
+  // Element IDs used by index.html
+  const el = {
+    anchorImg: document.getElementById('anchorImg'),
+    anchorFrame: document.getElementById('anchorFrame') || document.body, // frame div for highlight
+    anchorCaption: document.getElementById('anchorCaption'),
+    btnStart: document.getElementById('btnStart'),
+    btnBack: document.getElementById('btnBack'),
   };
-})();
 
-function editPersonPrompt(id) {
-  const currentName = getName(id);
-  const currentDOB = getDOB(id);
-  const name = prompt(`Enter name for ${id}:`, currentName || '');
-  if (name === null) return; // cancelled
-  const dob = prompt(`Enter DOB (optional) for ${id}:`, currentDOB || '');
-  setName(id, name);
-  if (dob !== null) setDOB(id, dob);
-  // update anchor label if needed
-  if (String(id) === String(currentId)) {
-    el.anchorLabel.textContent = labelFor(id);
+  // In-memory navigation state
+  const state = {
+    anchorId: null,               // current numeric/string id e.g., "140000" or "140000.1"
+    lastAnchorBeforeSpouse: null, // used for spouse-back
+    history: [],                  // back stack of ids
+    touch: { x0: 0, y0: 0, t0: 0 }
+  };
+
+  // ---------- UTILITIES ----------
+  function buildSrc(id, ext) {
+    return IMG_BASE + String(id) + ext;
   }
-  // also update any card in grids that has this id
-  document.querySelectorAll(`[data-person-id="${id}"] .label`).forEach(n => n.textContent = labelFor(id));
-}
 
-// Attach double‑tap to anchor image
-['click', 'touchend'].forEach(evt => {
-  el.anchorCard.addEventListener(evt, (e) => {
-    // Don't treat a swipe end as a tap
-    if (swipe._moved) return;
-    DoubleTap(e.target, () => {
-      const id = el.anchorCard.dataset.personId;
-      if (!id) return;
-      editPersonPrompt(id);
+  // Attempts loading the first extension that exists. Returns a Promise that resolves
+  // to the actual src assigned, or rejects if none worked.
+  function resolveImageSrc(id) {
+    return new Promise((resolve, reject) => {
+      let i = 0;
+      const tryNext = () => {
+        if (i >= EXT_CANDIDATES.length) {
+          reject(new Error('No matching extension found for ' + id));
+          return;
+        }
+        const src = buildSrc(id, EXT_CANDIDATES[i++]);
+        const testImg = new Image();
+        testImg.onload = () => resolve(src);
+        testImg.onerror = tryNext;
+        testImg.src = src;
+      };
+      tryNext();
     });
-  }, { passive: true });
-});
+  }
 
-// ======= Swipe detection (no external libs) =======
-const swipe = {
-  startX: 0, startY: 0,
-  endX: 0, endY: 0,
-  _moved: false,
-  reset() { this.startX = this.startY = this.endX = this.endY = 0; this._moved = false; }
-};
+  function setAnchorHighlight(on) {
+    // Maintain a persistent glow on the anchor frame
+    if (!el.anchorFrame) return;
+    el.anchorFrame.classList.toggle('anchor-selected', !!on);
+  }
 
-const SWIPE_THRESHOLD = 45; // px
+  function saveName(id, name) {
+    localStorage.setItem('swipetree:name:' + id, name);
+  }
+  function getName(id) {
+    return localStorage.getItem('swipetree:name:' + id) || '';
+  }
+  function renderCaption(id) {
+    if (!el.anchorCaption) return;
+    const saved = getName(id);
+    el.anchorCaption.textContent = saved ? saved : String(id);
+  }
 
-el.stage.addEventListener('touchstart', (e) => {
-  const t = e.changedTouches[0];
-  swipe.startX = t.clientX;
-  swipe.startY = t.clientY;
-  swipe._moved = false;
-}, { passive: true });
+  // ---------- IMAGE LOADING ----------
+  async function showAnchor(id, pushHistory = true) {
+    if (!id) return;
+    try {
+      const src = await resolveImageSrc(id);
+      el.anchorImg.src = src;
+      state.anchorId = String(id);
+      if (pushHistory) state.history.push(state.anchorId);
+      setAnchorHighlight(true);
+      renderCaption(state.anchorId);
+    } catch (err) {
+      console.warn('Image not found for', id, err);
+      // Keep the caption as the id so user knows what was attempted
+      if (el.anchorImg) el.anchorImg.removeAttribute('src');
+      state.anchorId = String(id);
+      if (pushHistory) state.history.push(state.anchorId);
+      setAnchorHighlight(true);
+      renderCaption(state.anchorId);
+    }
+  }
 
-el.stage.addEventListener('touchmove', (e) => {
-  const t = e.changedTouches[0];
-  swipe.endX = t.clientX;
-  swipe.endY = t.clientY;
-  swipe._moved = true;
-}, { passive: true });
+  function goBack() {
+    if (state.history.length <= 1) return;
+    // Pop current
+    state.history.pop();
+    const prev = state.history[state.history.length - 1];
+    showAnchor(prev, /*pushHistory*/ false);
+  }
 
-el.stage.addEventListener('touchend', (e) => {
-  const dx = (swipe.endX || swipe.startX) - swipe.startX;
-  const dy = (swipe.endY || swipe.startY) - swipe.startY;
-  const ax = Math.abs(dx), ay = Math.abs(dy);
-  const horizontal = ax > ay && ax > SWIPE_THRESHOLD;
-  const vertical = ay > ax && ay > SWIPE_THRESHOLD;
+  // ---------- DOUBLE‑TAP NAME EDIT ----------
+  (function wireDoubleTap() {
+    let lastTap = 0;
+    el.anchorImg?.addEventListener('touchend', () => {
+      const now = Date.now();
+      if (now - lastTap <= DOUBLE_TAP_MS) {
+        // double tap detected
+        const current = state.anchorId || '';
+        const existing = getName(current);
+        const name = prompt('Set a display name for ' + current, existing || '');
+        if (name !== null) {
+          saveName(current, name.trim());
+          renderCaption(current);
+        }
+      }
+      lastTap = now;
+    });
 
-  if (horizontal) {
-    if (dx < 0) {
-      // Swipe LEFT: go to spouse (call your real spouse resolver here)
-      // You likely have a function to compute spouseId for currentId.
-      const spouseId = resolveSpouseId(currentId);
-      if (spouseId) goToSpouse(spouseId);
+    // Also support desktop double-click
+    el.anchorImg?.addEventListener('dblclick', () => {
+      const current = state.anchorId || '';
+      const existing = getName(current);
+      const name = prompt('Set a display name for ' + current, existing || '');
+      if (name !== null) {
+        saveName(current, name.trim());
+        renderCaption(current);
+      }
+    });
+  })();
+
+  // ---------- SWIPE WIRING ----------
+  // Right: spouse/back to spouse
+  // Up: parents (handed off to existing logic if present)
+  // Down: children (handed off)
+  // Left: siblings (handed off)
+  function onTouchStart(e) {
+    const t = e.changedTouches[0];
+    state.touch = { x0: t.clientX, y0: t.clientY, t0: Date.now() };
+  }
+  function onTouchEnd(e) {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - state.touch.x0;
+    const dy = t.clientY - state.touch.y0;
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    const THRESH = 30; // px
+
+    if (ax < THRESH && ay < THRESH) return; // tap, handled elsewhere
+
+    if (ax > ay) {
+      // horizontal
+      if (dx > 0) {
+        // → spouse/back
+        spouseOrBack();
+      } else {
+        // ← siblings (delegate if your app exposes a handler)
+        window.SwipeTree?.showSiblings?.(state.anchorId);
+      }
     } else {
-      // Swipe RIGHT: go back from spouse (if applicable)
-      if (!spouseBack()) {
-        // optional: no-op or you can route right-swipe to siblings if desired
+      // vertical
+      if (dy < 0) {
+        // ↑ parents
+        window.SwipeTree?.showParents?.(state.anchorId);
+      } else {
+        // ↓ children
+        window.SwipeTree?.showChildren?.(state.anchorId);
       }
     }
-  } else if (vertical) {
-    if (dy < 0) {
-      // Swipe UP: parents (handoff to your existing logic)
-      if (typeof onSwipeUpParents === 'function') onSwipeUpParents(currentId);
-    } else {
-      // Swipe DOWN: children
-      if (typeof onSwipeDownChildren === 'function') onSwipeDownChildren(currentId);
+  }
+
+  function spouseOrBack() {
+    if (!state.anchorId) return;
+    // If currently looking at a ".1" spouse file, go back to prior anchor
+    if (String(state.anchorId).includes('.1')) {
+      if (state.lastAnchorBeforeSpouse) {
+        showAnchor(state.lastAnchorBeforeSpouse);
+      }
+      return;
     }
+    // Else try spouse = "<id>.1"
+    const spouseId = String(state.anchorId) + '.1';
+    state.lastAnchorBeforeSpouse = state.anchorId;
+    showAnchor(spouseId);
   }
 
-  swipe.reset();
-}, { passive: true });
-
-// ======= Minimal spouse resolver (override with your logic) =======
-function resolveSpouseId(id) {
-  if (!id) return null;
-  const s = String(id);
-  // If has .1 already, try base partner (strip .1)
-  if (s.includes('.1')) {
-    return s.replace('.1','');
-  }
-  // else try partner with .1
-  return s + '.1';
-}
-
-// ======= START / BACK buttons =======
-el.startBtn?.addEventListener('click', () => {
-  const seed = prompt('Enter starting ID:');
-  if (!seed) return;
-  setAnchor(seed);
-});
-
-el.backBtn?.addEventListener('click', () => {
-  // If last was spouse, behave like spouseBack. Else, you likely have your own historyStack.
-  if (!spouseBack()) {
-    if (typeof onBack === 'function') onBack();
-  }
-});
-
-// ======= Public hooks for your existing app =======
-// Call setAnchorExternal(id) whenever your logic changes the anchor, to keep highlight + label in sync.
-window.setAnchorExternal = function(id) { setAnchor(id); };
-// Call setCardNameLabel(el, id) when you render any grid person-card to apply label & dbl‑tap handler.
-window.setCardNameLabel = function(cardEl, id) {
-  if (!cardEl) return;
-  cardEl.dataset.personId = id;
-  const labelEl = cardEl.querySelector('.label') || (() => {
-    const d = document.createElement('div');
-    d.className = 'label';
-    cardEl.appendChild(d);
-    return d;
-  })();
-  labelEl.textContent = labelFor(id);
-
-  // double‑tap for grid cards
-  ['click','touchend'].forEach(evt => {
-    cardEl.addEventListener(evt, (e) => {
-      if (swipe._moved) return;
-      DoubleTap(e.target, () => editPersonPrompt(id));
-    }, { passive: true });
+  // ---------- BUTTONS ----------
+  el.btnBack?.addEventListener('click', goBack);
+  el.btnStart?.addEventListener('click', () => {
+    const id = prompt('Enter a starting ID (e.g., 140000):', state.anchorId || '');
+    if (id) showAnchor(String(id).trim());
   });
-};
 
-// Initialize (optional): if your page sets a default currentId elsewhere, call setAnchorExternal there.
-setTimeout(() => {
-  // no-op; waiting for START prompt or external call
-}, 0);
+  // ---------- INIT ----------
+  // If page loads with a hash like #140000, use it; else use any saved last anchor; else wait for START.
+  (function init() {
+    el.anchorImg?.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.anchorImg?.addEventListener('touchend', onTouchEnd, { passive: true });
+    // persistent highlight on load
+    setAnchorHighlight(true);
+
+    let boot = location.hash ? location.hash.slice(1) : (localStorage.getItem('swipetree:lastAnchor') || '');
+    if (boot) showAnchor(boot);
+    // Save last anchor on each change
+    const obs = new MutationObserver(() => {
+      if (state.anchorId) localStorage.setItem('swipetree:lastAnchor', state.anchorId);
+    });
+    if (el.anchorImg) obs.observe(el.anchorImg, { attributes: true, attributeFilter: ['src'] });
+  })();
+
+})();

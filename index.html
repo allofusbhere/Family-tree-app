@@ -4,35 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SwipeTree — Swipe Tester</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <div id="app">
-    <header class="topbar">
-      <div class="brand">SwipeTree</div>
-      <div class="controls">
-        <button id="startBtn" title="Set starting ID">START</button>
-        <button id="backBtn" title="Back">BACK</button>
-      </div>
-    </header>
+  <header class="topbar">
+    <div class="brand">SwipeTree</div>
+    <div class="actions">
+      <button id="btnStart" class="btn">START</button>
+      <button id="btnBack" class="btn btn-ghost">BACK</button>
+    </div>
+  </header>
 
-    <main id="stage" class="stage" tabindex="0">
-      <!-- Anchor card -->
-      <div id="anchorCard" class="person-card anchor" data-person-id="">
-        <img id="anchorImg" alt="anchor" />
-        <div class="label" id="anchorLabel"></div>
-      </div>
+  <main class="stage" id="stage">
+    <!-- Anchor frame keeps the persistent selection glow -->
+    <div id="anchorFrame" class="anchor-frame">
+      <img id="anchorImg" alt="anchor" draggable="false" />
+      <div id="anchorCaption" class="caption">—</div>
+    </div>
+  </main>
 
-      <!-- Relationship grids (hidden by default here; your existing logic can fill them) -->
-      <section id="grid" class="grid"></section>
-    </main>
+  <footer class="hint">
+    Swipe: ↑ parents • ↓ children • ← siblings • → spouse / → back to spouse • Double‑tap image to set a name.
+  </footer>
 
-    <footer class="hint">
-      Swipe: ↑ parents • ↓ children • ← spouse • → back to spouse • ⬆/⬇ siblings via your logic<br/>
-      Double‑tap an image to set a name. Name shows beneath each image.
-    </footer>
-  </div>
-
-  <script src="script.js"></script>
+  <script src="./script.js"></script>
 </body>
 </html>
