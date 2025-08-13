@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>SwipeTree — Full Replacement (Multi-Base + Build Tag)</title>
+  <link rel="stylesheet" href="style.css?v=2025-08-12-mb-02" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" id="brand">SwipeTree</div>
+    <div class="controls">
+      <button id="btnStart" class="btn">Start</button>
+      <button id="btnBack" class="btn" disabled>Back</button>
+      <button id="btnParent" class="btn" disabled>Parent</button>
+      <button id="btnSiblings" class="btn" disabled>Siblings</button>
+      <button id="btnChildren" class="btn" disabled>Children</button>
+      <button id="btnSettings" class="btn btn-ghost">Settings</button>
+    </div>
+  </header>
+
+  <main id="stage">
+    <div id="anchorWrap">
+      <img id="anchorImg" alt="anchor" />
+      <div id="anchorLabel"></div>
+    </div>
+
+    <section id="grid" class="hidden"></section>
+  </main>
+
+  <script>window.__BUILD_TAG__ = "2025-08-12-mb-02";</script>
+  <script src="script.js?v=2025-08-12-mb-02" defer></script>
+</body>
+</html>
