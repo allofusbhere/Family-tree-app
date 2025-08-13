@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Swipe Tester</title>
-  <link rel="stylesheet" href="./style.css" />
+  <title>SwipeTree — Stable (Morning Build)</title>
+  <!-- Point to the morning versions already in your repo -->
+  <link rel="stylesheet" href="./style.20250810-200501.css">
 </head>
 <body>
   <header class="topbar">
@@ -16,7 +17,6 @@
   </header>
 
   <main class="stage" id="stage">
-    <!-- Anchor frame keeps the persistent selection glow -->
     <div id="anchorFrame" class="anchor-frame">
       <img id="anchorImg" alt="anchor" draggable="false" />
       <div id="anchorCaption" class="caption">—</div>
@@ -24,9 +24,10 @@
   </main>
 
   <footer class="hint">
-    Swipe: ↑ parents • ↓ children • ← siblings • → spouse / → back to spouse • Double‑tap image to set a name.
+    Swipe: ↑ parents • ↓ children • ← siblings • → spouse / → back to spouse • Double-tap image to set a name.
   </footer>
 
-  <script src="./script.js"></script>
+  <!-- Use the morning script -->
+  <script src="./script.20250810-200501.js"></script>
 </body>
 </html>
