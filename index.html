@@ -3,19 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Stable (Morning Build)</title>
-  <!-- Use the morning CSS/JS already in your repo -->
+  <title>SwipeTree — Morning Baseline Test</title>
+  <!-- Use the exact morning CSS/JS already in your repo -->
   <link rel="stylesheet" href="./style.20250810-200501.css">
   <style>
-    /* keep placeholders invisible */
-    #build, #buildId, #buildLabel { display:none; }
+    /* Invisible placeholders required by legacy code paths */
+    #build, #buildid, #buildId, #buildlabel, #buildLabel, #buildtext, #buildText { display: none; }
   </style>
 </head>
 <body>
-  <!-- placeholders required by the morning script -->
+  <!-- Placeholders some morning builds write into -->
   <span id="build"></span>
+  <span id="buildid"></span>
   <span id="buildId"></span>
+  <span id="buildlabel"></span>
   <span id="buildLabel"></span>
+  <span id="buildtext"></span>
+  <span id="buildText"></span>
 
   <header class="topbar">
     <div class="brand">SwipeTree</div>
@@ -33,9 +37,10 @@
   </main>
 
   <footer class="hint">
-    Swipe: ↑ parents • ↓ children • ← siblings • → spouse / → back to spouse • Double-tap image to set a name.
+    Morning Baseline: This page only wires the DOM the morning script expects.
   </footer>
 
+  <!-- Load the known-good morning script (no new logic introduced) -->
   <script src="./script.20250810-200501.js"></script>
 </body>
 </html>
