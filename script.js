@@ -18,11 +18,11 @@
   if (brand) brand.textContent = `SwipeTree • ${BUILD_TAG}`;
   console.info('[SwipeTree] Build:', BUILD_TAG);
 
-  // Images may live in a separate repo/folder. Try multiple bases then extensions.
+  // Try jsDelivr first (fast CDN), then GitHub Pages mirror, then local (for dev)
   const IMAGE_BASES = [
-    "./",
+    "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/",
     "https://allofusbhere.github.io/family-tree-images/",
-    "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/"
+    "./"
   ];
   const exts = ['.jpg', '.JPG', '.jpeg', '.png', '.PNG', '.JPEG'];
 
