@@ -3,10 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Morning Baseline (stubbed)</title>
+  <title>SwipeTree — Morning Baseline (static placeholders)</title>
   <link rel="stylesheet" href="./style.20250810-200501.css">
+  <style>
+    #bundle, #build, #buildId, #buildid, #buildLabel, #buildlabel, #buildText, #buildtext { display:none; }
+  </style>
 </head>
 <body>
+  <!-- Static legacy placeholders expected by the morning script -->
+  <span id="bundle"></span>
+  <span id="build"></span>
+  <span id="buildId"></span>
+  <span id="buildid"></span>
+  <span id="buildLabel"></span>
+  <span id="buildlabel"></span>
+  <span id="buildText"></span>
+  <span id="buildtext"></span>
+
   <header class="topbar">
     <div class="brand">SwipeTree</div>
     <div class="actions">
@@ -23,25 +36,9 @@
   </main>
 
   <footer class="hint">
-    Morning Baseline: DOM only; no new logic.
+    Morning Baseline: static placeholders for legacy script; no new logic.
   </footer>
 
-  <!-- Ensure legacy placeholders exist BEFORE morning script executes -->
-  <script>
-    (function ensureLegacyPlaceholders(){
-      var ids = ['bundle','build','buildId','buildid','buildLabel','buildlabel','buildText','buildtext'];
-      ids.forEach(function(id){
-        if (!document.getElementById(id)) {
-          var el = document.createElement('span');
-          el.id = id;
-          el.style.display = 'none';
-          document.body.insertBefore(el, document.body.firstChild);
-        }
-      });
-    })();
-  </script>
-
-  <!-- Load the known-good morning script -->
   <script src="./script.20250810-200501.js"></script>
 </body>
 </html>
