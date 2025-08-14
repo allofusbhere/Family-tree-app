@@ -3,32 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>SwipeTree — Full Replacement (Multi-Base + Build Tag)</title>
-  <link rel="stylesheet" href="style.css?v=2025-08-12-mb-02" />
+  <title>SwipeTree — Spouse & Double‑Tap Build</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand" id="brand">SwipeTree</div>
-    <div class="controls">
-      <button id="btnStart" class="btn">Start</button>
-      <button id="btnBack" class="btn" disabled>Back</button>
-      <button id="btnParent" class="btn" disabled>Parent</button>
-      <button id="btnSiblings" class="btn" disabled>Siblings</button>
-      <button id="btnChildren" class="btn" disabled>Children</button>
-      <button id="btnSettings" class="btn btn-ghost">Settings</button>
-    </div>
-  </header>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">SwipeTree</div>
+      <div class="actions">
+        <button id="startBtn" aria-label="Set starting ID">Start</button>
+        <button id="backBtn" aria-label="Back to previous anchor">Back</button>
+      </div>
+    </header>
 
-  <main id="stage">
-    <div id="anchorWrap">
-      <img id="anchorImg" alt="anchor" />
-      <div id="anchorLabel"></div>
-    </div>
+    <main id="stage" class="stage" tabindex="0" aria-live="polite">
+      <div class="anchor-wrap">
+        <img id="anchorImg" class="anchor" alt="Anchor person" draggable="false" />
+        <div id="label" class="label">
+          <div class="name" id="labelName"></div>
+          <div class="dob" id="labelDob"></div>
+        </div>
+      </div>
+      <div id="hint" class="hint">Swipe → for spouse. Double‑tap to edit name/DOB.</div>
+    </main>
 
-    <section id="grid" class="hidden"></section>
-  </main>
+    <footer class="bottombar">
+      <div id="status" class="status">Ready.</div>
+      <div class="build" id="buildTag"></div>
+    </footer>
+  </div>
 
-  <script>window.__BUILD_TAG__ = "2025-08-12-mb-02";</script>
-  <script src="script.js?v=2025-08-12-mb-02" defer></script>
+  <script src="./script.js"></script>
 </body>
 </html>
