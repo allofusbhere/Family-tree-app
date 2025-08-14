@@ -1,144 +1,148 @@
-// SwipeTree — 2025-08-14-mb-03
-(function(){
-  'use strict';
+(() => {
+  const { IMAGE_BASE, LABELS_URL, SAVE_URL } = window.__CONFIG__;
+  const els = {
+    card: document.getElementById('card'),
+    img: document.getElementById('photo'),
+    name: document.getElementById('name'),
+    dob: document.getElementById('dob'),
+    hint: document.getElementById('hint'),
+    toast: document.getElementById('toast'),
+    dlg: document.getElementById('editDialog'),
+    form: document.getElementById('editForm'),
+    inpName: document.getElementById('inpName'),
+    inpDob: document.getElementById('inpDob'),
+    btnStart: document.getElementById('btnStart'),
+    btnBack: document.getElementById('btnBack'),
+  };
 
-  const BUILD_TAG = '2025-08-14-mb-03-' + new Date().toISOString().replace(/[-:TZ]/g,'').slice(0,14);
-  const STATUS = document.getElementById('status');
-  document.getElementById('buildTag').textContent = `build ${BUILD_TAG}`;
+  // State
+  let currentId = 140000;  // default anchor for test
+  let labels = {};
+  let editArmed = true;    // modal opens only on long-press when armed
+  let touchStart = 0;
+  let spouseOffset = 0;    // swipe toggles spouse (+1/-1 demo)
 
-  const anchorImg = document.getElementById('anchorImg');
-  const stage = document.getElementById('stage');
-  const startBtn = document.getElementById('startBtn');
-  const backBtn  = document.getElementById('backBtn');
-  const labelName = document.getElementById('labelName');
-  const labelDob  = document.getElementById('labelDob');
-
-  let currentId = null;
-  const historyStack = [];
-
-  // Images from GitHub Pages:
-  const IMAGE_BASE = `https://allofusbhere.github.io/family-tree-images/`;
-
-  function checkImageExists(id) {
-    const exts = ['.jpg','.JPG','.jpeg','.JPEG','.png','.PNG','.webp','.WEBP'];
-    return new Promise((resolve) => {
-      let i = 0;
-      const next = () => {
-        if (i >= exts.length) return resolve(null);
-        const ext = exts[i++];
-        const img = new Image();
-        img.onload = () => resolve({ id, url: `${IMAGE_BASE}${id}${ext}?b=${BUILD_TAG}` });
-        img.onerror = next;
-        img.src = `${IMAGE_BASE}${id}${ext}?b=${BUILD_TAG}`;
-      };
-      next();
-    });
+  function toast(msg, ms = 1400) {
+    els.toast.textContent = msg;
+    els.toast.classList.remove('hidden');
+    setTimeout(() => els.toast.classList.add('hidden'), ms);
   }
 
-  async function setAnchor(id, pushHistory=true){
-    if(!id) return;
-    STATUS.textContent = `Loading ${id}…`;
-    const found = await checkImageExists(id);
-    if(!found){
-      STATUS.textContent = `Image not found for ${id}`;
-      anchorImg.removeAttribute('src');
+  async function loadLabels() {
+    try {
+      const res = await fetch(LABELS_URL, { cache: "no-store" });
+      if (res.ok) {
+        labels = await res.json();
+      } else {
+        labels = {};
+      }
+    } catch {
+      labels = {};
+    }
+  }
+
+  function render() {
+    const id = currentId + spouseOffset * 1; // dummy spouse toggle
+    const srcJpg = `${IMAGE_BASE}/${id}.jpg`;
+    const srcJPG = `${IMAGE_BASE}/${id}.JPG`;
+    els.img.src = srcJpg;
+    els.img.onerror = () => { els.img.onerror = null; els.img.src = srcJPG; };
+
+    const meta = labels[id] || labels[currentId] || {};
+    els.name.textContent = meta.name || "Anchor person";
+    els.dob.textContent  = meta.dob  || "";
+    els.card.classList.remove('hidden');
+  }
+
+  async function init() {
+    await loadLabels();
+    render();
+  }
+
+  // Long-press edit only
+  function armEditOnce() { editArmed = true; }
+  function onPressStart() { touchStart = Date.now(); }
+  function onPressEnd() {
+    const dt = Date.now() - touchStart;
+    if (dt >= 550 && editArmed) {
+      openEdit();
+    }
+    touchStart = 0;
+  }
+  function openEdit() {
+    const id = currentId + spouseOffset * 1;
+    const meta = labels[id] || {};
+    els.inpName.value = meta.name || "";
+    els.inpDob.value  = meta.dob  || "";
+    els.dlg.showModal();
+    editArmed = false; // disarm until next long-press
+  }
+  async function saveEdit() {
+    const id = currentId + spouseOffset * 1;
+    const name = els.inpName.value.trim();
+    const dob  = els.inpDob.value.trim();
+    labels[id] = { name, dob };
+    render();
+    try {
+      const res = await fetch(SAVE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, name, dob })
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        toast("Save failed");
+        console.error("Save error:", t);
+      } else {
+        toast("Saved");
+      }
+    } catch (e) {
+      toast("Offline? — saved locally");
+      console.warn(e);
+    }
+  }
+
+  // Swipe spouse
+  let swipeX = 0;
+  function onTouchStart(e) {
+    swipeX = e.touches ? e.touches[0].clientX : e.clientX;
+    onPressStart();
+  }
+  function onTouchEnd(e) {
+    const x2 = (e.changedTouches ? e.changedTouches[0].clientX : e.clientX) || swipeX;
+    const dx = x2 - swipeX;
+    if (Math.abs(dx) > 60) {
+      spouseOffset = spouseOffset === 0 ? (dx > 0 ? 1 : -1) : 0;
+      render();
       return;
     }
-    if(pushHistory && currentId) historyStack.push(currentId);
-    currentId = id;
-    anchorImg.src = found.url;
-    anchorImg.alt = `Person ${id}`;
-    STATUS.textContent = `Showing ${id}`;
-    applyLabel(id);
+    onPressEnd();
   }
 
-  function applyLabel(id){
-    const meta = getPersonMeta(id);
-    labelName.textContent = meta?.name || '';
-    labelDob.textContent  = meta?.dob ? `DOB: ${meta.dob}` : '';
-  }
+  // Events
+  els.card.addEventListener('mousedown', onTouchStart);
+  els.card.addEventListener('mouseup', onTouchEnd);
+  els.card.addEventListener('touchstart', onTouchStart, { passive: true });
+  els.card.addEventListener('touchend', onTouchEnd);
 
-  function getPersonMeta(id){
-    try{
-      const raw = localStorage.getItem(`label:${id}`);
-      return raw ? JSON.parse(raw) : null;
-    }catch{ return null; }
-  }
-  function setPersonMeta(id, meta){
-    localStorage.setItem(`label:${id}`, JSON.stringify(meta||{}));
-    applyLabel(id);
-  }
+  els.btnStart.addEventListener('click', () => { armEditOnce(); toast("Long-press to edit"); });
+  els.btnBack.addEventListener('click', () => { spouseOffset = 0; render(); });
 
-  async function toggleSpouse(){
-    if(!currentId) return;
-    const spouseId = currentId.includes('.1') ? currentId.replace('.1','') : `${currentId}.1`;
-    const exists = await checkImageExists(spouseId);
-    if(!exists){
-      STATUS.textContent = `No spouse image for ${currentId}`;
-      return;
-    }
-    await setAnchor(spouseId, true);
-  }
-
-  backBtn.addEventListener('click', ()=>{
-    const prev = historyStack.pop();
-    if(prev) setAnchor(prev, false);
+  document.getElementById('btnSave').addEventListener('click', async (e) => {
+    e.preventDefault();
+    await saveEdit();
+    els.dlg.close(); // stays closed; must long-press again to reopen
+  });
+  document.getElementById('btnCancel').addEventListener('click', (e) => {
+    e.preventDefault();
+    els.dlg.close();
   });
 
-  startBtn.addEventListener('click', async ()=>{
-    const v = prompt('Enter starting ID (e.g., 140000):', currentId||'');
-    if(v && v.trim()) await setAnchor(v.trim(), true);
+  // Keyboard helpers
+  window.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'e') { openEdit(); }
+    if (e.key === 'Escape') { els.dlg.open && els.dlg.close(); }
   });
 
-  // Double-tap / double-click
-  let lastTap = 0;
-  const TAP_MS = 300;
-  function maybeDoubleTap(e){
-    const now = Date.now();
-    if(now - lastTap <= TAP_MS){
-      e.preventDefault();
-      handleEdit();
-    }
-    lastTap = now;
-  }
-  function handleEdit(){
-    if(!currentId) return;
-    const existing = getPersonMeta(currentId) || { name:'', dob:'' };
-    const name = prompt(`Edit name for ${currentId}:`, existing.name||'');
-    if(name===null) return;
-    const dob  = prompt(`Edit DOB for ${currentId} (optional):`, existing.dob||'');
-    if(dob===null) return;
-    setPersonMeta(currentId, { name: name.trim(), dob: dob.trim() });
-    STATUS.textContent = `Saved label for ${currentId}`;
-  }
-
-  // Touch swipe (right = spouse)
-  let sx=0, sy=0;
-  const SW = 50;
-  function onTS(e){
-    const t = e.changedTouches[0];
-    sx=t.clientX; sy=t.clientY;
-    maybeDoubleTap(e);
-  }
-  async function onTE(e){
-    const t = e.changedTouches[0];
-    const dx=t.clientX-sx, dy=t.clientY-sy;
-    if(Math.abs(dx)>Math.abs(dy) && Math.abs(dx)>SW){
-      if(dx>0) await toggleSpouse();
-      else STATUS.textContent='Left swipe reserved.';
-    }
-  }
-
-  stage.addEventListener('touchstart', onTS, {passive:true});
-  stage.addEventListener('touchend', onTE, {passive:true});
-  anchorImg.addEventListener('touchstart', onTS, {passive:true});
-  anchorImg.addEventListener('touchend', onTE, {passive:true});
-  stage.addEventListener('dblclick', (e)=>{e.preventDefault(); handleEdit();});
-  anchorImg.addEventListener('dragstart', e=>e.preventDefault());
-
-  window.addEventListener('load', async ()=>{
-    const first = prompt('Enter starting ID (e.g., 140000):','');
-    if(first && first.trim()) await setAnchor(first.trim(), true);
-    else STATUS.textContent = 'Tap Start to enter an ID.';
-  });
+  init();
 })();

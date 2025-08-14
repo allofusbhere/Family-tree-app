@@ -1,38 +1,53 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>SwipeTree — 2025-08-14-mb-03</title>
-  <link rel="stylesheet" href="./style.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>SwipeTree — Netlify Labels Test</title>
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-  <div id="app">
-    <header class="topbar">
-      <div class="brand">SwipeTree</div>
-      <div class="actions">
-        <button id="startBtn" aria-label="Set starting ID">Start</button>
-        <button id="backBtn" aria-label="Back to previous anchor">Back</button>
+  <header class="topbar">
+    <div class="brand">SwipeTree</div>
+    <div class="actions">
+      <button id="btnStart">Start</button>
+      <button id="btnBack">Back</button>
+    </div>
+  </header>
+
+  <main id="stage">
+    <div id="card" class="card hidden">
+      <img id="photo" alt="person"/>
+      <div class="meta">
+        <div id="name" class="name">Anchor person</div>
+        <div id="dob" class="dob"></div>
       </div>
-    </header>
+    </div>
+    <div id="hint" class="hint">Long-press to edit name/DOB. Swipe for spouse.</div>
+    <div id="toast" class="toast hidden"></div>
+  </main>
 
-    <main id="stage" class="stage" tabindex="0" aria-live="polite">
-      <div class="anchor-wrap">
-        <img id="anchorImg" class="anchor" alt="Anchor person" draggable="false" />
-        <div id="label" class="label">
-          <div class="name" id="labelName"></div>
-          <div class="dob" id="labelDob"></div>
-        </div>
-      </div>
-      <div class="hint" id="hint">Swipe → for spouse. Double-tap to edit name/DOB.</div>
-    </main>
+  <!-- Edit modal -->
+  <dialog id="editDialog">
+    <form method="dialog" id="editForm">
+      <h3>Edit label</h3>
+      <label>Name <input id="inpName" type="text" autocomplete="off"/></label>
+      <label>DOB  <input id="inpDob" type="text" placeholder="MM/DD/YYYY" autocomplete="off"/></label>
+      <menu>
+        <button value="cancel" id="btnCancel">Cancel</button>
+        <button value="ok" id="btnSave" class="primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
 
-    <footer class="bottombar">
-      <div id="status" class="status">Ready.</div>
-      <div class="build" id="buildTag"></div>
-    </footer>
-  </div>
-
-  <script src="./script.js"></script>
+  <footer class="build">build swipetree_build_2025-08-14-netlify_v2</footer>
+  <script>
+    window.__CONFIG__ = {
+      IMAGE_BASE: "https://family-tree-swipe.netlify.app",
+      LABELS_URL: "https://family-tree-swipe.netlify.app/netlify/functions/labels.json",
+      SAVE_URL: "https://family-tree-swipe.netlify.app/.netlify/functions/save-label"
+    };
+  </script>
+  <script src="script.js"></script>
 </body>
 </html>
