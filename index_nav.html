@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SwipeTree — Navigation Tester (Parents / Siblings / Children)</title>
+  <link rel="stylesheet" href="./style.css">
+  <style>
+    .toast { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+             background: rgba(0,0,0,.65); border: 1px solid rgba(255,255,255,.18);
+             padding: .5rem .75rem; border-radius: .6rem; font-size: .95rem; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">SwipeTree — Nav Test</div>
+    <div class="actions">
+      <button id="startBtn" class="btn">Start</button>
+      <button id="backBtn" class="btn btn-ghost" disabled>Back</button>
+    </div>
+  </header>
+
+  <main id="stage">
+    <div id="anchorCard" class="card active" tabindex="0">
+      <img id="anchorImg" alt="person" />
+      <div class="label" id="hint">Long-press to edit</div>
+      <div class="caption" id="anchorCaption">Anchor person</div>
+    </div>
+  </main>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-inner">
+      <h2>Edit label</h2>
+      <label for="nameInput">First name</label>
+      <input id="nameInput" type="text" placeholder="e.g., Aaron" />
+      <div class="modal-actions">
+        <button id="saveBtn" class="btn">Save</button>
+        <button id="cancelBtn" class="btn btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" style="display:none;"></div>
+
+  <script>window.SWIPE_TREE_IMAGE_BASE = '/family-tree-images/';</script>
+  <script src="./swipetree.nav.js"></script>
+</body>
+</html>

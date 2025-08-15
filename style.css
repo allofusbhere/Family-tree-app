@@ -68,7 +68,6 @@ body {
   background: linear-gradient(to top, rgba(0,0,0,.65), rgba(0,0,0,.0));
   padding: .6rem .5rem .8rem; font-weight: 700; letter-spacing: .2px;
 }
-/* Modal */
 .modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.55); }
 .modal.hidden { display: none; }
 .modal-inner {
@@ -81,5 +80,4 @@ body {
   width: 100%; padding: .7rem .8rem; border-radius: .6rem; border: 1px solid #2a2b31; background: #111216; color: var(--text);
 }
 .modal-actions { display:flex; gap:.5rem; justify-content:flex-end; margin-top: .85rem;}
-/* Prevent text selection during gestures */
 img, button, .card, body { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
