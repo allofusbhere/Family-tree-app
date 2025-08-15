@@ -1,53 +1,41 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>SwipeTree — Netlify Labels Test</title>
-  <link rel="stylesheet" href="style.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SwipeTree — Labels + Long‑Press Edit</title>
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">SwipeTree</div>
     <div class="actions">
-      <button id="btnStart">Start</button>
-      <button id="btnBack">Back</button>
+      <button id="startBtn" class="btn">Start</button>
+      <button id="backBtn" class="btn btn-ghost" disabled>Back</button>
     </div>
   </header>
 
   <main id="stage">
-    <div id="card" class="card hidden">
-      <img id="photo" alt="person"/>
-      <div class="meta">
-        <div id="name" class="name">Anchor person</div>
-        <div id="dob" class="dob"></div>
-      </div>
+    <div id="anchorCard" class="card active" tabindex="0">
+      <img id="anchorImg" alt="person" />
+      <div class="label" id="hint">Long-press to edit</div>
+      <div class="caption" id="anchorCaption">Anchor person</div>
     </div>
-    <div id="hint" class="hint">Long-press to edit name/DOB. Swipe for spouse.</div>
-    <div id="toast" class="toast hidden"></div>
   </main>
 
-  <!-- Edit modal -->
-  <dialog id="editDialog">
-    <form method="dialog" id="editForm">
-      <h3>Edit label</h3>
-      <label>Name <input id="inpName" type="text" autocomplete="off"/></label>
-      <label>DOB  <input id="inpDob" type="text" placeholder="MM/DD/YYYY" autocomplete="off"/></label>
-      <menu>
-        <button value="cancel" id="btnCancel">Cancel</button>
-        <button value="ok" id="btnSave" class="primary">Save</button>
-      </menu>
-    </form>
-  </dialog>
+  <!-- Edit Modal -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-inner">
+      <h2>Edit label</h2>
+      <label for="nameInput">First name</label>
+      <input id="nameInput" type="text" placeholder="e.g., Aaron" />
+      <div class="modal-actions">
+        <button id="saveBtn" class="btn">Save</button>
+        <button id="cancelBtn" class="btn btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
 
-  <footer class="build">build swipetree_build_2025-08-14-netlify_v2</footer>
-  <script>
-    window.__CONFIG__ = {
-      IMAGE_BASE: "https://family-tree-swipe.netlify.app",
-      LABELS_URL: "https://family-tree-swipe.netlify.app/netlify/functions/labels.json",
-      SAVE_URL: "https://family-tree-swipe.netlify.app/.netlify/functions/save-label"
-    };
-  </script>
-  <script src="script.js"></script>
+  <script src="./swipetree.js"></script>
 </body>
 </html>
