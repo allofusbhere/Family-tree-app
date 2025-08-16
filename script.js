@@ -1,16 +1,7 @@
 
 /*
   SwipeTree — script.js
-  Build: 2025-08-15
-
-  Rules implemented here:
-  - RIGHT swipe shows spouse for CURRENT person only (one direction):
-      * Base person (e.g., 140000) → try 140000.1
-      * Spouse variant (e.g., 140000.1 or 140000.1.240000) → return to base (140000)
-  - UP swipe shows TWO PARENTS:
-      * Parent #1 is the derivation parent whose children vary the 1000s place
-      * Parent #2 is Parent#1's spouse (Parent#1.1 or Parent#1.1.<otherId>) if present; else placeholder
-  - No hardcoded relationships; flat image folder; dynamic filename probing with cache-busting.
+  Build: 2025-08-15b (hide anchor on grids + full images in grid)
 */
 
 (function(){
@@ -24,8 +15,18 @@
   const $anchor = document.getElementById('anchor');
   const $grid = document.getElementById('grid');
 
+  // Ensure baseline styles so images can expand
+  if ($grid){
+    $grid.style.marginTop = '10px';
+  }
+
   let anchorId = null;
   let touchStartX = 0, touchStartY = 0;
+
+  function showAnchor(show){
+    if (!$anchor) return;
+    $anchor.style.display = show ? 'block' : 'none';
+  }
 
   function buildCandidateUrls(id){
     return EXTENSIONS.map(ext => IMG_BASE + id + ext);
@@ -84,25 +85,32 @@
     return null;
   }
 
+  function makeImg(urlOrNull, alt){
+    const img = document.createElement('img');
+    img.draggable = false;
+    img.alt = alt || '';
+    // full, uncropped display inside card
+    img.style.width = '100%';
+    img.style.height = 'auto';
+    img.style.maxHeight = '60vh';
+    img.style.objectFit = 'contain';
+    img.style.display = 'block';
+    img.style.margin = '0 auto';
+    if (urlOrNull) img.src = urlOrNull;
+    return img;
+  }
+
   async function loadImageInto(container, id, addLabel = true){
     if (!container) return false;
     container.innerHTML = '';
 
     const url = await resolveFirstExistingUrl(id);
-    const img = document.createElement('img');
-    img.draggable = false;
-    img.alt = id;
-    img.style.maxWidth = '90vw';
-    img.style.maxHeight = '70vh';
-    img.style.objectFit = 'contain';
-    img.style.display = 'block';
-    img.style.margin = '0 auto';
-
+    let img;
     if (url){
-      img.src = url;
+      img = makeImg(url, id);
     } else {
       const phUrl = await resolveFirstExistingUrl(PLACEHOLDER_MISSING);
-      if (phUrl) img.src = phUrl; else img.alt = '(missing) ' + id;
+      img = makeImg(phUrl, '(missing) ' + id);
     }
 
     const wrap = document.createElement('div');
@@ -114,7 +122,7 @@
       label.textContent = id;
       label.style.marginTop = '8px';
       label.style.fontSize = '14px';
-      label.style.opacity = '0.85';
+      label.style.opacity = '0.9';
       wrap.appendChild(label);
     }
 
@@ -126,6 +134,7 @@
     anchorId = id;
     await loadImageInto($anchor, id, true);
     if ($grid) $grid.innerHTML = '';
+    showAnchor(true); // ensure anchor visible when loading a person
   }
 
   // RIGHT swipe: spouse for current
@@ -136,48 +145,53 @@
       await loadAnchor(base);
       return;
     }
-    const spouseId = `${anchorId}.1`;
+    const spouseId = `${anchorId}.1`
     const url = await resolveFirstExistingUrl(spouseId);
     if (url){
       await loadAnchor(spouseId);
     }
   }
 
-  // UP swipe: show two parents
+  // UP swipe: show two parents and HIDE anchor
   async function handleSwipeUp(){
     if (!$grid || !anchorId) return;
     $grid.innerHTML = '';
+
+    // hide anchor while grid is shown
+    showAnchor(false);
 
     const p1 = getParent1Id(anchorId);
 
     const row = document.createElement('div');
     row.style.display = 'grid';
     row.style.gridTemplateColumns = '1fr 1fr';
-    row.style.gap = '12px';
-    row.style.maxWidth = '95vw';
-    row.style.margin = '16px auto';
+    row.style.gap = '16px';
+    row.style.maxWidth = '96vw';
+    row.style.margin = '12px auto';
 
     const c1 = document.createElement('div');
     c1.style.border = '1px solid #333';
-    c1.style.borderRadius = '12px';
-    c1.style.padding = '8px';
+    c1.style.borderRadius = '14px';
+    c1.style.padding = '10px';
+    c1.style.background = '#0b0b0b';
 
     const c2 = document.createElement('div');
     c2.style.border = '1px solid #333';
-    c2.style.borderRadius = '12px';
-    c2.style.padding = '8px';
+    c2.style.borderRadius = '14px';
+    c2.style.padding = '10px';
+    c2.style.background = '#0b0b0b';
 
     const l1 = document.createElement('div');
     l1.textContent = 'Parent #1';
     l1.style.fontWeight = '600';
     l1.style.textAlign = 'center';
-    l1.style.marginBottom = '6px';
+    l1.style.marginBottom = '8px';
 
     const l2 = document.createElement('div');
     l2.textContent = 'Parent #2';
     l2.style.fontWeight = '600';
     l2.style.textAlign = 'center';
-    l2.style.marginBottom = '6px';
+    l2.style.marginBottom = '8px';
 
     c1.appendChild(l1);
     c2.appendChild(l2);
@@ -204,24 +218,14 @@
       await loadImageInto(card2, p2, true);
     } else {
       const ph = await resolveFirstExistingUrl(PLACEHOLDER_PARENT2) || await resolveFirstExistingUrl(PLACEHOLDER_MISSING);
-      const img = document.createElement('img');
-      if (ph) img.src = ph; else img.alt = '(missing) Parent #2';
-      img.draggable = false;
-      img.style.maxWidth = '90%';
-      img.style.maxHeight = '38vh';
-      img.style.objectFit = 'contain';
-      img.style.display = 'block';
-      img.style.margin = '0 auto';
-      const wrap = document.createElement('div');
-      wrap.style.textAlign = 'center';
-      wrap.appendChild(img);
+      card2.appendChild(makeImg(ph, '(missing) Parent #2'));
       const label = document.createElement('div');
       label.textContent = 'Parent #2 (placeholder)';
       label.style.marginTop = '8px';
       label.style.fontSize = '14px';
-      label.style.opacity = '0.85';
-      wrap.appendChild(label);
-      card2.appendChild(wrap);
+      label.style.opacity = '0.9';
+      label.style.textAlign = 'center';
+      card2.appendChild(label);
     }
 
     row.appendChild(c1);
@@ -229,6 +233,7 @@
     $grid.appendChild(row);
   }
 
+  // Touch
   function onTouchStart(e){
     const t = e.changedTouches[0];
     touchStartX = t.clientX;
