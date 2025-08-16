@@ -1,5 +1,5 @@
 
-/* SwipeTree — script.js (AnchorBG + SoftEdit + Shield) */
+/* SwipeTree — script.js (Siblings + Children + SoftEdit + Shield) */
 (function(){
   'use strict';
 
@@ -14,37 +14,27 @@
   const $grid=document.getElementById('grid');
   const $startBtn=document.getElementById('startBtn');
 
-  // ------- Anti-hint shield (removes legacy UIs on sight) -------
+  // ------- Anti-hint shield (remove legacy "long-press"/editor blocks) -------
   function purgeHints(root=document){
-    const killText=/long-press to edit|edit label/i;
-    const walk=(el)=>{
+    const kill=/long-press to edit|edit label/i;
+    (root.querySelectorAll('*')||[]).forEach(el=>{
       try{
         if(el.nodeType!==1) return;
-        if(killText.test(el.textContent||'')) { el.remove(); return; }
-        if(/edit|label/i.test(el.id||'') || /(edit|label)/i.test(el.className||'')){
-          if(killText.test(el.textContent||'')) { el.remove(); return; }
-        }
+        if(kill.test(el.textContent||'')) el.remove();
       }catch{}
-    };
-    (root.querySelectorAll('*')||[]).forEach(walk);
+    });
   }
   purgeHints();
-  const mo=new MutationObserver(muts=>{
-    muts.forEach(m=>m.addedNodes&&m.addedNodes.forEach(n=>{ if(n.nodeType===1) purgeHints(n); }));
-  });
+  const mo=new MutationObserver(m=>m.forEach(x=>x.addedNodes&&x.addedNodes.forEach(n=>{ if(n.nodeType===1) purgeHints(n);})));
   mo.observe(document.documentElement,{childList:true,subtree:true});
 
-  // ------- Labels (local only) -------
+  // ------- Labels (local storage) -------
   const getLabels=()=>{ try{return JSON.parse(localStorage.getItem('st_labels')||'{}');}catch{return {};}};
-  const setLabels=(m)=>localStorage.setItem('st_labels',JSON.stringify(m||{}));
-  const showName=(id)=>getLabels()[id]||id;
+  const setLabels=m=>localStorage.setItem('st_labels',JSON.stringify(m||{}));
+  const showName=id=>getLabels()[id]||id;
   function saveName(id,text){ const m=getLabels(); if(text&&text.trim()) m[id]=text.trim(); else delete m[id]; setLabels(m); }
 
-  function showAnchor(show){
-    if(!$anchor) return;
-    if(show){ $anchor.style.display='grid'; }
-    else { $anchor.innerHTML=''; $anchor.style.display='none'; }
-  }
+  function showAnchor(show){ if(!$anchor) return; if(show){$anchor.style.display='grid';} else {$anchor.innerHTML=''; $anchor.style.display='none';} }
 
   let anchorId=null;
 
@@ -52,19 +42,83 @@
   function exists(u){ return new Promise(r=>{ const i=new Image(); i.onload=()=>r(true); i.onerror=()=>r(false); i.src=u+((u.includes('?')?'&':'?')+'cb='+Date.now()); }); }
   async function resolve(id){ for(const u of urls(id)){ if(await exists(u)) return u; } return null; }
 
-  const base=id=>{ const d=id.indexOf('.'); return d===-1?id:id.slice(0,d); };
-  const isSpouse=id=>id.includes('.1');
-  const toInt=id=>parseInt(base(id),10);
+  const digits = id => String(parseInt(id,10)).padStart(6,'0').split('').map(x=>parseInt(x,10));
+  const fromDigits = d => d.map(n=>String(n)).join('').padStart(6,'0');
+  const base=id=>{ const s=String(id); const dot=s.indexOf('.'); return dot===-1?s:s.slice(0,dot); };
+  const isSpouse=id=>String(id).includes('.1');
 
-  function parent1(id){
-    const n=toInt(id); if(Number.isNaN(n)) return null;
-    const t=Math.floor(n/1000)%10; if(t!==0) return String(n - t*1000);
-    const u=Math.floor(n/10000)%10; if(u!==0) return String(n - u*10000);
+  // Determine which position is this person's "index" digit (for siblings).
+  // Positions: [0]=100000s, [1]=10000s, [2]=1000s, [3]=100s, [4]=10s, [5]=1s
+  function currentIndexPos(id){
+    const d = digits(base(id));
+    for(let p=1; p<6; p++){ // skip [0]; family root at [0]
+      if(d[p]!==0){
+        // first non-zero among variable positions is the person's index level
+        return p;
+      }
+    }
+    return 1; // default to ten-thousands if none set (e.g., 100000)
+  }
+
+  function childrenIndexPos(id){
+    const p = currentIndexPos(id);
+    return Math.min(p+1, 5); // next lower order place (bounded)
+  }
+
+  // Parent #1 calculation: zero the 1000s digit; if it's already zero, zero 10000s.
+  function parent1FromAny(id){
+    const n = parseInt(base(id),10);
+    const thousands = Math.floor(n/1000)%10;
+    if(thousands!==0) return String(n - thousands*1000).padStart(6,'0');
+    const tenThousands = Math.floor(n/10000)%10;
+    if(tenThousands!==0) return String(n - tenThousands*10000).padStart(6,'0');
     return null;
   }
-  async function parent2(p1){ if(!p1) return null; const g=`${p1}.1`; return (await resolve(g)) ? g : null; }
 
-  // Long-press helper (editor only on long-press; no hints)
+  async function parent2FromP1(p1){
+    if(!p1) return null;
+    const g = `${p1}.1`;
+    return (await resolve(g)) ? g : null;
+  }
+
+  // Enumerate siblings of the current person
+  async function listSiblings(id){
+    const baseId = base(id);
+    const d = digits(baseId);
+    const pos = currentIndexPos(baseId);
+    const keep = d.slice();
+    const out = [];
+    for(let k=1; k<=9; k++){
+      if(k===d[pos]) continue;      // skip self
+      const dd = keep.slice();
+      dd[pos]=k;
+      // zero-out lower places to canonicalize
+      for(let p=pos+1; p<6; p++) dd[p]=0;
+      const cand = fromDigits(dd);
+      if(await resolve(cand)) out.push(cand);
+    }
+    return out;
+  }
+
+  // Enumerate children of the current person
+  async function listChildren(id){
+    const baseId = base(id);
+    const d = digits(baseId);
+    const pos = childrenIndexPos(baseId);
+    const dd = d.slice();
+    // zero lower places first
+    for(let p=pos; p<6; p++) dd[p]=0;
+    const out=[];
+    for(let k=1; k<=9; k++){
+      const row = dd.slice();
+      row[pos]=k;
+      const cand = fromDigits(row);
+      if(await resolve(cand)) out.push(cand);
+    }
+    return out;
+  }
+
+  // Long-press editor (SoftEdit)
   let lpTimer=null;
   function longPress(el, fn, ms=650){
     if(!el) return;
@@ -90,24 +144,21 @@
     const cancel=document.createElement('button'); cancel.className='btn'; cancel.textContent='Cancel';
     row.appendChild(save); row.appendChild(cancel); panel.appendChild(input); panel.appendChild(row); overlay.appendChild(panel);
     cancel.onclick=()=>document.body.removeChild(overlay);
-    save.onclick=()=>{ saveName(id,input.value); renderAnchor(id); document.body.removeChild(overlay); };
+    save.onclick=()=>{ const v=input.value; saveName(id,v); renderAnchor(id); document.body.removeChild(overlay); };
     document.body.appendChild(overlay); input.focus();
   }
 
-  // Anchor renderer: background stage (always centered)
+  // Render anchor with background stage
   async function renderAnchor(id){
     $anchor.innerHTML='';
     const url=(await resolve(id))||(await resolve(PH_MISS))||'';
     const stage=document.createElement('div');
-    stage.className='stage-bg';
-    stage.setAttribute('role','img');
-    stage.setAttribute('aria-label', id);
+    stage.className='stage-bg'; stage.setAttribute('role','img'); stage.setAttribute('aria-label', id);
     stage.style.backgroundImage=`url('${url}')`;
     $anchor.appendChild(stage);
 
     const label=document.createElement('div');
-    label.className='label';
-    label.textContent=showName(id);
+    label.className='label'; label.textContent=showName(id);
     label.style.marginTop='10px'; label.style.fontSize='16px'; label.style.opacity='.9'; label.style.textAlign='center';
     $anchor.appendChild(label);
 
@@ -124,23 +175,14 @@
     showAnchor(true);
   }
 
-  async function swipeRight(){
-    if(!anchorId) return;
-    if(isSpouse(anchorId)){ await loadAnchor(base(anchorId)); return; }
-    const s=`${anchorId}.1`; if(await resolve(s)) await loadAnchor(s);
-  }
-
+  // Card helpers
   function addCard(parentEl, personId, title, clickable=true){
     const card=document.createElement('div');
     card.className='card'+(clickable?' clickable':'');
-
-    const ttl=document.createElement('div');
-    ttl.className='title'; ttl.textContent=title;
-    card.appendChild(ttl);
-
-    const imgWrap=document.createElement('div');
-    card.appendChild(imgWrap);
-
+    if(title){
+      const ttl=document.createElement('div'); ttl.className='title'; ttl.textContent=title; card.appendChild(ttl);
+    }
+    const imgWrap=document.createElement('div'); card.appendChild(imgWrap);
     (async()=>{
       const url=(await resolve(personId))||(await resolve(PH_MISS))||'';
       const img=document.createElement('img'); img.src=url; img.alt=personId; img.draggable=false; imgWrap.appendChild(img);
@@ -150,18 +192,40 @@
       longPress(img, ()=>openEditor(personId));
       longPress(l, ()=>openEditor(personId));
     })();
-
     parentEl.appendChild(card);
   }
 
+  // Generic people grid
+  async function showPeopleGrid(ids, titleText){
+    if(!$grid) return;
+    $grid.innerHTML='';
+    showAnchor(false);
+    const wrapper=document.createElement('div');
+    if(titleText){
+      const h=document.createElement('div'); h.className='title'; h.textContent=titleText;
+      h.style.textAlign='center'; h.style.margin='8px 0 4px'; wrapper.appendChild(h);
+    }
+    const grid=document.createElement('div'); grid.className='people-grid';
+    wrapper.appendChild(grid);
+    ids.forEach(id=> addCard(grid, id, '', true));
+    $grid.appendChild(wrapper);
+  }
+
+  // Gestures
+  async function swipeRight(){
+    if(!anchorId) return;
+    if(isSpouse(anchorId)){ await loadAnchor(base(anchorId)); return; }
+    const s=`${anchorId}.1`; if(await resolve(s)) await loadAnchor(s);
+  }
   async function swipeUp(){
+    // show two parents of current person
     if(!$grid||!anchorId) return;
     $grid.innerHTML=''; showAnchor(false);
-    const p1=parent1(anchorId);
+    const p1=parent1FromAny(anchorId);
     const row=document.createElement('div'); row.className='parent-row';
     if(p1){
       addCard(row,p1,'Parent #1',true);
-      const p2=await parent2(p1);
+      const p2=await parent2FromP1(p1);
       if(p2) addCard(row,p2,'Parent #2',true);
       else {
         const ph=(await resolve(PH_P2))||(await resolve(PH_MISS));
@@ -174,13 +238,26 @@
     }
     $grid.appendChild(row);
   }
+  async function swipeLeft(){
+    if(!anchorId) return;
+    const sibs = await listSiblings(anchorId);
+    await showPeopleGrid(sibs, 'Siblings');
+  }
+  async function swipeDown(){
+    if(!anchorId) return;
+    const kids = await listChildren(anchorId);
+    await showPeopleGrid(kids, 'Children');
+  }
 
-  // Touch swipes
+  // Touch listeners
   let sx=0, sy=0;
   function tstart(e){ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; }
-  function tend(e){ const t=e.changedTouches[0]; const dx=t.clientX-sx, dy=t.clientY-sy; const ax=Math.abs(dx), ay=Math.abs(dy); const MIN=30;
-    if(ax>ay && ax>MIN){ if(dx>0) swipeRight(); }
-    else if(ay>ax && ay>MIN){ if(dy<0) swipeUp(); } }
+  function tend(e){
+    const t=e.changedTouches[0]; const dx=t.clientX-sx, dy=t.clientY-sy;
+    const ax=Math.abs(dx), ay=Math.abs(dy), MIN=30;
+    if(ax>ay && ax>MIN){ if(dx>0) swipeRight(); else swipeLeft(); }
+    else if(ay>ax && ay>MIN){ if(dy<0) swipeUp(); else swipeDown(); }
+  }
 
   async function boot(){
     let id=(location.hash||'').replace('#','').trim(); if(!id) id='100000';
@@ -189,6 +266,5 @@
     document.addEventListener('touchstart', tstart, {passive:true});
     document.addEventListener('touchend', tend, {passive:true});
   }
-  if(document.readyState==='complete'||document.readyState==='interactive') boot();
-  else document.addEventListener('DOMContentLoaded', boot);
-})(); 
+  if(document.readyState==='complete'||document.readyState==='interactive') boot(); else document.addEventListener('DOMContentLoaded', boot);
+})();
