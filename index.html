@@ -29,6 +29,23 @@
     </main>
   </div>
 
+  <div id="editOverlay" class="editOverlay hidden" role="dialog" aria-modal="true">
+    <div class="editCard">
+      <div class="editRow">
+        <label for="editName">Name</label>
+        <input id="editName" type="text" autocomplete="off" />
+      </div>
+      <div class="editRow">
+        <label for="editDob">DOB</label>
+        <input id="editDob" type="text" autocomplete="off" placeholder="YYYY-MM-DD" />
+      </div>
+      <div class="editActions">
+        <button id="editCancel" class="btn subtle">Cancel</button>
+        <button id="editSave" class="btn">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script src="./script.js"></script>
 </body>
 </html>
