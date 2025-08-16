@@ -1,11 +1,21 @@
 
 /*
   SwipeTree — script.js
-  Build: 2025-08-15b (hide anchor on grids + full images in grid)
+  Build: 2025-08-15e
+  - Purge any edit UI (remove 'Long-press to edit' and edit panel if present)
+  - Hard-hide anchor when showing grids (no background bleed)
+  - Clamp any oversized images (no overflow)
+  - Tap a grid image = navigate & close grid
+  - Default start = 100000
+  - Right swipe = spouse; Up swipe = parents
 */
 
 (function(){
   'use strict';
+
+  // Lock page from scrolling/zoom bleed
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
 
   const IMG_BASE = (typeof window !== 'undefined' && window.IMG_BASE) ? window.IMG_BASE : './';
   const EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
@@ -14,18 +24,50 @@
 
   const $anchor = document.getElementById('anchor');
   const $grid = document.getElementById('grid');
+  const $startBtn = document.getElementById('startBtn'); // optional
 
-  // Ensure baseline styles so images can expand
+  // Center/size anchor area
+  if ($anchor){
+    $anchor.style.display = 'grid';
+    $anchor.style.placeItems = 'center';
+    $anchor.style.minHeight = '70vh';
+    $anchor.style.padding = '8px 0';
+  }
   if ($grid){
     $grid.style.marginTop = '10px';
   }
+
+  // Remove any existing edit UI/labels injected by older builds
+  function killEditUI(){
+    // Remove elements that advertise long-press or edit label areas
+    const candidates = Array.from(document.querySelectorAll('*'))
+      .filter(el => el && el.textContent && /long-press to edit|edit label/i.test(el.textContent));
+    for (const el of candidates){
+      el.remove();
+    }
+    // Common ids/classes from past builds
+    ['editPanel', 'labelEditor', 'edit-label', 'editor'].forEach(id => {
+      const n = document.getElementById(id);
+      if (n) n.remove();
+    });
+    document.querySelectorAll('.edit,.label-editor,.edit-panel').forEach(n => n.remove());
+  }
+
+  killEditUI();
 
   let anchorId = null;
   let touchStartX = 0, touchStartY = 0;
 
   function showAnchor(show){
     if (!$anchor) return;
-    $anchor.style.display = show ? 'block' : 'none';
+    if (show){
+      $anchor.style.display = 'grid';
+      $anchor.style.minHeight = '70vh';
+    } else {
+      $anchor.innerHTML = '';
+      $anchor.style.display = 'none';
+      $anchor.style.minHeight = '0';
+    }
   }
 
   function buildCandidateUrls(id){
@@ -60,7 +102,7 @@
     return parseInt(digitsOnly(id), 10);
   }
 
-  // Parent #1: zero-out current generation 1000s digit if present; else try 10000s
+  // Parent #1: zero the 1000s digit; if already zero, zero 10000s as fallback
   function getParent1Id(id){
     const n = toInt(id);
     if (Number.isNaN(n)) return null;
@@ -89,10 +131,25 @@
     const img = document.createElement('img');
     img.draggable = false;
     img.alt = alt || '';
-    // full, uncropped display inside card
+    img.style.maxWidth = '92vw';
+    img.style.maxHeight = '68vh';  // tight clamp to avoid overflow under Safari UI
+    img.style.width = 'auto';
+    img.style.height = 'auto';
+    img.style.objectFit = 'contain';
+    img.style.display = 'block';
+    img.style.margin = '0 auto';
+    img.style.imageRendering = 'auto';
+    if (urlOrNull) img.src = urlOrNull;
+    return img;
+  }
+
+  function makeGridImg(urlOrNull, alt){
+    const img = document.createElement('img');
+    img.draggable = false;
+    img.alt = alt || '';
     img.style.width = '100%';
     img.style.height = 'auto';
-    img.style.maxHeight = '60vh';
+    img.style.maxHeight = '42vh'; // parents grid clamp
     img.style.objectFit = 'contain';
     img.style.display = 'block';
     img.style.margin = '0 auto';
@@ -100,17 +157,17 @@
     return img;
   }
 
-  async function loadImageInto(container, id, addLabel = true){
+  async function loadImageInto(container, id, addLabel = true, gridMode = false){
     if (!container) return false;
     container.innerHTML = '';
 
     const url = await resolveFirstExistingUrl(id);
     let img;
     if (url){
-      img = makeImg(url, id);
+      img = gridMode ? makeGridImg(url, id) : makeImg(url, id);
     } else {
       const phUrl = await resolveFirstExistingUrl(PLACEHOLDER_MISSING);
-      img = makeImg(phUrl, '(missing) ' + id);
+      img = gridMode ? makeGridImg(phUrl, '(missing) ' + id) : makeImg(phUrl, '(missing) ' + id);
     }
 
     const wrap = document.createElement('div');
@@ -132,9 +189,10 @@
 
   async function loadAnchor(id){
     anchorId = id;
-    await loadImageInto($anchor, id, true);
+    await loadImageInto($anchor, id, true, false);
     if ($grid) $grid.innerHTML = '';
-    showAnchor(true); // ensure anchor visible when loading a person
+    showAnchor(true);
+    killEditUI();
   }
 
   // RIGHT swipe: spouse for current
@@ -145,20 +203,48 @@
       await loadAnchor(base);
       return;
     }
-    const spouseId = `${anchorId}.1`
+    const spouseId = `${anchorId}.1`;
     const url = await resolveFirstExistingUrl(spouseId);
     if (url){
       await loadAnchor(spouseId);
     }
   }
 
-  // UP swipe: show two parents and HIDE anchor
+  // Helper: tappable card
+  function addTappableCard(parentEl, personId, title){
+    const card = document.createElement('div');
+    card.style.border = '1px solid #333';
+    card.style.borderRadius = '14px';
+    card.style.padding = '10px';
+    card.style.background = '#0b0b0b';
+    card.style.cursor = 'pointer';
+
+    const ttl = document.createElement('div');
+    ttl.textContent = title;
+    ttl.style.fontWeight = '600';
+    ttl.style.textAlign = 'center';
+    ttl.style.marginBottom = '8px';
+    card.appendChild(ttl);
+
+    const imgWrap = document.createElement('div');
+    card.appendChild(imgWrap);
+
+    // load image in grid mode, then attach tap
+    loadImageInto(imgWrap, personId, true, true).then(()=>{
+      card.addEventListener('click', async () => {
+        await loadAnchor(personId); // closes grid (since anchor reappears)
+      }, { once: true });
+    });
+
+    parentEl.appendChild(card);
+  }
+
+  // UP swipe: parents (anchor hidden)
   async function handleSwipeUp(){
     if (!$grid || !anchorId) return;
     $grid.innerHTML = '';
-
-    // hide anchor while grid is shown
     showAnchor(false);
+    killEditUI();
 
     const p1 = getParent1Id(anchorId);
 
@@ -169,67 +255,36 @@
     row.style.maxWidth = '96vw';
     row.style.margin = '12px auto';
 
-    const c1 = document.createElement('div');
-    c1.style.border = '1px solid #333';
-    c1.style.borderRadius = '14px';
-    c1.style.padding = '10px';
-    c1.style.background = '#0b0b0b';
-
-    const c2 = document.createElement('div');
-    c2.style.border = '1px solid #333';
-    c2.style.borderRadius = '14px';
-    c2.style.padding = '10px';
-    c2.style.background = '#0b0b0b';
-
-    const l1 = document.createElement('div');
-    l1.textContent = 'Parent #1';
-    l1.style.fontWeight = '600';
-    l1.style.textAlign = 'center';
-    l1.style.marginBottom = '8px';
-
-    const l2 = document.createElement('div');
-    l2.textContent = 'Parent #2';
-    l2.style.fontWeight = '600';
-    l2.style.textAlign = 'center';
-    l2.style.marginBottom = '8px';
-
-    c1.appendChild(l1);
-    c2.appendChild(l2);
-
     if (p1){
-      const card1 = document.createElement('div');
-      c1.appendChild(card1);
-      await loadImageInto(card1, p1, true);
+      addTappableCard(row, p1, 'Parent #1');
+      const p2 = await getParent2Id(p1);
+      if (p2){
+        addTappableCard(row, p2, 'Parent #2');
+      } else {
+        const holder = document.createElement('div');
+        holder.style.border = '1px solid #333';
+        holder.style.borderRadius = '14px';
+        holder.style.padding = '10px';
+        holder.style.background = '#0b0b0b';
+        const ttl = document.createElement('div');
+        ttl.textContent = 'Parent #2 (placeholder)';
+        ttl.style.fontWeight = '600';
+        ttl.style.textAlign = 'center';
+        ttl.style.marginBottom = '8px';
+        holder.appendChild(ttl);
+        const phUrl = await resolveFirstExistingUrl(PLACEHOLDER_PARENT2) || await resolveFirstExistingUrl(PLACEHOLDER_MISSING);
+        const img = makeGridImg(phUrl, '(missing) Parent #2');
+        holder.appendChild(img);
+        row.appendChild(holder);
+      }
     } else {
       const m = document.createElement('div');
       m.textContent = '— no parent #1 —';
       m.style.textAlign = 'center';
       m.style.opacity = '0.8';
-      c1.appendChild(m);
+      row.appendChild(m);
     }
 
-    let p2 = null;
-    if (p1){
-      p2 = await getParent2Id(p1);
-    }
-    const card2 = document.createElement('div');
-    c2.appendChild(card2);
-    if (p2){
-      await loadImageInto(card2, p2, true);
-    } else {
-      const ph = await resolveFirstExistingUrl(PLACEHOLDER_PARENT2) || await resolveFirstExistingUrl(PLACEHOLDER_MISSING);
-      card2.appendChild(makeImg(ph, '(missing) Parent #2'));
-      const label = document.createElement('div');
-      label.textContent = 'Parent #2 (placeholder)';
-      label.style.marginTop = '8px';
-      label.style.fontSize = '14px';
-      label.style.opacity = '0.9';
-      label.style.textAlign = 'center';
-      card2.appendChild(label);
-    }
-
-    row.appendChild(c1);
-    row.appendChild(c2);
     $grid.appendChild(row);
   }
 
@@ -264,10 +319,17 @@
 
   async function boot(){
     let startId = (location.hash || '').replace('#','').trim();
-    if (!startId){
-      startId = (typeof window !== 'undefined' && window.prompt) ? window.prompt('Enter starting ID (e.g., 140000):','140000') : '140000';
-    }
+    if (!startId) startId = '100000';
     await loadAnchor(startId);
+
+    if ($startBtn){
+      $startBtn.addEventListener('click', () => {
+        const id = prompt('Enter starting ID (e.g., 140000):', startId) || startId;
+        location.hash = id;
+        location.reload();
+      });
+    }
+
     document.addEventListener('touchstart', onTouchStart, { passive: true });
     document.addEventListener('touchend', onTouchEnd, { passive: true });
   }
