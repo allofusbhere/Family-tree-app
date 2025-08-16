@@ -1,254 +1,364 @@
-
-/* SwipeTree — script.js (iPad Swipe Fix + Animations + SoftEdit) */
+// SwipeTree — swipe logic + dynamic relationship grids
 (function(){
   'use strict';
 
-  // Prevent page scroll/bounce so we can capture vertical swipes
-  document.documentElement.style.overflow='hidden';
-  document.body.style.overflow='hidden';
+  // --- Config ---
+  const PLACEHOLDER = 'placeholder.jpg';  // shown if image missing
+  const MAX_CANDIDATES = 9;               // grid max
+  const IMG_EXT = '.jpg';                 // flat folder, no subfolders
+  const SWIPE_THRESHOLD = 40;             // px
+  const LONGPRESS_MS = 520;               // soft-edit trigger
 
-  const IMG_BASE=(typeof window!=='undefined'&&window.IMG_BASE)?window.IMG_BASE:'./';
-  const EXT=['.jpg','.jpeg','.png','.webp','.JPG','.JPEG','.PNG','.WEBP'];
-  const PH_P2='placeholder_parent2.jpg', PH_MISS='placeholder.jpg';
+  // --- State ---
+  const state = {
+    anchorId: null,           // string form (may include ".1")
+    historyStack: [],
+    gridOpen: false,
+    gridType: null,           // 'children' | 'siblings' | 'parents' | 'spouse'
+    touchStart: null,
+    longPressTimer: null,
+  };
 
-  const $anchor=document.getElementById('anchor');
-  const $grid=document.getElementById('grid');
-  const $startBtn=document.getElementById('startBtn');
+  // --- DOM ---
+  const anchorImg = document.getElementById('anchorImg');
+  const anchorWrap = document.getElementById('anchorWrap');
+  const anchorName = document.getElementById('anchorName');
+  const gridOverlay = document.getElementById('gridOverlay');
+  const grid = document.getElementById('grid');
+  const gridTitle = document.getElementById('gridTitle');
+  const backBtn = document.getElementById('backBtn');
 
-  // Remove legacy "edit" hints if somehow injected
-  function purgeHints(root=document){
-    const kill=/long-press to edit|edit label/i;
-    (root.querySelectorAll('*')||[]).forEach(el=>{ try{ if(el.nodeType===1 && kill.test(el.textContent||'')) el.remove(); }catch{} });
-  }
-  purgeHints();
-  new MutationObserver(m=>m.forEach(x=>x.addedNodes&&x.addedNodes.forEach(n=>{ if(n.nodeType===1) purgeHints(n);})))
-    .observe(document.documentElement,{childList:true,subtree:true});
+  // --- Utilities ---
+  function idToSrc(id){ return `${id}${IMG_EXT}`; }
 
-  // Labels
-  const getLabels=()=>{ try{return JSON.parse(localStorage.getItem('st_labels')||'{}');}catch{return {};}};
-  const setLabels=m=>localStorage.setItem('st_labels',JSON.stringify(m||{}));
-  const showName=id=>getLabels()[id]||id;
-  function saveName(id,text){ const m=getLabels(); if(text&&text.trim()) m[id]=text.trim(); else delete m[id]; setLabels(m); }
-
-  function showAnchor(show){ if(!$anchor) return; if(show){$anchor.style.display='grid';} else {$anchor.innerHTML=''; $anchor.style.display='none';} }
-
-  let anchorId=null;
-
-  const urls=id=>EXT.map(e=>IMG_BASE+id+e);
-  function exists(u){ return new Promise(r=>{ const i=new Image(); i.onload=()=>r(true); i.onerror=()=>r(false); i.src=u+((u.includes('?')?'&':'?')+'cb='+Date.now()); }); }
-  async function resolve(id){ for(const u of urls(id)){ if(await exists(u)) return u; } return null; }
-
-  const base=id=>{ const s=String(id); const dot=s.indexOf('.'); return dot===-1?s:s.slice(0,dot); };
-  const isSpouse=id=>String(id).includes('.1');
-
-  // Digit helpers
-  const to6 = id => String(parseInt(id,10)).padStart(6,'0');
-  const digits = id => to6(id).split('').map(x=>parseInt(x,10));
-  const fromDigits = d => d.map(n=>String(n)).join('');
-
-  // Level position = LAST non-zero among positions 1..5
-  function levelPos(id){
-    const d = digits(base(id));
-    for(let p=5; p>=1; p--){ if(d[p]!==0) return p; }
-    return 1;
+  function exists(src){
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = src + cacheBust();
+    });
   }
 
-  // Parent1: zero thousands; if already zero, zero ten-thousands
-  function parent1FromAny(id){
-    const n = parseInt(base(id),10);
-    const thousands = Math.floor(n/1000)%10;
-    if(thousands!==0) return String(n - thousands*1000).padStart(6,'0');
-    const tenThousands = Math.floor(n/10000)%10;
-    if(tenThousands!==0) return String(n - tenThousands*10000).padStart(6,'0');
-    return null;
-  }
-  async function parent2FromP1(p1){ if(!p1) return null; const g=`${p1}.1`; return (await resolve(g))?g:null; }
+  function cacheBust(){ return `?v=${Date.now() % 1e7}`; }
 
-  // Siblings: vary the CURRENT level digit (last non-zero), zero lower digits
-  async function listSiblings(id){
-    const b = base(id);
-    const d = digits(b);
-    const pos = levelPos(b);
-    const out=[];
-    const cur = d[pos];
-    for(let p=pos+1; p<=5; p++) d[p]=0;
-    for(let k=1; k<=9; k++){
-      if(k===cur) continue;
-      const dd = d.slice(); dd[pos]=k;
-      const cand = fromDigits(dd);
-      if(await resolve(cand)) out.push(cand);
+  function getSavedMeta(id){
+    const key = `swipetree.meta.${id}`;
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
+  }
+
+  function saveMeta(id, meta){
+    const key = `swipetree.meta.${id}`;
+    localStorage.setItem(key, JSON.stringify(meta || {}));
+  }
+
+  function displayNameFor(id){
+    const meta = getSavedMeta(id);
+    return (meta && meta.name) ? meta.name : '';
+  }
+
+  function setURLHash(id){
+    try { history.replaceState(null, '', `#${encodeURIComponent(id)}`); } catch {}
+  }
+
+  function getIdParts(idStr){
+    // returns { baseId: '140000', isSpouse: false, partnerHint: null }
+    const parts = idStr.split('.');
+    let base = parts[0];
+    let isSpouse = false;
+    let partnerHint = null;
+    if(parts.length >= 2 && parts[1] === '1'){ isSpouse = true; }
+    if(parts.length >= 3){ partnerHint = parts[2]; }
+    return { baseId: base, isSpouse, partnerHint };
+  }
+
+  function countTrailingZeros(numStr){
+    // '140000' -> 4
+    let c = 0;
+    for(let i=numStr.length-1;i>=0;i--){
+      if(numStr[i] !== '0') break;
+      c++;
+    }
+    return c;
+  }
+
+  function toInt(s){ return parseInt(s, 10); }
+  function toStr(n, digits){
+    let s = String(n);
+    // preserve digit count (no shortening)
+    while(s.length < digits) s = '0' + s;
+    return s;
+  }
+
+  // --- Relationship math (dynamic, no hardcoding) ---
+  function parentOf(idStr){
+    const { baseId } = getIdParts(idStr);
+    const digits = baseId.length;
+    const tz = countTrailingZeros(baseId);
+    if(tz <= 0) return null; // top-level
+    // zero out the rightmost non-zero digit (at position digits - tz - 1)
+    const n = toInt(baseId);
+    const step = Math.pow(10, tz);
+    const parent = n - (n % (step*10));
+    return toStr(parent, digits);
+  }
+
+  function childrenOf(idStr){
+    const { baseId } = getIdParts(idStr);
+    const digits = baseId.length;
+    const tz = countTrailingZeros(baseId);
+    // children increment the next lower place (tz-1)
+    const childStep = Math.pow(10, Math.max(0, tz-1));
+    const parentFloor = toInt(baseId) - (toInt(baseId) % (childStep*10));
+    // candidates 1..9 at childStep
+    const out = [];
+    for(let k=1;k<=MAX_CANDIDATES;k++){
+      const kid = parentFloor + k*childStep;
+      out.push(toStr(kid, digits));
     }
     return out;
   }
 
-  // Children: next position; enumerate 1..9
-  async function listChildren(id){
-    const b = base(id);
-    const posParent = levelPos(b);
-    const posChild = Math.min(posParent+1, 5);
-    const d = digits(b);
-    for(let p=posChild; p<=5; p++) d[p]=0;
-    const out=[];
-    for(let k=1; k<=9; k++){
-      const dd = d.slice();
-      dd[posChild]=k;
-      const cand = fromDigits(dd);
-      if(await resolve(cand)) out.push(cand);
+  function siblingsOf(idStr){
+    const { baseId } = getIdParts(idStr);
+    const digits = baseId.length;
+    const tz = countTrailingZeros(baseId);
+    const sibStep = Math.pow(10, tz);   // siblings differ at current "child digit" place
+    const parentFloor = toInt(baseId) - (toInt(baseId) % (sibStep*10));
+    const out = [];
+    for(let k=1;k<=MAX_CANDIDATES;k++){
+      const sib = parentFloor + k*sibStep;
+      const s = toStr(sib, digits);
+      if(s !== baseId) out.push(s);
     }
     return out;
   }
 
-  // Long-press editor (soft edit: available but hidden until long-press)
-  let lpTimer=null;
-  function longPress(el, fn, ms=650){
-    if(!el) return;
-    let moved=false;
-    el.addEventListener('touchstart', e=>{ moved=false; clearTimeout(lpTimer); lpTimer=setTimeout(()=>{ if(!moved) fn(e); }, ms); }, {passive:false});
-    el.addEventListener('touchmove', e=>{ moved=true; clearTimeout(lpTimer); e.preventDefault(); }, {passive:false});
-    el.addEventListener('touchend', ()=>{ clearTimeout(lpTimer); }, {passive:false});
-    el.addEventListener('mousedown', e=>{ if(e.button!==0) return; moved=false; clearTimeout(lpTimer); lpTimer=setTimeout(()=>{ if(!moved) fn(e); }, ms); });
-    ['mousemove','mouseup','mouseleave'].forEach(ev=> el.addEventListener(ev, ()=>{ clearTimeout(lpTimer); }));
+  function spousesOf(idStr){
+    // Primary spouse target is "<base>.1"
+    const { baseId } = getIdParts(idStr);
+    return [`${baseId}.1`];
   }
 
-  function openEditor(id){
-    const overlay=document.createElement('div');
-    Object.assign(overlay.style,{position:'fixed',inset:'0',background:'rgba(0,0,0,.6)',display:'grid',placeItems:'center',zIndex:'9999'});
-    const panel=document.createElement('div');
-    Object.assign(panel.style,{background:'#111',border:'1px solid #333',borderRadius:'12px',padding:'14px',width:'min(420px,92vw)'});
-    panel.innerHTML='<div style="font-weight:600;margin-bottom:8px;">Edit label</div>';
-    const input=document.createElement('input');
-    Object.assign(input,{type:'text',value:(showName(id).match(/^(\d+(\.\d+)*)$/)?'':showName(id))});
-    Object.assign(input.style,{width:'100%',padding:'8px',borderRadius:'8px',border:'1px solid #333',background:'#0b0b0b',color:'#eee'});
-    const row=document.createElement('div'); Object.assign(row.style,{display:'flex',gap:'8px',marginTop:'10px'});
-    const save=document.createElement('button'); save.className='btn'; save.textContent='Save';
-    const cancel=document.createElement('button'); cancel.className='btn'; cancel.textContent='Cancel';
-    row.appendChild(save); row.appendChild(cancel); panel.appendChild(input); panel.appendChild(row); overlay.appendChild(panel);
-    cancel.onclick=()=>document.body.removeChild(overlay);
-    save.onclick=()=>{ const v=input.value; saveName(id,v); renderAnchor(id); document.body.removeChild(overlay); };
-    document.body.appendChild(overlay); input.focus();
-  }
+  // --- Rendering ---
+  async function setAnchor(idStr, pushHistory=true){
+    if(state.gridOpen){ closeGrid(); }
 
-  // Render anchor
-  async function renderAnchor(id){
-    $anchor.innerHTML='';
-    const url=(await resolve(id))||(await resolve(PH_MISS))||'';
-    const stage=document.createElement('div');
-    stage.className='stage-bg'; stage.setAttribute('role','img'); stage.setAttribute('aria-label', id);
-    stage.style.backgroundImage=`url('${url}')`;
-    $anchor.appendChild(stage);
-
-    const label=document.createElement('div');
-    label.className='label'; label.textContent=showName(id);
-    label.style.marginTop='10px'; label.style.fontSize='16px'; label.style.opacity='.9'; label.style.textAlign='center';
-    $anchor.appendChild(label);
-
-    longPress(stage, ()=>openEditor(id));
-    longPress(label, ()=>openEditor(id));
-
-    if(window.scrollTo) window.scrollTo(0,0);
-  }
-
-  async function loadAnchor(id){
-    anchorId=id;
-    await renderAnchor(id);
-    if($grid) $grid.innerHTML='';
-    showAnchor(true);
-  }
-
-  // Card helpers
-  function addCard(parentEl, personId, title, clickable=true){
-    const card=document.createElement('div');
-    card.className='card'+(clickable?' clickable':'');
-    if(title){
-      const ttl=document.createElement('div'); ttl.className='title'; ttl.textContent=title; card.appendChild(ttl);
+    if(state.anchorId && pushHistory){
+      state.historyStack.push(state.anchorId);
     }
-    const imgWrap=document.createElement('div');
-    card.appendChild(imgWrap);
-    (async()=>{
-      const url=(await resolve(personId))||(await resolve(PH_MISS))||'';
-      const img=document.createElement('img'); img.src=url; img.alt=personId; img.draggable=false; imgWrap.appendChild(img);
-      const l=document.createElement('div'); l.className='label'; l.textContent=showName(personId);
-      l.style.marginTop='8px'; l.style.fontSize='14px'; l.style.opacity='.9'; l.style.textAlign='center'; card.appendChild(l);
-      if(clickable){ card.addEventListener('click', async()=>{ await loadAnchor(personId); }, {once:true}); }
-      longPress(img, ()=>openEditor(personId));
-      longPress(l, ()=>openEditor(personId));
-    })();
-    parentEl.appendChild(card);
+
+    state.anchorId = idStr;
+    setURLHash(idStr);
+
+    const src = idToSrc(idStr);
+    const ok = await exists(src);
+    anchorImg.src = ok ? (src + cacheBust()) : (PLACEHOLDER + cacheBust());
+    anchorImg.classList.remove('highlight');
+
+    const label = displayNameFor(idStr);
+    anchorName.textContent = label ? label : '';
+
+    // slight flash on new anchor
+    requestAnimationFrame(()=>{
+      anchorImg.classList.add('highlight');
+      setTimeout(()=>anchorImg.classList.remove('highlight'), 350);
+    });
   }
 
-  function slideIn(el, dir){
-    el.classList.add('slide-wrap');
-    if(dir==='left'){ el.classList.add('slide-right'); }
-    if(dir==='right'){ el.classList.add('slide-left'); }
-    if(dir==='up' || dir==='down'){ /* default vertical slide already set */ }
-    requestAnimationFrame(()=>{ el.classList.add('slide-in'); el.classList.remove('slide-left','slide-right'); });
+  function openGrid(title, cards){
+    gridTitle.textContent = title;
+    grid.innerHTML = '';
+    cards.forEach(c => {
+      const tile = document.createElement('div');
+      tile.className = 'tile noselect';
+      tile.dataset.id = c.id;
+      tile.innerHTML = `
+        <img alt="${c.id}" src="${c.src}${cacheBust()}">
+        <div class="label">${c.name || ''}</div>
+      `;
+      tile.addEventListener('click', async () => {
+        // navigate on tap
+        closeGrid();
+        await setAnchor(c.id);
+      });
+      grid.appendChild(tile);
+    });
+    gridOverlay.classList.remove('hidden');
+    state.gridOpen = true;
   }
 
-  async function showPeopleGrid(ids, titleText, dir){
-    if(!$grid) return;
-    $grid.innerHTML='';
-    // Subtle anchor fade so it looks like it "moves"
-    const st=$anchor.querySelector('.stage-bg'); if(st){ st.classList.add('anchor-hide'); setTimeout(()=>st.classList.remove('anchor-hide'), 300); }
-    showAnchor(false);
-    const wrapper=document.createElement('div');
-    if(titleText){
-      const h=document.createElement('div'); h.className='title'; h.textContent=titleText;
-      h.style.textAlign='center'; h.style.margin='8px 0 4px'; wrapper.appendChild(h);
-    }
-    const grid=document.createElement('div'); grid.className='people-grid';
-    wrapper.appendChild(grid);
-    ids.forEach(id=> addCard(grid, id, '', true));
-    $grid.appendChild(wrapper);
-    slideIn(wrapper, dir||'up');
+  function closeGrid(){
+    gridOverlay.classList.add('hidden');
+    state.gridOpen = false;
+    state.gridType = null;
   }
 
-  // Gestures (iPad focus) — use move deltas, preventDefault to stop page scroll
-  let tActive=false, sx=0, sy=0, lx=0, ly=0, sTime=0;
+  // --- Swipe detection ---
   function onTouchStart(e){
-    if(!e.changedTouches || !e.changedTouches.length) return;
-    const t=e.changedTouches[0];
-    tActive=true; sx=lx=t.clientX; sy=ly=t.clientY; sTime=Date.now();
+    if(state.longPressTimer){ clearTimeout(state.longPressTimer); }
+    const t = e.touches ? e.touches[0] : e;
+    state.touchStart = { x: t.clientX, y: t.clientY, time: Date.now() };
+    // SoftEdit: long-press (hidden)
+    state.longPressTimer = setTimeout(()=>{
+      maybeEditAnchor();
+    }, LONGPRESS_MS);
   }
+
   function onTouchMove(e){
-    if(!tActive) return;
-    if(e.changedTouches && e.changedTouches.length){
-      const t=e.changedTouches[0];
-      lx=t.clientX; ly=t.clientY;
-      e.preventDefault(); // crucial for iOS to avoid scroll
+    if(!state.touchStart) return;
+    // if movement is significant, cancel long-press
+    const t = e.touches ? e.touches[0] : e;
+    if(Math.abs(t.clientX - state.touchStart.x) > 10 || Math.abs(t.clientY - state.touchStart.y) > 10){
+      clearTimeout(state.longPressTimer);
     }
   }
+
   function onTouchEnd(e){
-    if(!tActive) return;
-    tActive=false;
-    const dx=lx-sx, dy=ly-sy;
-    const ax=Math.abs(dx), ay=Math.abs(dy);
-    const dt=Date.now()-sTime;
-    const MIN=30, MAXT=800;
-    if(dt>MAXT) return; // too slow, ignore
-    if(ax>ay && ax>MIN){ if(dx>0) swipeRight(); else swipeLeft(); }
-    else if(ay>ax && ay>MIN){ if(dy<0) swipeUp(); else swipeDown(); }
-  }
-  document.addEventListener('touchstart', onTouchStart, {passive:false});
-  document.addEventListener('touchmove', onTouchMove, {passive:false});
-  document.addEventListener('touchend', onTouchEnd, {passive:false});
+    if(state.longPressTimer){ clearTimeout(state.longPressTimer); }
+    if(!state.touchStart) return;
+    const t = e.changedTouches ? e.changedTouches[0] : e;
+    const dx = t.clientX - state.touchStart.x;
+    const dy = t.clientY - state.touchStart.y;
+    const adx = Math.abs(dx), ady = Math.abs(dy);
+    state.touchStart = null;
 
-  // Actions
-  async function swipeRight(){ if(!anchorId) return; if(isSpouse(anchorId)){ await loadAnchor(base(anchorId)); return; } const s=`${anchorId}.1`; if(await resolve(s)) await loadAnchor(s); }
-  async function swipeUp(){ if(!$grid||!anchorId) return; $grid.innerHTML=''; showAnchor(false);
-    const p1=parent1FromAny(anchorId); const row=document.createElement('div'); row.className='parent-row';
-    if(p1){ addCard(row,p1,'Parent #1',true); const p2=await parent2FromP1(p1); if(p2) addCard(row,p2,'Parent #2',true);
-      else { const ph=(await resolve(PH_P2))||(await resolve(PH_MISS)); const tmp=ph?'Parent #2 (placeholder)':'Parent #2'; addCard(row,tmp,'Parent #2',false);
-        const last=row.lastElementChild; if(last){ const im=last.querySelector('img'); if(im&&ph) im.src=ph; } } }
-    else { const m=document.createElement('div'); m.textContent='— no parent #1 —'; m.style.textAlign='center'; m.style.opacity='.8'; row.appendChild(m); }
-    $grid.appendChild(row); slideIn(row,'up'); }
-  async function swipeLeft(){ if(!anchorId) return; const sibs=await listSiblings(anchorId); await showPeopleGrid(sibs,'Siblings','left'); }
-  async function swipeDown(){ if(!anchorId) return; const kids=await listChildren(anchorId); await showPeopleGrid(kids,'Children','down'); }
+    if(adx < SWIPE_THRESHOLD && ady < SWIPE_THRESHOLD) return;
 
-  // Boot
-  async function boot(){
-    let id=(location.hash||'').replace('#','').trim(); if(!id) id='100000';
-    await loadAnchor(id);
-    if($startBtn){ $startBtn.addEventListener('click', ()=>{ const nid=prompt('Enter starting ID:', id)||id; location.hash=nid; location.reload(); }); }
+    if(adx > ady){
+      // horizontal
+      if(dx > 0){
+        // right -> spouse toggle
+        handleSpouseSwipe();
+      }else{
+        // left -> siblings grid
+        handleSiblingsSwipe();
+      }
+    }else{
+      // vertical
+      if(dy > 0){
+        // down -> children
+        handleChildrenSwipe();
+      }else{
+        // up -> parents
+        handleParentsSwipe();
+      }
+    }
   }
-  if(document.readyState==='complete'||document.readyState==='interactive') boot(); else document.addEventListener('DOMContentLoaded', boot);
-})(); 
+
+  // --- Actions ---
+  async function handleChildrenSwipe(){
+    const kids = childrenOf(state.anchorId);
+    const cards = await existingCards(kids);
+    openGrid('Children', cards);
+    state.gridType = 'children';
+  }
+
+  async function handleSiblingsSwipe(){
+    const sibs = siblingsOf(state.anchorId);
+    const cards = await existingCards(sibs);
+    openGrid('Siblings', cards);
+    state.gridType = 'siblings';
+  }
+
+  async function handleParentsSwipe(){
+    // Show up to 2 parents: known-parent + placeholder if 2nd unknown
+    const p = parentOf(state.anchorId);
+    const cards = [];
+    if(p){
+      const src = idToSrc(p);
+      const ok = await exists(src);
+      cards.push({ id: p, src: ok ? src : PLACEHOLDER, name: displayNameFor(p) });
+      // Second parent heuristic: try spouse of that parent if it exists
+      const maybeSp = `${p}.1`;
+      const ok2 = await exists(idToSrc(maybeSp));
+      if(ok2){
+        cards.push({ id: maybeSp, src: idToSrc(maybeSp), name: displayNameFor(maybeSp) });
+      }else{
+        // If no second parent image, use placeholder tile (non-clickable)
+        cards.push({ id: 'Parent2', src: PLACEHOLDER, name: '' });
+      }
+      openGrid('Parents', cards);
+      state.gridType = 'parents';
+    }else{
+      // no parents (top)
+      openGrid('Parents', []);
+      state.gridType = 'parents';
+    }
+  }
+
+  async function handleSpouseSwipe(){
+    // Toggle between base and "<base>.1" when possible
+    const { baseId, isSpouse } = getIdParts(state.anchorId);
+    let target = isSpouse ? baseId : `${baseId}.1`;
+    // Only navigate if image exists; otherwise, do nothing
+    const ok = await exists(idToSrc(target));
+    if(ok){
+      await setAnchor(target);
+    }else if(!isSpouse){
+      // try extended spouse form "<base>.1.<partnerId>" by scanning a small set of hints:
+      // we'll attempt to locate a "<base>.1" anyway (already failed), so stay put.
+      // No-op if not present.
+    }
+  }
+
+  async function existingCards(candidates){
+    // Filter by existing images; map to {id, src, name}
+    const checks = await Promise.all(candidates.map(id => exists(idToSrc(id))));
+    const out = [];
+    for(let i=0;i<candidates.length;i++){
+      if(checks[i]){
+        const id = candidates[i];
+        out.push({ id, src: idToSrc(id), name: displayNameFor(id) });
+      }
+    }
+    return out;
+  }
+
+  // --- Back logic ---
+  backBtn.addEventListener('click', async () => {
+    if(state.gridOpen){
+      closeGrid();
+      return;
+    }
+    const prev = state.historyStack.pop();
+    if(prev){
+      await setAnchor(prev, /*pushHistory=*/false);
+    }
+  });
+
+  // --- SoftEdit (hidden) ---
+  function maybeEditAnchor(){
+    // long-press on anchor image to open an unobtrusive edit (no hints)
+    const id = state.anchorId;
+    const meta = getSavedMeta(id) || {};
+    const name = prompt("Edit first name (optional):", meta.name || "") ?? meta.name || "";
+    const dob = prompt("Edit DOB (optional):", meta.dob || "") ?? meta.dob || "";
+    saveMeta(id, { name, dob });
+    anchorName.textContent = name || '';
+  }
+
+  // Attach gestures to anchor image only (not grids)
+  ['touchstart','mousedown'].forEach(ev=>anchorWrap.addEventListener(ev, onTouchStart, {passive:true}));
+  ['touchmove','mousemove'].forEach(ev=>anchorWrap.addEventListener(ev, onTouchMove, {passive:true}));
+  ['touchend','mouseup','mouseleave'].forEach(ev=>anchorWrap.addEventListener(ev, onTouchEnd, {passive:true}));
+
+  // Prevent native scrolling/zoom from interfering
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('gesturechange', e => e.preventDefault());
+  document.addEventListener('gestureend', e => e.preventDefault());
+  document.addEventListener('touchmove', e => {
+    if(state.gridOpen === false) e.preventDefault();
+  }, { passive:false });
+
+  // --- Boot ---
+  (async function boot(){
+    // Resolve start ID from hash or prompt, default to 100000
+    let start = decodeURIComponent((location.hash || '').replace(/^#/, '')).trim();
+    if(!start){
+      const typed = prompt("Start ID:", "100000");
+      start = (typed && typed.trim()) ? typed.trim() : "100000";
+    }
+    await setAnchor(start, /*pushHistory=*/false);
+  })();
+})();

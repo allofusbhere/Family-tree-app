@@ -2,37 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SwipeTree — Spouse Right & Two-Parent Display</title>
-  <link rel="stylesheet" href="style.css"/>
-  <script>
-    // Point this to your image repo if needed (leave as-is if images are alongside the app)
-    window.IMG_BASE = "https://allofusbhere.github.io/family-tree-images/";
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SwipeTree — iPad Test</title>
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <div id="app">
-    <header>
-      <h1>SwipeTree</h1>
-      <div class="build-tag">build 20250816-000400</div>
+    <header class="topbar">
+      <div class="brand">SwipeTree</div>
+      <div class="spacer"></div>
+      <button id="backBtn" class="btn">Back</button>
     </header>
-    <main>
-      <div id="anchor" class="anchor"></div>
-      <div id="grid" class="grid"></div>
+
+    <main id="stage">
+      <!-- Anchor area -->
+      <div id="anchorWrap">
+        <img id="anchorImg" alt="anchor" draggable="false" />
+        <div id="anchorName" class="name"></div>
+      </div>
+
+      <!-- Overlay grid -->
+      <section id="gridOverlay" class="hidden">
+        <div class="gridHeader">
+          <h2 id="gridTitle">Grid</h2>
+        </div>
+        <div id="grid" class="grid"></div>
+      </section>
     </main>
-    <footer>
-      <button id="startBtn" class="btn">START</button>
-      <div class="hint">Swipe Right = Spouse · Swipe Up = Parents</div>
-    </footer>
   </div>
-  <script src="script.js"></script>
-  <script>
-    document.getElementById('startBtn').addEventListener('click', () => {
-      const id = prompt('Enter starting ID (e.g., 140000):', '140000') || '140000';
-      location.hash = id;
-      // reload to ensure prompt start takes effect
-      location.reload();
-    });
-  </script>
+
+  <script src="./script.js"></script>
 </body>
 </html>
