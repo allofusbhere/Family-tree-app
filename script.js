@@ -1,19 +1,16 @@
 
 /*
-  SwipeTree — script.js (ContainerSafe)
-  Build: 2025-08-15h
-  - Two-Parent grid on UP
-  - Spouse toggle on RIGHT
-  - Hard-hide anchor when grid opens
-  - Tap a grid image to navigate/close
-  - No edit UI
-  - Default start = 100000
+  SwipeTree — script.js (AnchorBG)
+  Build: 2025-08-15i
+  - Anchor image rendered as background on a centered stage box (no drift)
+  - Two-Parent grid on UP; Spouse toggle on RIGHT
+  - Anchor hard-hidden when grid opens; tap grid to select & close
+  - No edit UI; Default start = 100000
 */
 
 (function(){
   'use strict';
 
-  // Prevent page scroll/zoom bleed
   document.documentElement.style.overflow = 'hidden';
   document.body.style.overflow = 'hidden';
 
@@ -83,54 +80,36 @@
     return null;
   }
 
-  async function loadImageInto(container, id, {label=true, gridMode=false} = {}){
+  // Anchor renderer: background stage for perfect centering
+  async function renderAnchorStage(container, id){
     if (!container) return false;
     container.innerHTML = '';
+    const url = await resolveFirstExistingUrl(id) || (await resolveFirstExistingUrl(PLACEHOLDER_MISSING)) || '';
+    const stage = document.createElement('div');
+    stage.className = 'stage-bg';
+    stage.setAttribute('role', 'img');
+    stage.setAttribute('aria-label', id);
+    stage.style.backgroundImage = `url('${url}')`;
+    container.appendChild(stage);
 
-    const url = await resolveFirstExistingUrl(id);
-    const img = document.createElement('img');
-    img.draggable = false;
-    img.alt = id;
-    img.style.display = 'block';
-    img.style.margin = '0 auto';
-    if (gridMode){
-      img.style.width = '100%';
-      img.style.height = 'auto';
-      img.style.maxHeight = '42svh';
-      img.style.maxHeight = '42vh';
-      img.style.objectFit = 'contain';
-    } else {
-      // Let CSS handle sizing (percent-based). Inline only for safety.
-      img.style.maxWidth = '96%';
-      img.style.maxHeight = '72svh';
-      img.style.maxHeight = '72vh';
-      img.style.width = 'auto';
-      img.style.height = 'auto';
-      img.style.objectFit = 'contain';
-    }
-    img.src = url || (await resolveFirstExistingUrl(PLACEHOLDER_MISSING)) || '';
+    // Label below the stage
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = id;
+    label.style.marginTop = '10px';
+    label.style.fontSize = '16px';
+    label.style.opacity = '.9';
+    label.style.textAlign = 'center';
+    container.appendChild(label);
 
-    const wrap = document.createElement('div');
-    wrap.style.textAlign = 'center';
-    wrap.appendChild(img);
-
-    if (label){
-      const l = document.createElement('div');
-      l.className = 'label';
-      l.textContent = id;
-      l.style.marginTop = gridMode ? '8px' : '10px';
-      l.style.fontSize = gridMode ? '14px' : '16px';
-      l.style.opacity = '.9';
-      wrap.appendChild(l);
-    }
-
-    container.appendChild(wrap);
+    // Make sure we’re at the top
+    if (typeof window !== 'undefined' && window.scrollTo) { window.scrollTo(0,0); }
     return true;
   }
 
   async function loadAnchor(id){
     anchorId = id;
-    await loadImageInto($anchor, id, {label:true, gridMode:false});
+    await renderAnchorStage($anchor, id);
     if ($grid) $grid.innerHTML = '';
     showAnchor(true);
     killEditUI();
@@ -155,11 +134,33 @@
     const imgWrap = document.createElement('div');
     card.appendChild(imgWrap);
 
-    loadImageInto(imgWrap, personId, {label:true, gridMode:true}).then(()=>{
+    // Grid still uses <img> (contained by CSS)
+    (async () => {
+      const url = await resolveFirstExistingUrl(personId) || (await resolveFirstExistingUrl(PLACEHOLDER_MISSING)) || '';
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = personId;
+      img.draggable = false;
+      img.style.width = '100%';
+      img.style.height = 'auto';
+      img.style.maxHeight = '42svh';
+      img.style.maxHeight = '42vh';
+      img.style.objectFit = 'contain';
+      imgWrap.appendChild(img);
+
+      const l = document.createElement('div');
+      l.className = 'label';
+      l.textContent = personId;
+      l.style.marginTop = '8px';
+      l.style.fontSize = '14px';
+      l.style.opacity = '.9';
+      l.style.textAlign = 'center';
+      card.appendChild(l);
+
       if (clickable){
         card.addEventListener('click', async () => { await loadAnchor(personId); }, { once:true });
       }
-    });
+    })();
 
     parentEl.appendChild(card);
   }

@@ -1,8 +1,8 @@
 
-/* SwipeTree — style.css (ContainerSafe)
+/* SwipeTree — style.css (AnchorBG)
    Build: 2025-08-15
-   - Centered anchor inside any container (no 100vw)
-   - Strict clamping without overflow
+   - Anchor uses a background container to guarantee perfect centering
+   - Container-aware (no vw); works inside webviews/iframes
 */
 
 * { box-sizing: border-box; }
@@ -29,21 +29,22 @@ h1 { margin: 0; font-size: 18px; letter-spacing: .3px; }
 #anchor {
   display: grid;
   place-items: center;
-  width: 100%;                 /* container-aware */
-  min-height: 76svh;           /* dynamic iOS viewport */
-  min-height: 76vh;            /* fallback */
+  width: 100%;
+  min-height: 76svh;
+  min-height: 76vh;
   margin: 0 auto;
   padding: 0;
 }
-#anchor img {
-  display: block;
+/* Stage background that renders the photo */
+.stage-bg {
+  width: 96%;
+  height: 72svh;
+  height: 72vh;
   margin: 0 auto;
-  max-width: 96%;              /* container-aware, not vw */
-  max-height: 72svh;
-  max-height: 72vh;
-  width: auto;
-  height: auto;
-  object-fit: contain;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: contain;   /* ALWAYS fully visible */
+  border-radius: 12px;
 }
 
 /* Grid */
