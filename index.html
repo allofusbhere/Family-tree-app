@@ -2,40 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SwipeTree — Labels + Long-Press Edit</title>
-  <link rel="stylesheet" href="./style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SwipeTree — Spouse Right & Two-Parent Display</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script>
+    // Point this to your image repo if needed (leave as-is if images are alongside the app)
+    window.IMG_BASE = "https://allofusbhere.github.io/family-tree-images/";
+  </script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">SwipeTree</div>
-    <div class="actions">
-      <button id="startBtn" class="btn">Start</button>
-      <button id="backBtn" class="btn btn-ghost" disabled>Back</button>
-    </div>
-  </header>
-
-  <main id="stage">
-    <div id="anchorCard" class="card active" tabindex="0">
-      <img id="anchorImg" alt="person" />
-      <div class="label" id="hint">Long-press to edit</div>
-      <div class="caption" id="anchorCaption">Anchor person</div>
-    </div>
-  </main>
-
-  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-inner">
-      <h2>Edit label</h2>
-      <label for="nameInput">First name</label>
-      <input id="nameInput" type="text" placeholder="e.g., Aaron" />
-      <div class="modal-actions">
-        <button id="saveBtn" class="btn">Save</button>
-        <button id="cancelBtn" class="btn btn-ghost">Cancel</button>
-      </div>
-    </div>
+  <div id="app">
+    <header>
+      <h1>SwipeTree</h1>
+      <div class="build-tag">build 20250816-000400</div>
+    </header>
+    <main>
+      <div id="anchor" class="anchor"></div>
+      <div id="grid" class="grid"></div>
+    </main>
+    <footer>
+      <button id="startBtn" class="btn">START</button>
+      <div class="hint">Swipe Right = Spouse · Swipe Up = Parents</div>
+    </footer>
   </div>
-
-  <script>window.SWIPE_TREE_IMAGE_BASE = '/family-tree-images/';</script>
-  <script src="./swipetree.js"></script>
+  <script src="script.js"></script>
+  <script>
+    document.getElementById('startBtn').addEventListener('click', () => {
+      const id = prompt('Enter starting ID (e.g., 140000):', '140000') || '140000';
+      location.hash = id;
+      // reload to ensure prompt start takes effect
+      location.reload();
+    });
+  </script>
 </body>
 </html>
