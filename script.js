@@ -353,12 +353,9 @@
 
   // --- Boot ---
   (async function boot(){
-    // Resolve start ID from hash or prompt, default to 100000
+    // Resolve start ID from hash or default to 100000
     let start = decodeURIComponent((location.hash || '').replace(/^#/, '')).trim();
-    if(!start){
-      const typed = prompt("Start ID:", "100000");
-      start = (typed && typed.trim()) ? typed.trim() : "100000";
-    }
+    if(!start){ start = "100000"; }
     await setAnchor(start, /*pushHistory=*/false);
   })();
 })();
