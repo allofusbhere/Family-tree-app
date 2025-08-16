@@ -332,8 +332,8 @@
     // long-press on anchor image to open an unobtrusive edit (no hints)
     const id = state.anchorId;
     const meta = getSavedMeta(id) || {};
-    const name = prompt("Edit first name (optional):", meta.name || "") ?? meta.name || "";
-    const dob = prompt("Edit DOB (optional):", meta.dob || "") ?? meta.dob || "";
+    const name = (prompt("Edit first name (optional):", meta.name || "") ?? meta.name) || "";
+    const dob = (prompt("Edit DOB (optional):", meta.dob || "") ?? meta.dob) || "";
     saveMeta(id, { name, dob });
     anchorName.textContent = name || '';
   }
