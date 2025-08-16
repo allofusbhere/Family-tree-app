@@ -1,19 +1,17 @@
 
 /*
   SwipeTree — script.js
-  Build: 2025-08-15e
-  - Purge any edit UI (remove 'Long-press to edit' and edit panel if present)
-  - Hard-hide anchor when showing grids (no background bleed)
-  - Clamp any oversized images (no overflow)
-  - Tap a grid image = navigate & close grid
-  - Default start = 100000
-  - Right swipe = spouse; Up swipe = parents
+  Build: 2025-08-15f (UltraClamp)
+  - Code-only solution for huge images: no asset editing required
+  - Anchor & grid images strictly constrained to viewport (no overflow/bleed)
+  - Keeps: default 100000, spouse right-swipe, parents up-swipe,
+           hard-hide anchor on grids, tap-to-close grid
 */
 
 (function(){
   'use strict';
 
-  // Lock page from scrolling/zoom bleed
+  // Prevent page scroll/zoom from causing bleed
   document.documentElement.style.overflow = 'hidden';
   document.body.style.overflow = 'hidden';
 
@@ -26,49 +24,35 @@
   const $grid = document.getElementById('grid');
   const $startBtn = document.getElementById('startBtn'); // optional
 
-  // Center/size anchor area
-  if ($anchor){
+  // Layout: big centered stage for anchor
+  function applyAnchorStage(){
+    if (!$anchor) return;
     $anchor.style.display = 'grid';
     $anchor.style.placeItems = 'center';
-    $anchor.style.minHeight = '70vh';
-    $anchor.style.padding = '8px 0';
+    $anchor.style.width = '100vw';
+    $anchor.style.minHeight = 'calc(100vh - 120px)'; // room for header/footer UI
+    $anchor.style.padding = '0';
+    $anchor.style.margin = '0 auto';
   }
+  applyAnchorStage();
+
   if ($grid){
-    $grid.style.marginTop = '10px';
+    $grid.style.marginTop = '8px';
   }
-
-  // Remove any existing edit UI/labels injected by older builds
-  function killEditUI(){
-    // Remove elements that advertise long-press or edit label areas
-    const candidates = Array.from(document.querySelectorAll('*'))
-      .filter(el => el && el.textContent && /long-press to edit|edit label/i.test(el.textContent));
-    for (const el of candidates){
-      el.remove();
-    }
-    // Common ids/classes from past builds
-    ['editPanel', 'labelEditor', 'edit-label', 'editor'].forEach(id => {
-      const n = document.getElementById(id);
-      if (n) n.remove();
-    });
-    document.querySelectorAll('.edit,.label-editor,.edit-panel').forEach(n => n.remove());
-  }
-
-  killEditUI();
-
-  let anchorId = null;
-  let touchStartX = 0, touchStartY = 0;
 
   function showAnchor(show){
     if (!$anchor) return;
     if (show){
-      $anchor.style.display = 'grid';
-      $anchor.style.minHeight = '70vh';
+      applyAnchorStage();
     } else {
       $anchor.innerHTML = '';
       $anchor.style.display = 'none';
       $anchor.style.minHeight = '0';
     }
   }
+
+  let anchorId = null;
+  let touchStartX = 0, touchStartY = 0;
 
   function buildCandidateUrls(id){
     return EXTENSIONS.map(ext => IMG_BASE + id + ext);
@@ -127,12 +111,13 @@
     return null;
   }
 
-  function makeImg(urlOrNull, alt){
+  // Strict viewport clamps
+  function makeStageImg(urlOrNull, alt){
     const img = document.createElement('img');
     img.draggable = false;
     img.alt = alt || '';
-    img.style.maxWidth = '92vw';
-    img.style.maxHeight = '68vh';  // tight clamp to avoid overflow under Safari UI
+    img.style.maxWidth = '98vw';
+    img.style.maxHeight = 'calc(100vh - 140px)'; // within stage
     img.style.width = 'auto';
     img.style.height = 'auto';
     img.style.objectFit = 'contain';
@@ -149,7 +134,7 @@
     img.alt = alt || '';
     img.style.width = '100%';
     img.style.height = 'auto';
-    img.style.maxHeight = '42vh'; // parents grid clamp
+    img.style.maxHeight = '42vh'; // safe height for two-card layout
     img.style.objectFit = 'contain';
     img.style.display = 'block';
     img.style.margin = '0 auto';
@@ -164,10 +149,10 @@
     const url = await resolveFirstExistingUrl(id);
     let img;
     if (url){
-      img = gridMode ? makeGridImg(url, id) : makeImg(url, id);
+      img = gridMode ? makeGridImg(url, id) : makeStageImg(url, id);
     } else {
       const phUrl = await resolveFirstExistingUrl(PLACEHOLDER_MISSING);
-      img = gridMode ? makeGridImg(phUrl, '(missing) ' + id) : makeImg(phUrl, '(missing) ' + id);
+      img = gridMode ? makeGridImg(phUrl, '(missing) ' + id) : makeStageImg(phUrl, '(missing) ' + id);
     }
 
     const wrap = document.createElement('div');
@@ -177,8 +162,8 @@
     if (addLabel){
       const label = document.createElement('div');
       label.textContent = id;
-      label.style.marginTop = '8px';
-      label.style.fontSize = '14px';
+      label.style.marginTop = '10px';
+      label.style.fontSize = '16px';
       label.style.opacity = '0.9';
       wrap.appendChild(label);
     }
@@ -192,7 +177,6 @@
     await loadImageInto($anchor, id, true, false);
     if ($grid) $grid.innerHTML = '';
     showAnchor(true);
-    killEditUI();
   }
 
   // RIGHT swipe: spouse for current
@@ -210,7 +194,7 @@
     }
   }
 
-  // Helper: tappable card
+  // Tappable grid card
   function addTappableCard(parentEl, personId, title){
     const card = document.createElement('div');
     card.style.border = '1px solid #333';
@@ -229,22 +213,20 @@
     const imgWrap = document.createElement('div');
     card.appendChild(imgWrap);
 
-    // load image in grid mode, then attach tap
     loadImageInto(imgWrap, personId, true, true).then(()=>{
       card.addEventListener('click', async () => {
-        await loadAnchor(personId); // closes grid (since anchor reappears)
+        await loadAnchor(personId);
       }, { once: true });
     });
 
     parentEl.appendChild(card);
   }
 
-  // UP swipe: parents (anchor hidden)
+  // UP swipe: parents
   async function handleSwipeUp(){
     if (!$grid || !anchorId) return;
     $grid.innerHTML = '';
     showAnchor(false);
-    killEditUI();
 
     const p1 = getParent1Id(anchorId);
 
@@ -252,8 +234,8 @@
     row.style.display = 'grid';
     row.style.gridTemplateColumns = '1fr 1fr';
     row.style.gap = '16px';
-    row.style.maxWidth = '96vw';
-    row.style.margin = '12px auto';
+    row.style.maxWidth = '98vw';
+    row.style.margin = '10px auto';
 
     if (p1){
       addTappableCard(row, p1, 'Parent #1');
@@ -273,8 +255,7 @@
         ttl.style.marginBottom = '8px';
         holder.appendChild(ttl);
         const phUrl = await resolveFirstExistingUrl(PLACEHOLDER_PARENT2) || await resolveFirstExistingUrl(PLACEHOLDER_MISSING);
-        const img = makeGridImg(phUrl, '(missing) Parent #2');
-        holder.appendChild(img);
+        holder.appendChild(makeGridImg(phUrl, '(missing) Parent #2'));
         row.appendChild(holder);
       }
     } else {
@@ -289,6 +270,7 @@
   }
 
   // Touch
+  let touchStartX = 0, touchStartY = 0;
   function onTouchStart(e){
     const t = e.changedTouches[0];
     touchStartX = t.clientX;
@@ -305,14 +287,10 @@
     if (absX > absY && absX > SWIPE_MIN){
       if (dx > 0){
         handleSwipeRight();
-      } else {
-        // left reserved
       }
     } else if (absY > absX && absY > SWIPE_MIN){
       if (dy < 0){
         handleSwipeUp();
-      } else {
-        // down reserved
       }
     }
   }
