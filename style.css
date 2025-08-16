@@ -1,15 +1,108 @@
 
+/* SwipeTree — style.css
+   Build: 2025-08-15 (Center anchor, clamp images, clean grids)
+*/
+
+/* Reset & base */
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; padding: 0; background:#000; color:#eee; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-#app { min-height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
-header { display:flex; align-items:center; justify-content:space-between; padding: 10px 14px; border-bottom:1px solid #222; }
-h1 { margin:0; font-size: 18px; letter-spacing: 0.5px; }
-.build-tag { opacity: 0.7; font-size: 12px; }
-main { padding: 8px 10px; }
-.anchor { display:block; margin: 0 auto; max-width: 95vw; text-align:center; }
-.anchor img { max-width: 90vw; max-height: 60vh; object-fit: contain; display:block; margin: 0 auto; }
-.grid { margin-top: 10px; }
-.btn { background:#111; border:1px solid #333; color:#eee; padding:8px 12px; border-radius:10px; cursor:pointer; }
-.btn:active { transform: scale(0.98); }
-footer { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-top:1px solid #222; }
-.hint { font-size: 12px; opacity: 0.8; }
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #000;
+  color: #eee;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  overflow: hidden; /* stop page scroll/bleed under Safari UI */
+}
+
+/* App regions */
+header, footer {
+  padding: 10px 14px;
+  border-color: #222;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #222;
+}
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #222;
+}
+h1 { margin: 0; font-size: 18px; letter-spacing: .3px; }
+.build-tag { opacity: .7; font-size: 12px; }
+
+/* Anchor stage — big centered area for the current person */
+#anchor {
+  display: grid;
+  place-items: center;
+  width: 100vw;
+  min-height: calc(100vh - 120px); /* room for header/footer */
+  margin: 0 auto;
+  padding: 0;
+}
+#anchor img {
+  display: block;
+  margin: 0 auto;
+  max-width: 96vw;
+  max-height: calc(100vh - 140px); /* safe padding inside stage */
+  width: auto;
+  height: auto;
+  object-fit: contain; /* always full face, no crop */
+}
+
+/* Generic grid container (parents/children/siblings) */
+#grid {
+  margin: 10px auto;
+  width: 98vw;
+}
+
+/* Two-parent row */
+#grid .parent-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 98vw;
+  margin: 10px auto;
+}
+.card {
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 10px;
+  background: #0b0b0b;
+}
+.card.clickable { cursor: pointer; }
+
+.card .title {
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.card img {
+  display: block;
+  margin: 0 auto;
+  width: 100%;
+  height: auto;
+  max-height: 42vh; /* fit within viewport */
+  object-fit: contain;
+}
+.card .label {
+  margin-top: 8px;
+  font-size: 14px;
+  opacity: .9;
+  text-align: center;
+}
+
+/* Buttons */
+.btn {
+  background: #111;
+  border: 1px solid #333;
+  color: #eee;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.btn:active { transform: scale(.98); }
