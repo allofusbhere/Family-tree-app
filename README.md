@@ -1,18 +1,12 @@
-# SwipeTree — Spouse/Partner Traceability Build
+# SwipeTree — Spouse/Partner Traceability (Fixes)
 **Date:** 2025-08-17
 
-This package points **all images** to your public image repo:
+Fixes included:
+- **Image repo** URLs: loads from `https://allofusbhere.github.io/family-tree-images/`
+- **Extension probing**: `.jpg` and `.JPG` supported
+- **Children step logic**: 
+  - `100000` → `110000..190000`
+  - `140000` → `141000..149000`
+  - Next gens step by `100`, then `10`, then `1`
 
-```
-https://allofusbhere.github.io/family-tree-images/<ID>.jpg
-https://allofusbhere.github.io/family-tree-images/<ID>.1.jpg
-https://allofusbhere.github.io/family-tree-images/<ID>.1.<OTHER>.jpg
-```
-
-No other changes from the last build except this path fix.
-
-## Files
-- `index.html`
-- `style.css`
-- `script.js` (with IMAGE_BASE set to your image repo)
-- `README.md`
+Drop these over your existing files and refresh with `?cb=2`.
