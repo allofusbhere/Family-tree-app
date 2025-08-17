@@ -1,12 +1,10 @@
-
-// SwipeTree — Spouse/Partner Traceability (No Regression)
+// JS is identical to the No-Regression build except for build tag text
 (function(){
   const BUILD_TAG = (new Date().toISOString().slice(0,19).replace('T',' '));
   const IMAGE_BASE = 'https://allofusbhere.github.io/family-tree-images/';
-  const EXTENSIONS = ['.jpg', '.JPG']; // load fallback
+  const EXTENSIONS = ['.jpg', '.JPG'];
   const KNOWN_BRANCHES = new Set(['1','2','3','4','5','6','7','8','9']);
 
-  // Elements
   const anchorImg = document.getElementById('anchorImg');
   const anchorLabel = document.getElementById('anchorLabel');
   const anchorWrap = document.getElementById('anchorWrap');
@@ -22,16 +20,14 @@
 
   buildTag.textContent = 'build ' + BUILD_TAG;
 
-  // State
   let historyStack = [];
   let anchorId = '100000';
   let names = JSON.parse(localStorage.getItem('swipetree_names') || '{}');
 
-  // Helpers: image loading with fallback
   function urlFor(stem, i=0){ return IMAGE_BASE + stem + EXTENSIONS[i]; }
   function setImgWithFallback(img, stem){
     let i=0;
-    const tryNext = ()=>{
+    const tryNext=()=>{
       if (i>=EXTENSIONS.length){ img.dataset.failed='1'; return; }
       img.src = urlFor(stem, i) + '?cb=' + Date.now();
       i++;
@@ -43,7 +39,6 @@
   function firstDigit(id){ return String(id)[0]; }
   function isTraceableId(id){ return KNOWN_BRANCHES.has(firstDigit(id)); }
 
-  // SoftEdit
   let pressTimer;
   function attachSoftEdit(el, id){
     el.addEventListener('touchstart', ()=>{
@@ -87,50 +82,38 @@
   }
   function setAnchor(id){ pushHistory(anchorId); anchorId=id; hideAllGrids(); renderAnchor(); }
 
-  // ======= NO-REGRESSION RELATIONSHIP HELPERS =======
-  // Children step by generation (unchanged rule)
   function childStepFor(parentId){
     const s = String(parentId);
-    if (/^\d00000$/.test(s)) return 10000;  // 100000 → children +10000
-    if (/^\d\d0000$/.test(s)) return 1000;   // 140000 → children +1000
-    if (/^\d\d\d000$/.test(s)) return 100;    // 141000 → +100
-    if (/^\d\d\d\d00$/.test(s)) return 10;     // 141100 → +10
-    if (/^\d\d\d\d\d0$/.test(s)) return 1;      // 141110 → +1
+    if (/^\d00000$/.test(s)) return 10000;
+    if (/^\d\d0000$/.test(s)) return 1000;
+    if (/^\d\d\d000$/.test(s)) return 100;
+    if (/^\d\d\d\d00$/.test(s)) return 10;
+    if (/^\d\d\d\d\d0$/.test(s)) return 1;
     return 0;
   }
-
-  // Compute parent by zeroing the generation digit (unchanged style)
   function computeParentId(id){
     const s = String(id);
-    if (/^\d00000$/.test(s)) return null;                 // base branch has no parent
-    if (/^\d\d0000$/.test(s)) return s[0] + '00000';      // 140000 → 100000
-    if (/^\d\d\d000$/.test(s)) return s.slice(0,2) + '0000'; // 141000 → 140000
-    if (/^\d\d\d\d00$/.test(s)) return s.slice(0,3) + '000'; // 141100 → 141000
-    if (/^\d\d\d\d\d0$/.test(s)) return s.slice(0,4) + '00'; // 141110 → 141100
+    if (/^\d00000$/.test(s)) return null;
+    if (/^\d\d0000$/.test(s)) return s[0] + '00000';
+    if (/^\d\d\d000$/.test(s)) return s.slice(0,2) + '0000';
+    if (/^\d\d\d\d00$/.test(s)) return s.slice(0,3) + '000';
+    if (/^\d\d\d\d\d0$/.test(s)) return s.slice(0,4) + '00';
     return null;
   }
-
-  // Children = parent + i*step (i=1..9)
   function buildChildrenFor(parentId, max=9){
     const step = childStepFor(parentId);
     const base = parseInt(parentId,10);
     const out = [];
     if (!step) return out;
-    for (let i=1;i<=max;i++){
-      out.push(String(base + i*step).padStart(6,'0'));
-    }
+    for (let i=1;i<=max;i++){ out.push(String(base + i*step).padStart(6,'0')); }
     return out;
   }
-
-  // Siblings = all children of the computed parent, excluding self (unchanged logic style)
   function buildSiblingsFor(id){
     const p = computeParentId(id);
     if (!p) return [];
     return buildChildrenFor(p).filter(x => x !== id);
   }
-  // ======= END NO-REGRESSION HELPERS =======
 
-  // Spouse/Partner (unchanged from prior intent)
   function spouseCandidates(aId){
     const branches=[firstDigit(aId)];
     for (let d=1; d<=2; d++){
@@ -177,7 +160,6 @@
     const editKey = /^\d{6}$/.test(id) ? id : anchorId; attachSoftEdit(img, editKey);
   }
 
-  // Populate grids
   async function populateGrid(gridEl, ids){
     const wrap = gridEl.querySelector('.grid-wrap');
     wrap.innerHTML='';
@@ -192,12 +174,9 @@
     }
   }
 
-  // Actions
   async function actionParents(){
-    // We’ll keep parents minimal in this no-regression build; spouse link determines two-parent view in a later step.
     showGrid(gridParents);
-    const wrap = gridParents.querySelector('.grid-wrap');
-    wrap.innerHTML='';
+    const wrap = gridParents.querySelector('.grid-wrap'); wrap.innerHTML='';
     const p = computeParentId(anchorId);
     if (!p){ const d=document.createElement('div'); d.className='badge'; d.textContent='No parent'; wrap.appendChild(d); return; }
     await populateGrid(gridParents, [p]);
@@ -205,7 +184,6 @@
   async function actionChildren(){ showGrid(gridChildren); await populateGrid(gridChildren, buildChildrenFor(anchorId)); }
   async function actionSiblings(){ showGrid(gridSiblings); await populateGrid(gridSiblings, buildSiblingsFor(anchorId)); }
 
-  // Gestures
   let sx=0, sy=0, active=false; const TH=40;
   function onStart(e){ const t=e.touches?e.touches[0]:e; sx=t.clientX; sy=t.clientY; active=true; }
   function onEnd(e){
@@ -220,7 +198,6 @@
   document.addEventListener('mousedown', onStart);
   document.addEventListener('mouseup', onEnd);
 
-  // Buttons
   startBtn.addEventListener('click', ()=>{
     const val = prompt('Enter starting ID (6 digits):', anchorId);
     if (val && /^\d{6}$/.test(val)){ historyStack=[]; anchorId=val; renderAnchor(); }
@@ -230,7 +207,6 @@
     const prev=historyStack.pop(); if (prev){ anchorId=prev; renderAnchor(); }
   });
 
-  // Init
   window.addEventListener('hashchange', ()=>{
     const id=(location.hash||'').replace('#',''); if (/^\d{6}$/.test(id)) setAnchor(id);
   });
