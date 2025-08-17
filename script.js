@@ -1,8 +1,9 @@
 
-// SwipeTree — Spouse/Partner Traceability Build
+// SwipeTree — Spouse/Partner Traceability Build (Images from image repo)
 (function(){
   const BUILD_TAG = (window.__SWIPETREE_BUILD__ || new Date().toISOString().slice(0,19).replace('T',' '));
   const IMG_EXT = '.jpg';
+  const IMAGE_BASE = 'https://allofusbhere.github.io/family-tree-images/';
   const KNOWN_BRANCHES = new Set(['1','2','3','4','5','6','7','8','9']);
 
   // ---- Elements ----
@@ -27,9 +28,9 @@
   let anchorId = '100000'; // default
   let names = JSON.parse(localStorage.getItem('swipetree_names') || '{}'); // SoftEdit labels
 
-  function idToPath(id){ return `${id}${IMG_EXT}`; }
-  function spouseDot1Path(id){ return `${id}.1${IMG_EXT}`; } // A.1.jpg
-  function spouseLinkedPath(aId,bId){ return `${aId}.1.${bId}${IMG_EXT}`; } // A.1.B.jpg
+  function idToPath(id){ return `${IMAGE_BASE}${id}${IMG_EXT}`; }
+  function spouseDot1Path(id){ return `${IMAGE_BASE}${id}.1${IMG_EXT}`; } // A.1.jpg
+  function spouseLinkedPath(aId,bId){ return `${IMAGE_BASE}${aId}.1.${bId}${IMG_EXT}`; } // A.1.B.jpg
   function firstDigit(id){ return String(id)[0]; }
   function isTraceableId(id){ return KNOWN_BRANCHES.has(firstDigit(id)); }
 
@@ -55,8 +56,8 @@
           if (id === anchorId) renderAnchor();
         }
       }, 600);
-    });
-    el.addEventListener('touchend', ()=> clearTimeout(pressTimer));
+    }, {passive:true});
+    el.addEventListener('touchend', ()=> clearTimeout(pressTimer), {passive:true});
     el.addEventListener('mousedown', ()=>{
       pressTimer = setTimeout(async ()=>{
         const current = names[id] || '';
@@ -90,7 +91,6 @@
   function pushHistory(id){
     if (historyStack.length === 0 || historyStack[historyStack.length-1] !== id){
       historyStack.push(id);
-      // update URL hash for back behavior
       try { history.replaceState(null, '', '#'+id); } catch {}
     }
   }
@@ -102,18 +102,13 @@
     renderAnchor();
   }
 
-  // ---- Relationship math (placeholder hooks you already had) ----
-  // NOTE: These are stubs to keep spouse logic self-contained.
-  // Replace these with your verified generators as needed.
+  // ---- Relationship math (placeholder hooks) ----
   function computeNparentFromChild(childId){
-    // Example: parent = zero-out 3rd digit from right (children at +1000 increments)
-    // 141000 -> 140000 ; 142000 -> 140000
     const s = String(childId);
     return s.slice(0,3) + '000';
   }
 
   function buildChildrenFor(parentId, max=9){
-    // 140000 -> 141000..149000 (existence filtered later)
     const base = parseInt(parentId,10);
     const kids = [];
     for(let i=1;i<=max;i++){
@@ -124,9 +119,8 @@
   }
 
   function buildSiblingsFor(personId, max=9){
-    // Siblings share same parent group: 140000 siblings -> 110000,120000,130000 (example)
     const s = String(personId);
-    const parent = s.slice(0,1) + '00000'; // same top branch; adjust per your final rules
+    const parent = s.slice(0,1) + '00000';
     const sibs = [];
     for(let i=1;i<=max;i++){
       const sib = parseInt(parent,10) + i*10000;
@@ -137,31 +131,23 @@
 
   // ---- Spouse/Partner discovery ----
   async function findSpouseFor(aId){
-    // 1) Linked spouse A.1.B.jpg (direct known link)
-    // We'll try a quick dot1 check first (fast path for partner-only).
+    // Prefer partner-only quick check
     const dot1 = spouseDot1Path(aId);
     if (await imageExists(dot1)){
       return { kind:'dot1', partnerId:`${aId}.1`, path:dot1, traceable:false };
     }
-    // 2) Try to discover A.1.B.jpg by probing likely partners:
-    //    We test children-derived partners: if there is a parent link Nparent.1.B.jpg, it implies B.
-    //    But for RIGHT-swipe, we only know A. We'll try a few common B candidates (same branch + adjacent branches).
+    // Probe likely partners for linked files A.1.B.jpg and reciprocal B.1.A.jpg
     const branches = [firstDigit(aId)];
     for (let d=1; d<=2; d++){
       const up = String((parseInt(firstDigit(aId),10)+d-1)%9 + 1);
       if (!branches.includes(up)) branches.push(up);
     }
-    // Probe a small band of IDs within those branches to catch explicit links if provided in common ranges.
-    // (If you maintain a manifest, replace this with a lookup for "*.1.A.jpg")
-    // We also directly test A.1.B.jpg for B that are children/sibling seeds of branch.
     const roughSeeds = [];
     for (const b of branches){
-      // Seed a few canonical IDs per branch (100000..900000 stepping 10000)
       for (let k=1;k<=9;k++){
         roughSeeds.push(`${b}${k}0000`);
       }
     }
-    // De-dup
     const tried = new Set();
     for (const cand of roughSeeds){
       if (tried.has(cand)) continue;
@@ -170,13 +156,11 @@
       if (await imageExists(linked)){
         return { kind:'linked', partnerId:cand, path:linked, traceable:isTraceableId(cand) };
       }
-      // Also check reciprocal B.1.A.jpg
       const reciprocal = spouseLinkedPath(cand, aId);
       if (await imageExists(reciprocal)){
         return { kind:'linked', partnerId:cand, path:reciprocal, traceable:isTraceableId(cand) };
       }
     }
-    // Nothing
     return null;
   }
 
@@ -185,10 +169,8 @@
     const nparentPath = idToPath(nparentId);
     const nparentExists = await imageExists(nparentPath);
 
-    // Look for Nparent.1.B.jpg
     let oparentId = null, oPath = null, oExists = false, trace = false;
 
-    // Probe B from same/adjacent branches
     const branches = [firstDigit(nparentId)];
     for (let d=1; d<=2; d++){
       const up = String((parseInt(firstDigit(nparentId),10)+d-1)%9 + 1);
@@ -220,7 +202,6 @@
     wrap.innerHTML = '';
     for (const id of ids){
       const p = idToPath(id);
-      // Filter missing
       if (!(await imageExists(p))) continue;
       const cell = document.createElement('div');
       cell.className = 'cell';
@@ -276,8 +257,7 @@
       wrap.appendChild(d);
       return;
     }
-    // Show exactly one spouse card
-    const id = (s.kind==='linked') ? s.partnerId : s.partnerId; // for .1 we keep partnerId as "A.1"
+    const id = (s.kind==='linked') ? s.partnerId : s.partnerId;
     const cell = document.createElement('div');
     cell.className = 'cell';
     const img = document.createElement('img');
@@ -291,17 +271,14 @@
 
     img.addEventListener('click', ()=>{
       if (s.kind==='linked' && /^\d{6}$/.test(id) && isTraceableId(id)){
-        setAnchor(id); // fully traceable
-      } else {
-        // partner-only: do not navigate; allow back
+        setAnchor(id);
       }
     });
-    // Allow editing the spouse card label (SoftEdit stores by 6-digit id only)
     const editKey = /^\d{6}$/.test(id) ? id : anchorId;
     attachSoftEdit(img, editKey);
   }
 
-  // ---- Gestures (simple) ----
+  // ---- Gestures ----
   let touchStartX=0, touchStartY=0, touchActive=false;
   const THRESH = 40;
   function onTouchStart(e){
@@ -316,13 +293,11 @@
     const dy = t.clientY - touchStartY;
     if (Math.abs(dx) < THRESH && Math.abs(dy) < THRESH) return;
     if (Math.abs(dx) > Math.abs(dy)){
-      // horizontal
-      if (dx > 0) actionSpouse();          // Right = Spouse
-      else actionSiblings();               // Left = Siblings
+      if (dx > 0) actionSpouse();          // Right
+      else actionSiblings();               // Left
     } else {
-      // vertical
-      if (dy < 0) actionParents();         // Up = Parents
-      else actionChildren();               // Down = Children
+      if (dy < 0) actionParents();         // Up
+      else actionChildren();               // Down
     }
   }
   document.addEventListener('touchstart', onTouchStart, {passive:true});
@@ -341,7 +316,7 @@
   });
   backBtn.addEventListener('click', ()=>{
     if (grids.some(g=>!g.classList.contains('hidden'))){
-      hideAllGrids(); // close grid first
+      hideAllGrids();
       return;
     }
     const prev = historyStack.pop();
