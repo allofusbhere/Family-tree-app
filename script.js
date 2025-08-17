@@ -1,12 +1,12 @@
 
-// SwipeTree — Spouse/Partner Traceability Build (Img repo + case + children step fix)
+// SwipeTree — Spouse/Partner Traceability (No Regression)
 (function(){
-  const BUILD_TAG = (window.__SWIPETREE_BUILD__ || new Date().toISOString().slice(0,19).replace('T',' '));
+  const BUILD_TAG = (new Date().toISOString().slice(0,19).replace('T',' '));
   const IMAGE_BASE = 'https://allofusbhere.github.io/family-tree-images/';
-  const EXTENSIONS = ['.jpg', '.JPG']; // probe order
+  const EXTENSIONS = ['.jpg', '.JPG']; // load fallback
   const KNOWN_BRANCHES = new Set(['1','2','3','4','5','6','7','8','9']);
 
-  // ---- Elements ----
+  // Elements
   const anchorImg = document.getElementById('anchorImg');
   const anchorLabel = document.getElementById('anchorLabel');
   const anchorWrap = document.getElementById('anchorWrap');
@@ -18,352 +18,221 @@
   const gridSiblings = document.getElementById('gridSiblings');
   const gridChildren = document.getElementById('gridChildren');
   const gridSpouse = document.getElementById('gridSpouse');
-
   const grids = [gridParents, gridSiblings, gridChildren, gridSpouse];
+
   buildTag.textContent = 'build ' + BUILD_TAG;
 
-  // ---- State ----
+  // State
   let historyStack = [];
-  let anchorId = '100000'; // default
-  let names = JSON.parse(localStorage.getItem('swipetree_names') || '{}'); // SoftEdit labels
+  let anchorId = '100000';
+  let names = JSON.parse(localStorage.getItem('swipetree_names') || '{}');
 
-  // ---- Paths with extension probing ----
-  function pathVariants(stem){ return EXTENSIONS.map(ext => IMAGE_BASE + stem + ext); }
-
-  async function resolveExistingPath(stem){
-    for (const url of pathVariants(stem)){
-      if (await imageExists(url)) return url;
-    }
-    return null;
+  // Helpers: image loading with fallback
+  function urlFor(stem, i=0){ return IMAGE_BASE + stem + EXTENSIONS[i]; }
+  function setImgWithFallback(img, stem){
+    let i=0;
+    const tryNext = ()=>{
+      if (i>=EXTENSIONS.length){ img.dataset.failed='1'; return; }
+      img.src = urlFor(stem, i) + '?cb=' + Date.now();
+      i++;
+    };
+    img.onerror = tryNext;
+    tryNext();
   }
 
   function firstDigit(id){ return String(id)[0]; }
   function isTraceableId(id){ return KNOWN_BRANCHES.has(firstDigit(id)); }
 
-  function imageExists(url){
-    return new Promise((resolve)=>{
-      const img = new Image();
-      img.onload = ()=> resolve(true);
-      img.onerror = ()=> resolve(false);
-      img.src = url + '?cb=' + Date.now();
-    });
-  }
-
-  async function anchorSrc(id){
-    const url = await resolveExistingPath(id);
-    return url || (IMAGE_BASE + id + EXTENSIONS[0]);
-  }
-
-  // ---- SoftEdit (long press) ----
+  // SoftEdit
   let pressTimer;
   function attachSoftEdit(el, id){
     el.addEventListener('touchstart', ()=>{
-      pressTimer = setTimeout(async ()=>{
+      pressTimer = setTimeout(()=>{
         const current = names[id] || '';
         const next = prompt('Edit name (SoftEdit):', current);
-        if (next !== null) {
+        if (next!==null){
           names[id] = next.trim();
           localStorage.setItem('swipetree_names', JSON.stringify(names));
-          if (id === anchorId) renderAnchor();
+          if (id===anchorId) renderAnchor();
         }
       }, 600);
     }, {passive:true});
-    el.addEventListener('touchend', ()=> clearTimeout(pressTimer), {passive:true});
+    ['touchend','mouseup','mouseleave'].forEach(ev=> el.addEventListener(ev, ()=>clearTimeout(pressTimer), {passive:true}));
     el.addEventListener('mousedown', ()=>{
-      pressTimer = setTimeout(async ()=>{
+      pressTimer = setTimeout(()=>{
         const current = names[id] || '';
         const next = prompt('Edit name (SoftEdit):', current);
-        if (next !== null) {
+        if (next!==null){
           names[id] = next.trim();
           localStorage.setItem('swipetree_names', JSON.stringify(names));
-          if (id === anchorId) renderAnchor();
+          if (id===anchorId) renderAnchor();
         }
       }, 600);
     });
-    el.addEventListener('mouseup', ()=> clearTimeout(pressTimer));
-    el.addEventListener('mouseleave', ()=> clearTimeout(pressTimer));
   }
 
-  async function renderAnchor(){
-    anchorImg.src = (await anchorSrc(anchorId)) + '?cb=' + Date.now();
+  function renderAnchor(){
+    setImgWithFallback(anchorImg, anchorId);
     anchorLabel.textContent = names[anchorId] || anchorId;
   }
 
-  function hideAllGrids(){
-    grids.forEach(g => g.classList.add('hidden'));
-    anchorWrap.style.visibility = 'visible';
-  }
-  function showGrid(grid){
-    grids.forEach(g => g.classList.add('hidden'));
-    grid.classList.remove('hidden');
-    anchorWrap.style.visibility = 'hidden';
-  }
+  function hideAllGrids(){ grids.forEach(g=>g.classList.add('hidden')); anchorWrap.style.visibility='visible'; }
+  function showGrid(g){ grids.forEach(x=>x.classList.add('hidden')); g.classList.remove('hidden'); anchorWrap.style.visibility='hidden'; }
 
   function pushHistory(id){
-    if (historyStack.length === 0 || historyStack[historyStack.length-1] !== id){
+    if (!historyStack.length || historyStack[historyStack.length-1] !== id){
       historyStack.push(id);
-      try { history.replaceState(null, '', '#'+id); } catch {}
+      try{ history.replaceState(null,'','#'+id); }catch{}
     }
   }
+  function setAnchor(id){ pushHistory(anchorId); anchorId=id; hideAllGrids(); renderAnchor(); }
 
-  function setAnchor(id){
-    pushHistory(anchorId);
-    anchorId = id;
-    hideAllGrids();
-    renderAnchor();
-  }
-
-  // ---- Relationship helpers ----
-
-  // Determine step size for children based on trailing zeros of the parent.
-  // 100000 -> step 10000 (children 110000..190000)
-  // 140000 -> step 1000  (children 141000..149000)
-  // 141000 -> step 100   (grandchildren 141100..141900) etc.
+  // ======= NO-REGRESSION RELATIONSHIP HELPERS =======
+  // Children step by generation (unchanged rule)
   function childStepFor(parentId){
     const s = String(parentId);
-    if (/^\d00000$/.test(s)) return 10000;
-    if (/^\d\d0000$/.test(s)) return 1000;
-    if (/^\d\d\d000$/.test(s)) return 100;
-    if (/^\d\d\d\d00$/.test(s)) return 10;
-    if (/^\d\d\d\d\d0$/.test(s)) return 1;
+    if (/^\d00000$/.test(s)) return 10000;  // 100000 → children +10000
+    if (/^\d\d0000$/.test(s)) return 1000;   // 140000 → children +1000
+    if (/^\d\d\d000$/.test(s)) return 100;    // 141000 → +100
+    if (/^\d\d\d\d00$/.test(s)) return 10;     // 141100 → +10
+    if (/^\d\d\d\d\d0$/.test(s)) return 1;      // 141110 → +1
     return 0;
   }
 
-  function buildChildrenFor(parentId, max=9){
-    const step = childStepFor(parentId);
-    const base = parseInt(parentId,10);
-    const kids = [];
-    if (!step) return kids;
-    for(let i=1;i<=max;i++){
-      const kid = base + i*step;
-      kids.push(String(kid).padStart(6,'0'));
-    }
-    return kids;
-  }
-
-  // ---- Spouse/Partner discovery (with extension probing) ----
-  async function findSpouseFor(aId){
-    // partner-only A.1.[ext]
-    for (const ext of EXTENSIONS){
-      const url = IMAGE_BASE + `${aId}.1` + ext;
-      if (await imageExists(url)){
-        return { kind:'dot1', partnerId:`${aId}.1`, path:url, traceable:false };
-      }
-    }
-    // linked A.1.B[ext] or reciprocal B.1.A[ext]; probe likely B seeds
-    const branches = [firstDigit(aId)];
-    for (let d=1; d<=2; d++){
-      const up = String((parseInt(firstDigit(aId),10)+d-1)%9 + 1);
-      if (!branches.includes(up)) branches.push(up);
-    }
-    const seeds = [];
-    for (const b of branches){
-      for (let k=1;k<=9;k++){
-        seeds.push(`${b}${k}0000`);
-      }
-    }
-    const tried = new Set();
-    for (const cand of seeds){
-      if (tried.has(cand)) continue;
-      tried.add(cand);
-      // A.1.B
-      for (const ext of EXTENSIONS){
-        let url = IMAGE_BASE + `${aId}.1.${cand}` + ext;
-        if (await imageExists(url)){
-          return { kind:'linked', partnerId:cand, path:url, traceable:isTraceableId(cand) };
-        }
-        // Reciprocal B.1.A
-        url = IMAGE_BASE + `${cand}.1.${aId}` + ext;
-        if (await imageExists(url)){
-          return { kind:'linked', partnerId:cand, path:url, traceable:isTraceableId(cand) };
-        }
-      }
-    }
+  // Compute parent by zeroing the generation digit (unchanged style)
+  function computeParentId(id){
+    const s = String(id);
+    if (/^\d00000$/.test(s)) return null;                 // base branch has no parent
+    if (/^\d\d0000$/.test(s)) return s[0] + '00000';      // 140000 → 100000
+    if (/^\d\d\d000$/.test(s)) return s.slice(0,2) + '0000'; // 141000 → 140000
+    if (/^\d\d\d\d00$/.test(s)) return s.slice(0,3) + '000'; // 141100 → 141000
+    if (/^\d\d\d\d\d0$/.test(s)) return s.slice(0,4) + '00'; // 141110 → 141100
     return null;
   }
 
-  // Parents (uses same extension probing via resolveExistingPath for Nparent only)
-  async function getParentsFor(childId){
-    // NOTE: Keeping your existing numeric parent logic is separate work.
-    // This build focuses on spouse + children visibility.
-    // Placeholder: zero-out the child step to get Nparent for common cases (141000 -> 140000; 120000 -> 100000)
-    const s = String(childId);
-    let nparentId = childId;
-    if (/^\d\d\d000$/.test(s)) nparentId = s.slice(0,3)+'000';
-    else if (/^\d\d0000$/.test(s)) nparentId = s.slice(0,2)+'0000';
-    else if (/^\d00000$/.test(s)) nparentId = s[0]+'00000';
-
-    const nparentPath = await resolveExistingPath(nparentId);
-    const nparentExists = !!nparentPath;
-
-    // Try to find Oparent via Nparent.1.B
-    let oparentId = null, oPath = null, oExists = false, trace = false;
-    const branches = [firstDigit(nparentId)];
-    for (let d=1; d<=2; d++){
-      const up = String((parseInt(firstDigit(nparentId),10)+d-1)%9 + 1);
-      if (!branches.includes(up)) branches.push(up);
+  // Children = parent + i*step (i=1..9)
+  function buildChildrenFor(parentId, max=9){
+    const step = childStepFor(parentId);
+    const base = parseInt(parentId,10);
+    const out = [];
+    if (!step) return out;
+    for (let i=1;i<=max;i++){
+      out.push(String(base + i*step).padStart(6,'0'));
     }
-    const seeds = [];
-    for (const b of branches){
-      for (let k=1;k<=9;k++){
-        seeds.push(`${b}${k}0000`);
-      }
-    }
-    outer: for (const cand of seeds){
-      for (const ext of EXTENSIONS){
-        const test = IMAGE_BASE + `${nparentId}.1.${cand}` + ext;
-        if (await imageExists(test)){
-          oparentId = cand; oPath = test; oExists = true; trace = isTraceableId(cand);
-          break outer;
-        }
-      }
-    }
-
-    return {
-      nparent: { id:nparentId, path:nparentPath, exists:nparentExists },
-      oparent: { id:oparentId, path:oPath, exists:oExists, traceable:trace }
-    };
+    return out;
   }
 
-  // ---- Grid builders ----
+  // Siblings = all children of the computed parent, excluding self (unchanged logic style)
+  function buildSiblingsFor(id){
+    const p = computeParentId(id);
+    if (!p) return [];
+    return buildChildrenFor(p).filter(x => x !== id);
+  }
+  // ======= END NO-REGRESSION HELPERS =======
+
+  // Spouse/Partner (unchanged from prior intent)
+  function spouseCandidates(aId){
+    const branches=[firstDigit(aId)];
+    for (let d=1; d<=2; d++){
+      const up = String((parseInt(branches[0],10)+d-1)%9 + 1);
+      if (!branches.includes(up)) branches.push(up);
+    }
+    const candIds=[];
+    for(const b of branches){ for(let k=1;k<=9;k++){ candIds.push(`${b}${k}0000`);} }
+    const paths=[];
+    for(const cid of candIds){
+      paths.push({kind:'linked', partnerId:cid, stem:`${aId}.1.${cid}`});
+      paths.push({kind:'linked', partnerId:cid, stem:`${cid}.1.${aId}`});
+    }
+    paths.push({kind:'dot1', partnerId:`${aId}.1`, stem:`${aId}.1`});
+    return paths;
+  }
+
+  async function actionSpouse(){
+    showGrid(gridSpouse);
+    const wrap = gridSpouse.querySelector('.grid-wrap');
+    wrap.innerHTML='';
+    const trials = spouseCandidates(anchorId);
+    let chosen=null, imgUrl=null;
+    for(const t of trials){
+      for (let i=0;i<EXTENSIONS.length;i++){
+        const url = urlFor(t.stem, i) + '?cb=' + Date.now();
+        const ok = await new Promise(res=>{ const im=new Image(); im.onload=()=>res(true); im.onerror=()=>res(false); im.src=url; });
+        if (ok){ chosen=t; imgUrl=url; break; }
+      }
+      if (chosen) break;
+    }
+    if (!chosen){
+      const d=document.createElement('div'); d.className='badge'; d.textContent='No spouse/partner found'; wrap.appendChild(d); return;
+    }
+    const id = chosen.partnerId;
+    const cell=document.createElement('div'); cell.className='cell';
+    const img=document.createElement('img'); img.src=imgUrl; img.alt=id;
+    const tag=document.createElement('div'); tag.className='tag';
+    tag.textContent = (chosen.kind==='linked') ? (names[id]||id) : (names[anchorId]? `${names[anchorId]} • partner` : `${anchorId} • partner`);
+    cell.appendChild(img); cell.appendChild(tag); wrap.appendChild(cell);
+    img.addEventListener('click', ()=>{
+      if (chosen.kind==='linked' && /^\d{6}$/.test(id) && isTraceableId(id)){ setAnchor(id); }
+    });
+    const editKey = /^\d{6}$/.test(id) ? id : anchorId; attachSoftEdit(img, editKey);
+  }
+
+  // Populate grids
   async function populateGrid(gridEl, ids){
     const wrap = gridEl.querySelector('.grid-wrap');
-    wrap.innerHTML = '';
+    wrap.innerHTML='';
     for (const id of ids){
-      const p = await resolveExistingPath(id);
-      if (!p) continue;
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      const img = document.createElement('img');
-      img.src = p + '?cb=' + Date.now();
-      img.alt = id;
-      const tag = document.createElement('div');
-      tag.className = 'tag';
-      tag.textContent = names[id] || id;
-      cell.appendChild(img);
-      cell.appendChild(tag);
-      wrap.appendChild(cell);
-
-      img.addEventListener('click', ()=>{
-        setAnchor(id);
-        hideAllGrids();
-      });
+      const cell=document.createElement('div'); cell.className='cell';
+      const img=document.createElement('img'); setImgWithFallback(img, id); img.alt=id;
+      img.onload=()=>{ if (img.dataset.failed==='1') cell.remove(); };
+      const tag=document.createElement('div'); tag.className='tag'; tag.textContent=names[id]||id;
+      cell.appendChild(img); cell.appendChild(tag); wrap.appendChild(cell);
+      img.addEventListener('click', ()=>{ if (img.dataset.failed!=='1'){ setAnchor(id); hideAllGrids(); } });
       attachSoftEdit(img, id);
     }
   }
 
-  // ---- Actions ----
+  // Actions
   async function actionParents(){
-    const info = await getParentsFor(anchorId);
-    const ids = [];
-    if (info.nparent.exists) ids.push(info.nparent.id);
-    if (info.oparent.exists) ids.push(info.oparent.id);
+    // We’ll keep parents minimal in this no-regression build; spouse link determines two-parent view in a later step.
     showGrid(gridParents);
-    await populateGrid(gridParents, ids.length ? ids : []);
+    const wrap = gridParents.querySelector('.grid-wrap');
+    wrap.innerHTML='';
+    const p = computeParentId(anchorId);
+    if (!p){ const d=document.createElement('div'); d.className='badge'; d.textContent='No parent'; wrap.appendChild(d); return; }
+    await populateGrid(gridParents, [p]);
   }
+  async function actionChildren(){ showGrid(gridChildren); await populateGrid(gridChildren, buildChildrenFor(anchorId)); }
+  async function actionSiblings(){ showGrid(gridSiblings); await populateGrid(gridSiblings, buildSiblingsFor(anchorId)); }
 
-  async function actionChildren(){
-    const ids = buildChildrenFor(anchorId);
-    showGrid(gridChildren);
-    await populateGrid(gridChildren, ids);
+  // Gestures
+  let sx=0, sy=0, active=false; const TH=40;
+  function onStart(e){ const t=e.touches?e.touches[0]:e; sx=t.clientX; sy=t.clientY; active=true; }
+  function onEnd(e){
+    if(!active) return; active=false;
+    const t=e.changedTouches?e.changedTouches[0]:e; const dx=t.clientX-sx; const dy=t.clientY-sy;
+    if (Math.abs(dx)<TH && Math.abs(dy)<TH) return;
+    if (Math.abs(dx)>Math.abs(dy)){ if (dx>0) actionSpouse(); else actionSiblings(); }
+    else { if (dy<0) actionParents(); else actionChildren(); }
   }
+  document.addEventListener('touchstart', onStart, {passive:true});
+  document.addEventListener('touchend', onEnd, {passive:true});
+  document.addEventListener('mousedown', onStart);
+  document.addEventListener('mouseup', onEnd);
 
-  async function actionSiblings(){
-    // placeholder; unchanged from prior builds
-    const ids = []; // you can rewire later
-    showGrid(gridSiblings);
-    await populateGrid(gridSiblings, ids);
-  }
-
-  async function actionSpouse(){
-    const s = await findSpouseFor(anchorId);
-    showGrid(gridSpouse);
-    const wrap = gridSpouse.querySelector('.grid-wrap');
-    wrap.innerHTML = '';
-    if (!s){
-      const d = document.createElement('div');
-      d.className = 'badge';
-      d.textContent = 'No spouse/partner found';
-      wrap.appendChild(d);
-      return;
-    }
-    const id = (s.kind==='linked') ? s.partnerId : s.partnerId;
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    const img = document.createElement('img');
-    img.src = s.path + '?cb=' + Date.now();
-    img.alt = id;
-    const tag = document.createElement('div');
-    tag.className = 'tag';
-    tag.textContent = (s.kind==='linked') ? (names[id] || id) : (names[anchorId] ? `${names[anchorId]} • partner` : `${anchorId} • partner`);
-    cell.appendChild(img); cell.appendChild(tag);
-    wrap.appendChild(cell);
-
-    img.addEventListener('click', ()=>{
-      if (s.kind==='linked' && /^\d{6}$/.test(id) && isTraceableId(id)){
-        setAnchor(id);
-      }
-    });
-    const editKey = /^\d{6}$/.test(id) ? id : anchorId;
-    attachSoftEdit(img, editKey);
-  }
-
-  // ---- Gestures ----
-  let touchStartX=0, touchStartY=0, touchActive=false;
-  const THRESH = 40;
-  function onTouchStart(e){
-    const t = e.touches ? e.touches[0] : e;
-    touchStartX = t.clientX; touchStartY = t.clientY; touchActive=true;
-  }
-  function onTouchEnd(e){
-    if (!touchActive) return;
-    touchActive=false;
-    const t = e.changedTouches ? e.changedTouches[0] : e;
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    if (Math.abs(dx) < THRESH && Math.abs(dy) < THRESH) return;
-    if (Math.abs(dx) > Math.abs(dy)){
-      if (dx > 0) actionSpouse();          // Right
-      else actionSiblings();               // Left
-    } else {
-      if (dy < 0) actionParents();         // Up
-      else actionChildren();               // Down
-    }
-  }
-  document.addEventListener('touchstart', onTouchStart, {passive:true});
-  document.addEventListener('touchend', onTouchEnd, {passive:true});
-  document.addEventListener('mousedown', onTouchStart);
-  document.addEventListener('mouseup', onTouchEnd);
-
-  // ---- Buttons ----
+  // Buttons
   startBtn.addEventListener('click', ()=>{
     const val = prompt('Enter starting ID (6 digits):', anchorId);
-    if (val && /^\d{6}$/.test(val)) {
-      historyStack = [];
-      anchorId = val;
-      renderAnchor();
-    }
+    if (val && /^\d{6}$/.test(val)){ historyStack=[]; anchorId=val; renderAnchor(); }
   });
   backBtn.addEventListener('click', ()=>{
-    if (grids.some(g=>!g.classList.contains('hidden'))){
-      hideAllGrids();
-      return;
-    }
-    const prev = historyStack.pop();
-    if (prev) {
-      anchorId = prev;
-      renderAnchor();
-    }
+    if (grids.some(g=>!g.classList.contains('hidden'))){ hideAllGrids(); return; }
+    const prev=historyStack.pop(); if (prev){ anchorId=prev; renderAnchor(); }
   });
 
-  // ---- Init ----
+  // Init
   window.addEventListener('hashchange', ()=>{
-    const id = (location.hash||'').replace('#','');
-    if (/^\d{6}$/.test(id)){
-      setAnchor(id);
-    }
+    const id=(location.hash||'').replace('#',''); if (/^\d{6}$/.test(id)) setAnchor(id);
   });
-
-  renderAnchor();
-  hideAllGrids();
+  renderAnchor(); hideAllGrids();
 })();
