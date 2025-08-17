@@ -1,13 +1,10 @@
-# SwipeTree — Spouse Toggle
+# SwipeTree — REVERT (Last Night)
 **Date:** 2025-08-17
 
-**Right swipe behavior**
-- First Right on an anchor ⇒ find **one spouse** (best match: `A.1.B`, else `B.1.A`, else `A.1`) and show it.
-- Next Right ⇒ return to the **anchor view**.
-- Repeat ⇒ toggles between spouse ↔ anchor. No cycling among multiple image files.
+This build removes all spouse/partner changes and restores the simple, stable behavior:
+- **Gestures:** Up=Parents, Down=Children, Left/Right=Siblings
+- **Images:** 140px thumbnails with `object-fit: contain` (no cropping)
+- **Logic:** Children/siblings derived exactly as before; Parents one-level up
+- **No timers / no extras**
 
-Other notes
-- Tap a *linked & traceable* spouse to anchor into them (then that person has their own spouse toggle).
-- Gesture-lock and larger spouse image are included.
-
-Reload with `?cb=st1` after replacing the files.
+Drop these files into your repo and reload with `?cb=revert1`.
