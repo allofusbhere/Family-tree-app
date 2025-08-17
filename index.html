@@ -2,50 +2,49 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SwipeTree — iPad Test</title>
-  <link rel="stylesheet" href="./style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SwipeTree — Spouse/Partner Traceability</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
+  <div id="app" class="app">
     <header class="topbar">
       <div class="brand">SwipeTree</div>
-      <div class="spacer"></div>
-      <button id="backBtn" class="btn">Back</button>
+      <div class="build" id="buildTag"></div>
+      <button id="startBtn" class="btn">Start</button>
+      <button id="backBtn" class="btn btn-ghost">Back</button>
     </header>
 
-    <main id="stage">
-      <div id="anchorWrap">
-        <img id="anchorImg" alt="anchor" draggable="false" />
-        <div id="anchorName" class="name"></div>
+    <main class="stage" id="stage">
+      <div id="anchorWrap" class="anchor-wrap">
+        <img id="anchorImg" class="anchor-img" alt="anchor"/>
+        <div id="anchorLabel" class="label"></div>
       </div>
 
-      <section id="gridOverlay" class="hidden">
-        <div class="gridHeader">
-          <h2 id="gridTitle">Grid</h2>
-        </div>
-        <div id="grid" class="grid"></div>
+      <!-- Grids -->
+      <section id="gridParents" class="grid hidden">
+        <h2>Parents</h2>
+        <div class="grid-wrap"></div>
+      </section>
+      <section id="gridSiblings" class="grid hidden">
+        <h2>Siblings</h2>
+        <div class="grid-wrap"></div>
+      </section>
+      <section id="gridChildren" class="grid hidden">
+        <h2>Children</h2>
+        <div class="grid-wrap"></div>
+      </section>
+      <section id="gridSpouse" class="grid hidden">
+        <h2>Spouse / Partner</h2>
+        <div class="grid-wrap"></div>
       </section>
     </main>
+
+    <footer class="foot">
+      <small>Long‑press image for SoftEdit (no hints shown)</small>
+    </footer>
   </div>
 
-  <div id="editOverlay" class="editOverlay hidden" role="dialog" aria-modal="true">
-    <div class="editCard">
-      <div class="editRow">
-        <label for="editName">Name</label>
-        <input id="editName" type="text" autocomplete="off" />
-      </div>
-      <div class="editRow">
-        <label for="editDob">DOB</label>
-        <input id="editDob" type="text" autocomplete="off" placeholder="YYYY-MM-DD" />
-      </div>
-      <div class="editActions">
-        <button id="editCancel" class="btn subtle">Cancel</button>
-        <button id="editSave" class="btn">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="./script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

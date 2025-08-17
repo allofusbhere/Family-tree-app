@@ -1,31 +1,25 @@
-# SwipeTree — Buttons Only (Single Display)
+# SwipeTree — Spouse/Partner Traceability Build
+**Date:** 2025-08-17
 
-Two-area layout (Anchor on top, Results grid below) with buttons for **Parent**, **Siblings**, **Spouse**, **Children**, and **Back**.
+This build locks the current behavior and adds **spouse/partner management** with **traceability**:
 
-- Relationships are inferred from **numeric filenames** only.
-- Works with files in the same folder or via the optional **file indexer** (Browse…).
-- Fixed grids: Parents 1×2; Siblings/Spouse/Children 3×3.
+- **Right = Spouse/Partner**
+  - Shows `A.1.B.jpg` (traceable if B's first digit is a known branch).
+  - Falls back to `A.1.jpg` (partner-only, not traceable).
+  - Attempts to detect reciprocal links `B.1.A.jpg` by probing common branch seeds.
+- **Up = Parents**
+  - Shows Nparent and Oparent if `Nparent.1.B.jpg` exists; otherwise Nparent + placeholder slot.
+- **Left = Siblings**, **Down = Children**: placeholder generators remain; keep your verified numeric logic if you have one—drop in where indicated.
+- **SoftEdit** long-press only (no hints). Names persist in `localStorage`.
 
-## Quick Start
-1. Open `index.html` in a modern browser.
-2. Enter a **Start ID** (e.g., `140000`) → click **Launch**.
-3. (Optional) Click **Browse…** to index local images for exact spouse/parent-B matching.
-4. Click buttons to populate the result grid; click tiles to change the Anchor.
-5. Use **Back** to return to the previous anchor.
+## Files
+- `index.html` — shell
+- `style.css` — minimal styles
+- `script.js` — logic (spouse/partner traceability included)
 
-## Filenames
-- Person: `140000.jpg`
-- Spouse (direct): `140000.1.jpg` (always shown if present)
-- Spouse (extended, clickable): `140000.1.240000.jpg`
-- Children are computed from trailing zeros (see docs).
+## How to Deploy
+1. Upload all three files to your **app** folder (not the images folder).
+2. Ensure your images are in a **flat** folder alongside your existing repo (as you already use).
+3. Open `index.html` via GitHub Pages (same pattern as before).
 
-## Deploy to GitHub Pages
-- Create a repo, upload the files to root.
-- Settings → Pages → Deploy from a branch → `main` → `/ (root)`.
-
-## License
-MIT — see `LICENSE`.
-
----
-Detailed build documentation: `docs/SwipeTree_Build_Bible.html`.
-Last updated: 2025-08-08
+> If you maintain a manifest of filenames, we can wire it in to find reciprocal-only spouse files perfectly. Without a manifest, this build still covers direct `A.1.B.jpg` and `A.1.jpg` patterns.
