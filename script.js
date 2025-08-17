@@ -1,10 +1,12 @@
-// JS is identical to the No-Regression build except for build tag text
+
+// Spouse Toggle build: one spouse per anchor; Right flips spouse <-> anchor
 (function(){
   const BUILD_TAG = (new Date().toISOString().slice(0,19).replace('T',' '));
   const IMAGE_BASE = 'https://allofusbhere.github.io/family-tree-images/';
   const EXTENSIONS = ['.jpg', '.JPG'];
   const KNOWN_BRANCHES = new Set(['1','2','3','4','5','6','7','8','9']);
 
+  const stage = document.getElementById('stage');
   const anchorImg = document.getElementById('anchorImg');
   const anchorLabel = document.getElementById('anchorLabel');
   const anchorWrap = document.getElementById('anchorWrap');
@@ -24,7 +26,19 @@
   let anchorId = '100000';
   let names = JSON.parse(localStorage.getItem('swipetree_names') || '{}');
 
+  // Spouse choice cache and toggle state
+  const spouseChoice = {}; // { [anchorId]: { kind, partnerId, url } }
+  const spouseShown = {};  // { [anchorId]: boolean }
+
   function urlFor(stem, i=0){ return IMAGE_BASE + stem + EXTENSIONS[i]; }
+  async function probeUrl(stem){
+    for (let i=0;i<EXTENSIONS.length;i++){
+      const url = urlFor(stem, i) + '?cb=' + Date.now();
+      const ok = await new Promise(res=>{ const im=new Image(); im.onload=()=>res(true); im.onerror=()=>res(false); im.src=url; });
+      if (ok) return url;
+    }
+    return null;
+  }
   function setImgWithFallback(img, stem){
     let i=0;
     const tryNext=()=>{
@@ -69,6 +83,7 @@
   function renderAnchor(){
     setImgWithFallback(anchorImg, anchorId);
     anchorLabel.textContent = names[anchorId] || anchorId;
+    spouseShown[anchorId] = false; // reset toggle for this anchor
   }
 
   function hideAllGrids(){ grids.forEach(g=>g.classList.add('hidden')); anchorWrap.style.visibility='visible'; }
@@ -114,7 +129,7 @@
     return buildChildrenFor(p).filter(x => x !== id);
   }
 
-  function spouseCandidates(aId){
+  function spouseCandidateStems(aId){
     const branches=[firstDigit(aId)];
     for (let d=1; d<=2; d++){
       const up = String((parseInt(branches[0],10)+d-1)%9 + 1);
@@ -122,42 +137,56 @@
     }
     const candIds=[];
     for(const b of branches){ for(let k=1;k<=9;k++){ candIds.push(`${b}${k}0000`);} }
-    const paths=[];
-    for(const cid of candIds){
-      paths.push({kind:'linked', partnerId:cid, stem:`${aId}.1.${cid}`});
-      paths.push({kind:'linked', partnerId:cid, stem:`${cid}.1.${aId}`});
+    const stems=[];
+    // Priority A.1.B first (exact forward), then B.1.A (reciprocal), then A.1 partner-only
+    for(const cid of candIds){ stems.push({kind:'linked', partnerId:cid, stem:`${aId}.1.${cid}`}); }
+    for(const cid of candIds){ stems.push({kind:'linked', partnerId:cid, stem:`${cid}.1.${aId}`}); }
+    stems.push({kind:'dot1', partnerId:`${aId}.1`, stem:`${aId}.1`});
+    return stems;
+  }
+
+  async function pickBestSpouse(aId){
+    const cached = spouseChoice[aId];
+    if (cached) return cached;
+    const stems = spouseCandidateStems(aId);
+    for (const t of stems){
+      const url = await probeUrl(t.stem);
+      if (url){ spouseChoice[aId] = { kind:t.kind, partnerId:t.partnerId, url }; return spouseChoice[aId]; }
     }
-    paths.push({kind:'dot1', partnerId:`${aId}.1`, stem:`${aId}.1`});
-    return paths;
+    spouseChoice[aId] = null;
+    return null;
   }
 
   async function actionSpouse(){
+    // Toggle: if spouse currently shown, go back to anchor view
+    if (spouseShown[anchorId]){
+      hideAllGrids();
+      spouseShown[anchorId] = false;
+      return;
+    }
+    // Otherwise show (or find) the one spouse for this anchor
+    const chosen = await pickBestSpouse(anchorId);
     showGrid(gridSpouse);
     const wrap = gridSpouse.querySelector('.grid-wrap');
     wrap.innerHTML='';
-    const trials = spouseCandidates(anchorId);
-    let chosen=null, imgUrl=null;
-    for(const t of trials){
-      for (let i=0;i<EXTENSIONS.length;i++){
-        const url = urlFor(t.stem, i) + '?cb=' + Date.now();
-        const ok = await new Promise(res=>{ const im=new Image(); im.onload=()=>res(true); im.onerror=()=>res(false); im.src=url; });
-        if (ok){ chosen=t; imgUrl=url; break; }
-      }
-      if (chosen) break;
-    }
     if (!chosen){
-      const d=document.createElement('div'); d.className='badge'; d.textContent='No spouse/partner found'; wrap.appendChild(d); return;
+      const d=document.createElement('div'); d.className='badge'; d.textContent='No spouse/partner found'; wrap.appendChild(d);
+      spouseShown[anchorId] = true; // stays in spouse view to prevent flip loop
+      return;
     }
-    const id = chosen.partnerId;
     const cell=document.createElement('div'); cell.className='cell';
-    const img=document.createElement('img'); img.src=imgUrl; img.alt=id;
+    const img=document.createElement('img'); img.src=chosen.url; img.alt=chosen.partnerId;
     const tag=document.createElement('div'); tag.className='tag';
-    tag.textContent = (chosen.kind==='linked') ? (names[id]||id) : (names[anchorId]? `${names[anchorId]} • partner` : `${anchorId} • partner`);
+    tag.textContent = (chosen.kind==='linked') ? (names[chosen.partnerId]||chosen.partnerId) : (names[anchorId]? f`${names[anchorId]} • partner` : `${anchorId} • partner`);
     cell.appendChild(img); cell.appendChild(tag); wrap.appendChild(cell);
+    spouseShown[anchorId] = true;
+
+    // Tap navigates if linked & traceable, and resets toggle for new anchor
     img.addEventListener('click', ()=>{
-      if (chosen.kind==='linked' && /^\d{6}$/.test(id) && isTraceableId(id)){ setAnchor(id); }
+      if (chosen.kind==='linked' && /^\d{6}$/.test(chosen.partnerId) && isTraceableId(chosen.partnerId)){
+        setAnchor(chosen.partnerId);
+      }
     });
-    const editKey = /^\d{6}$/.test(id) ? id : anchorId; attachSoftEdit(img, editKey);
   }
 
   async function populateGrid(gridEl, ids){
@@ -174,29 +203,46 @@
     }
   }
 
-  async function actionParents(){
-    showGrid(gridParents);
-    const wrap = gridParents.querySelector('.grid-wrap'); wrap.innerHTML='';
-    const p = computeParentId(anchorId);
-    if (!p){ const d=document.createElement('div'); d.className='badge'; d.textContent='No parent'; wrap.appendChild(d); return; }
-    await populateGrid(gridParents, [p]);
-  }
+  async function actionParents(){ showGrid(gridParents); await populateGrid(gridParents, computeParentId(anchorId)?[computeParentId(anchorId)]:[]); }
   async function actionChildren(){ showGrid(gridChildren); await populateGrid(gridChildren, buildChildrenFor(anchorId)); }
   async function actionSiblings(){ showGrid(gridSiblings); await populateGrid(gridSiblings, buildSiblingsFor(anchorId)); }
 
-  let sx=0, sy=0, active=false; const TH=40;
-  function onStart(e){ const t=e.touches?e.touches[0]:e; sx=t.clientX; sy=t.clientY; active=true; }
-  function onEnd(e){
-    if(!active) return; active=false;
-    const t=e.changedTouches?e.changedTouches[0]:e; const dx=t.clientX-sx; const dy=t.clientY-sy;
-    if (Math.abs(dx)<TH && Math.abs(dy)<TH) return;
-    if (Math.abs(dx)>Math.abs(dy)){ if (dx>0) actionSpouse(); else actionSiblings(); }
-    else { if (dy<0) actionParents(); else actionChildren(); }
+  // Gesture lock
+  let sx=0, sy=0, dir=null, moved=false;
+  const LOCK_DIST = 12, H_THRESH = 50, V_THRESH = 50, OFF_AXIS_MAX = 30;
+  function onStart(e){ const t=e.touches?e.touches[0]:e; sx=t.clientX; sy=t.clientY; dir=null; moved=false; }
+  function onMove(e){
+    const t=e.touches?e.touches[0]:e; const dx=t.clientX-sx, dy=t.clientY-sy;
+    if (!dir){
+      if (Math.abs(dx) > LOCK_DIST || Math.abs(dy) > LOCK_DIST){
+        dir = (Math.abs(dx) >= Math.abs(dy)*1.2) ? 'h' : (Math.abs(dy) >= Math.abs(dx)*1.2 ? 'v' : null);
+      }
+    }
+    if (dir){ e.preventDefault(); moved=true; }
   }
-  document.addEventListener('touchstart', onStart, {passive:true});
-  document.addEventListener('touchend', onEnd, {passive:true});
-  document.addEventListener('mousedown', onStart);
-  document.addEventListener('mouseup', onEnd);
+  function onEnd(e){
+    if (!moved){ dir=null; return; }
+    const t=e.changedTouches?e.changedTouches[0]:e; const dx=t.clientX-sx, dy=t.clientY-sy;
+    if (dir==='h'){
+      if (Math.abs(dx) >= H_THRESH && Math.abs(dy) <= OFF_AXIS_MAX){
+        if (dx>0) actionSpouse(); else actionSiblings();
+      }
+    } else if (dir==='v'){
+      if (Math.abs(dy) >= V_THRESH && Math.abs(dx) <= OFF_AXIS_MAX){
+        if (dy<0) actionParents(); else actionChildren();
+      }
+    }
+    dir=null; moved=false;
+  }
+  stage.addEventListener('touchstart', onStart, {passive:false});
+  stage.addEventListener('touchmove', onMove, {passive:false});
+  stage.addEventListener('touchend', onEnd, {passive:false});
+  stage.addEventListener('pointerdown', onStart);
+  stage.addEventListener('pointermove', onMove);
+  stage.addEventListener('pointerup', onEnd);
+  stage.addEventListener('mousedown', onStart);
+  stage.addEventListener('mousemove', onMove);
+  stage.addEventListener('mouseup', onEnd);
 
   startBtn.addEventListener('click', ()=>{
     const val = prompt('Enter starting ID (6 digits):', anchorId);
