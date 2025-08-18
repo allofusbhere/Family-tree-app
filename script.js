@@ -1,5 +1,5 @@
 
-// SwipeTree — Spouse + Tap-to-Enter-Branch
+// SwipeTree — Spouse Tap-to-Enter Branch + ID Indicator
 (function(){
   const qs = (s, el=document)=> el.querySelector(s);
 
@@ -12,14 +12,14 @@
       anchorId: null,
       history: [],
       isOverlayOpen: false,
-      touch: { x:0, y:0, active:false },
-      spouseMap: {}, // {"140000":"240000","240000":"140000"}
+      spouseMap: {},
       suppressTap: false,
     },
     els: {
       anchorCard: qs("#anchorCard"),
       anchorImg: qs("#anchorImg"),
       anchorName: qs("#anchorName"),
+      anchorIdTag: qs("#anchorIdTag"),
       startBtn: qs("#startBtn"),
       backBtn: qs("#backBtn"),
       overlay: qs("#overlay"),
@@ -42,7 +42,7 @@
       this.setupGestures();
       this.setupTapToEnterBranch();
 
-      // Load optional spouse_links.json
+      // Load mapping
       try {
         const resp = await fetch(`spouse_links.json${CACHE_BUST}`, {cache:"no-store"});
         if(resp.ok){
@@ -61,7 +61,7 @@
       const start = ()=>{
         clearTimeout(timer);
         timer = setTimeout(()=>{
-          this.state.suppressTap = true; // prevent tap after long-press
+          this.state.suppressTap = true;
           const current = this.els.anchorName.textContent || "";
           const name = prompt("Edit label (first name):", current);
           if(name!==null){ this.setName(this.state.anchorId, name); this.renderAnchor(); }
@@ -106,14 +106,14 @@
     },
 
     setupTapToEnterBranch(){
-      // Tap on the spouse image (.1) to enter mapped branch if one exists
       this.els.anchorCard.addEventListener("click", ()=>{
-        if(this.state.suppressTap) return; // skip tap right after long-press
+        if(this.state.suppressTap) return;
         const id = this.state.anchorId || "";
-        if(!id.includes(".1")) return; // only act when viewing spouse image
+        if(!id.includes(".1")) return; // Only act on spouse face
         const mainId = id.replace(".1","");
         const partnerId = this.state.spouseMap[mainId];
         if(partnerId){
+          this.toast(`Entering spouse branch: ${partnerId}`);
           this.navigateTo(partnerId);
         }else{
           this.toast("No mapped branch for this spouse.");
@@ -121,7 +121,6 @@
       });
     },
 
-    // === Swipe handlers ===
     async onSwipeRight(){
       const id = this.state.anchorId;
       if(!id) return;
@@ -129,16 +128,14 @@
       const mainId = isSpouse ? id.replace(".1","") : id;
 
       if(!isSpouse){
-        // MAIN -> show spouse face if exists, else toast
-        const spouseId = `${mainId}.1`;
+        const spouseId = `${mainId}.1`; // MAIN -> spouse face
         if(await this.imageExists(this.imageURL(spouseId))){
           this.navigateTo(spouseId);
         }else{
           this.toast("No spouse image found for this ID.");
         }
       } else {
-        // SPOUSE face -> toggle back to main on right swipe
-        this.navigateTo(mainId);
+        this.navigateTo(mainId); // SPOUSE face -> back to main on right swipe
       }
     },
 
@@ -174,6 +171,7 @@
       this.els.anchorImg.src = this.imageURL(id);
       this.els.anchorImg.alt = id;
       this.els.anchorName.textContent = this.getName(id) || "";
+      this.els.anchorIdTag.textContent = id; // <-- show current exact ID
       this.els.anchorCard.style.outlineColor = "rgba(255,255,255,.35)";
       setTimeout(()=> this.els.anchorCard.style.outlineColor = "rgba(255,255,255,.08)", 250);
     },
