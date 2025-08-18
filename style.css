@@ -20,5 +20,4 @@ html, body { margin: 0; padding: 0; background: #0b0b0b; color: #f2f2f2; font-fa
 
 .toast { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); background: #222; border: 1px solid #444; padding: 10px 14px; border-radius: 10px; font-size: 14px; }
 
-/* Touch fixes */
 body, html { touch-action: none; overscroll-behavior: contain; }
