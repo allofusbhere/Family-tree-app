@@ -1,2 +1,36 @@
-<!-- SwipeTree Branch Patch HTML -->
-<html><head><title>SwipeTree Branch Patch</title></head><body><script src='script_spousebranch_patch.js'></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwipeTree — Branch Patch</title>
+  <link rel="stylesheet" href="./style_last_night_20250816.css" />
+  <style>
+    body{ background:#000; color:#fff; margin:0; }
+    .topbar{ display:flex; gap:8px; align-items:center; padding:10px 12px; }
+    .btn{ padding:6px 10px; border-radius:10px; border:1px solid #444; background:#222; color:#fff; }
+    #anchorWrap{ display:flex; justify-content:center; align-items:center; height:80vh; }
+    #anchorImg{ height:260px; width:auto; border-radius:16px; background:#111; }
+    .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; padding:16px; }
+    .tile img{ width:100%; height:140px; object-fit:contain; border-radius:12px; background:#111; }
+    .hidden{ display:none; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">SwipeTree</div>
+    <div style="flex:1"></div>
+    <button id="backBtn" class="btn">Back</button>
+  </header>
+
+  <div id="anchorWrap">
+    <img id="anchorImg" alt="anchor"/>
+  </div>
+
+  <section id="gridOverlay" class="hidden">
+    <div id="grid" class="grid"></div>
+  </section>
+
+  <script src="./script_spousebranch_patch2.js" defer></script>
+</body>
+</html>
