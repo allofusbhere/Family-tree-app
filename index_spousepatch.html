@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SwipeTree — Spouse Patch Test</title>
+  <link rel="stylesheet" href="./style_last_night_20250816.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">SwipeTree</div>
+      <div class="spacer"></div>
+      <button id="backBtn" class="btn">Back</button>
+    </header>
+
+    <main id="stage">
+      <div id="anchorWrap">
+        <img id="anchorImg" alt="anchor" draggable="false" />
+        <div id="anchorName" class="name"></div>
+      </div>
+
+      <section id="gridOverlay" class="hidden">
+        <div class="gridHeader">
+          <h2 id="gridTitle">Grid</h2>
+        </div>
+        <div id="grid" class="grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="editOverlay" class="editOverlay hidden" role="dialog" aria-modal="true">
+    <div class="editCard">
+      <div class="editRow">
+        <label for="editName">Name</label>
+        <input id="editName" type="text" autocomplete="off" />
+      </div>
+      <div class="editRow">
+        <label for="editDob">DOB</label>
+        <input id="editDob" type="text" autocomplete="off" placeholder="YYYY-MM-DD" />
+      </div>
+      <div class="editActions">
+        <button id="editCancel" class="btn subtle">Cancel</button>
+        <button id="editSave" class="btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./script_last_night_20250816_spousepatch.js" defer></script>
+</body>
+</html>
