@@ -1,134 +1,242 @@
-// SwipeTree — labels fix + centered parents + SoftEdit overlay + iOS long-press suppression + optional names.json
+
+// SwipeTree — Spouse-Only Swipe Test Build
 (function(){
-  'use strict';
-  const params = new URLSearchParams(location.search);
-  const DEFAULT_IMG_BASE = 'https://allofusbhere.github.io/family-tree-images/';
-  const IMG_BASE = (window.SWIPE_TREE_IMG_BASE || params.get('imgbase') || DEFAULT_IMG_BASE).replace(/\/?$/, '/');
-  const IMG_EXT = '.jpg';
-  const PLACEHOLDER_NAME = 'placeholder.jpg';
-  const PLACEHOLDER = IMG_BASE + PLACEHOLDER_NAME;
-  const MAX_CANDIDATES = 9, SWIPE_THRESHOLD = 40, LONGPRESS_MS = 520;
+  const qs = (s, el=document)=> el.querySelector(s);
+  const qsa = (s, el=document)=> Array.from(el.querySelectorAll(s));
 
-  const state = { anchorId:null, historyStack:[], gridOpen:false, gridType:null, touchStart:null, longPressTimer:null, namesMap:{} };
+  // Configurable image base via ?imgBase=URL (default: same folder)
+  const url = new URL(location.href);
+  const IMG_BASE = url.searchParams.get("imgBase") || "./";
+  const CACHE_BUST = (typeof window.BUILD_TAG !== "undefined") ? `?v=${window.BUILD_TAG}` : "";
 
-  const anchorImg = document.getElementById('anchorImg');
-  const anchorWrap = document.getElementById('anchorWrap');
-  const anchorName = document.getElementById('anchorName');
-  const gridOverlay = document.getElementById('gridOverlay');
-  const grid = document.getElementById('grid');
-  const gridTitle = document.getElementById('gridTitle');
-  const backBtn = document.getElementById('backBtn');
+  const app = {
+    state: {
+      anchorId: null,     // e.g., "140000" or "140000.1"
+      history: [],        // stack of visited anchors
+      isOverlayOpen: false,
+      touch: { x:0, y:0, t:0, active:false },
+    },
 
-  const editOverlay = document.getElementById('editOverlay');
-  const editName = document.getElementById('editName');
-  const editDob = document.getElementById('editDob');
-  const editCancel = document.getElementById('editCancel');
-  const editSave = document.getElementById('editSave');
+    els: {
+      anchorCard: qs("#anchorCard"),
+      anchorImg: qs("#anchorImg"),
+      anchorName: qs("#anchorName"),
+      startBtn: qs("#startBtn"),
+      backBtn: qs("#backBtn"),
+      overlay: qs("#overlay"),
+      toast: qs("#toast"),
+      stage: qs("#stage"),
+    },
 
-  function idToSrc(id){ return IMG_BASE + id + IMG_EXT; }
-  function exists(src){ return new Promise(r=>{ const i=new Image(); i.onload=()=>r(true); i.onerror=()=>r(false); i.src=src+cacheBust(); }); }
-  const cacheBust = ()=> `?v=${Date.now()%1e7}`;
-  function getSavedMeta(id){ try{ return JSON.parse(localStorage.getItem(`swipetree.meta.${id}`)||'null'); }catch{return null;} }
-  function saveMeta(id, meta){ localStorage.setItem(`swipetree.meta.${id}`, JSON.stringify(meta||{})); }
-  function displayNameFor(id){ if(state.namesMap[id]) return state.namesMap[id]; const m=getSavedMeta(id); return m&&m.name?m.name:''; }
-  function setURLHash(id){ try{ history.replaceState(null,'',`#${encodeURIComponent(id)}`); }catch{} }
+    init(){
+      // Start button prompts for ID
+      this.els.startBtn.addEventListener("click", () => {
+        const val = (prompt("Enter starting ID (e.g., 100000, 140000, 240000):") || "").trim();
+        if(!val) return;
+        this.navigateTo(val, {pushHistory:false, replaceHash:true});
+      });
 
-  function getIdParts(idStr){ const p=idStr.split('.'); return { baseId:p[0], isSpouse:(p[1]==='1'), partnerHint:(p[2]||null) }; }
-  function countTrailingZeros(s){ let c=0; for(let i=s.length-1;i>=0;i--){ if(s[i]!=='0') break; c++; } return c; }
-  const toInt = s=>parseInt(s,10);
-  function toStr(n,d){ let s=String(n); while(s.length<d) s='0'+s; return s; }
+      // Back button: close overlay if open, else go back in history
+      this.els.backBtn.addEventListener("click", () => {
+        if(this.state.isOverlayOpen){
+          this.closeOverlay();
+          return;
+        }
+        this.goBack();
+      });
 
-  function parentOf(idStr){
-    const {baseId}=getIdParts(idStr); const d=baseId.length; const tz=countTrailingZeros(baseId);
-    if(tz<=0) return null; const n=toInt(baseId); const step=Math.pow(10,tz); const parent=n-(n%(step*10)); return toStr(parent,d);
-  }
-  function childrenOf(idStr){
-    const {baseId}=getIdParts(idStr); const d=baseId.length; const tz=countTrailingZeros(baseId);
-    const childStep=Math.pow(10, Math.max(0,tz-1)); const floor=toInt(baseId) - (toInt(baseId) % (childStep*10));
-    const out=[]; for(let k=1;k<=MAX_CANDIDATES;k++) out.push(toStr(floor+k*childStep,d)); return out;
-  }
-  function siblingsOf(idStr){
-    const {baseId}=getIdParts(idStr); const d=baseId.length; const tz=countTrailingZeros(baseId);
-    const sibStep=Math.pow(10,tz); const floor=toInt(baseId) - (toInt(baseId) % (sibStep*10));
-    const out=[]; for(let k=1;k<=MAX_CANDIDATES;k++){ const s=toStr(floor+k*sibStep,d); if(s!==baseId) out.push(s); } return out;
-  }
+      // Long-press SoftEdit on anchor (hidden, no hints)
+      this.setupSoftEdit();
 
-  async function tryLoadNamesMap(){
-    try{
-      const res = await fetch(IMG_BASE + 'names.json' + cacheBust());
-      if(res.ok){ const data = await res.json(); if(data && typeof data==='object') state.namesMap=data; }
-    }catch{}
-  }
+      // Touch handling for stage (swipes)
+      this.setupGestures();
 
-  async function setAnchor(idStr, pushHistory=true){
-    if(state.gridOpen) closeGrid();
-    if(state.anchorId && pushHistory) state.historyStack.push(state.anchorId);
-    state.anchorId=idStr; setURLHash(idStr);
-    const src=idToSrc(idStr); const ok=await exists(src);
-    anchorImg.src = ok ? (src+cacheBust()) : (PLACEHOLDER+cacheBust());
-    anchorImg.classList.remove('highlight');
-    anchorName.textContent = displayNameFor(idStr) || '';
-    requestAnimationFrame(()=>{ anchorImg.classList.add('highlight'); setTimeout(()=>anchorImg.classList.remove('highlight'),350); });
-  }
+      // If hash has an ID, use it
+      const hashId = (location.hash || "").replace(/^#/, "").trim();
+      if(hashId){
+        this.navigateTo(hashId, {pushHistory:false, replaceHash:false});
+      }
+    },
 
-  function openGrid(title,cards,kind=null){
-    gridTitle.textContent=title; grid.innerHTML=''; grid.classList.remove('parents'); if(kind==='parents') grid.classList.add('parents');
-    cards.forEach(c=>{
-      const tile=document.createElement('div'); tile.className='tile noselect'; tile.dataset.id=c.id;
-      tile.innerHTML=`<img alt="${c.id}" src="${c.src}${cacheBust()}"><div class="label">${c.name||''}</div>`;
-      tile.addEventListener('click', async ()=>{ closeGrid(); await setAnchor(c.id); });
-      grid.appendChild(tile);
-    });
-    gridOverlay.classList.remove('hidden'); state.gridOpen=true;
-  }
-  function closeGrid(){ gridOverlay.classList.add('hidden'); state.gridOpen=false; state.gridType=null; }
+    setupSoftEdit(){
+      // Long-press (500ms) on anchor to edit label (stored in-memory for this test build)
+      const card = this.els.anchorCard;
+      let pressTimer = null;
+      const start = (e)=>{
+        clearTimeout(pressTimer);
+        pressTimer = setTimeout(()=>{
+          const currentName = this.els.anchorName.textContent || "";
+          const newName = prompt("Edit label (first name):", currentName);
+          if(newName !== null){
+            this.setName(this.state.anchorId, newName);
+            this.renderAnchor();
+          }
+        }, 600);
+      };
+      const cancel = ()=> clearTimeout(pressTimer);
+      card.addEventListener("touchstart", start, {passive:true});
+      card.addEventListener("touchend", cancel);
+      card.addEventListener("touchmove", cancel);
+      card.addEventListener("mousedown", start);
+      card.addEventListener("mouseup", cancel);
+      card.addEventListener("mouseleave", cancel);
+    },
 
-  function onTouchStart(e){ if(state.longPressTimer) clearTimeout(state.longPressTimer);
-    const t=e.touches?e.touches[0]:e; state.touchStart={x:t.clientX,y:t.clientY,time:Date.now()};
-    state.longPressTimer=setTimeout(()=>{ openEdit(); }, LONGPRESS_MS);
-  }
-  function onTouchMove(e){ if(!state.touchStart) return; const t=e.touches?e.touches[0]:e;
-    if(Math.abs(t.clientX-state.touchStart.x)>10||Math.abs(t.clientY-state.touchStart.y)>10) clearTimeout(state.longPressTimer);
-  }
-  function onTouchEnd(e){ if(state.longPressTimer) clearTimeout(state.longPressTimer); if(!state.touchStart) return;
-    const t=e.changedTouches?e.changedTouches[0]:e; const dx=t.clientX-state.touchStart.x, dy=t.clientY-state.touchStart.y;
-    const adx=Math.abs(dx), ady=Math.abs(dy); state.touchStart=null; if(adx<40 && ady<40) return;
-    if(adx>ady){ if(dx>0) handleSpouseSwipe(); else handleSiblingsSwipe(); } else { if(dy>0) handleChildrenSwipe(); else handleParentsSwipe(); }
-  }
+    setupGestures(){
+      const stage = this.els.stage;
+      const touch = this.state.touch;
+      const thresh = 40; // px
 
-  async function existingCards(ids){ const checks=await Promise.all(ids.map(id=>exists(idToSrc(id))));
-    const out=[]; for(let i=0;i<ids.length;i++) if(checks[i]) out.push({id:ids[i], src:idToSrc(ids[i]), name:displayNameFor(ids[i])}); return out; }
-  async function handleChildrenSwipe(){ openGrid('Children', await existingCards(childrenOf(state.anchorId)), 'children'); state.gridType='children'; }
-  async function handleSiblingsSwipe(){ openGrid('Siblings', await existingCards(siblingsOf(state.anchorId)), 'siblings'); state.gridType='siblings'; }
-  async function handleParentsSwipe(){ const p=parentOf(state.anchorId); const cards=[];
-    if(p){ const ok=await exists(idToSrc(p)); cards.push({id:p, src: ok?idToSrc(p):PLACEHOLDER, name:displayNameFor(p)});
-      const sp=p+'.1'; const ok2=await exists(idToSrc(sp)); cards.push(ok2?{id:sp, src:idToSrc(sp), name:displayNameFor(sp)}:{id:'Parent2', src:PLACEHOLDER, name:''}); }
-    openGrid('Parents', cards, 'parents'); state.gridType='parents'; }
-  async function handleSpouseSwipe(){ const p=getIdParts(state.anchorId); const t=p.isSpouse?p.baseId:p.baseId+'.1'; if(await exists(idToSrc(t))) await setAnchor(t); }
+      const onStart = (x,y)=>{
+        touch.active = true;
+        touch.x = x; touch.y = y; touch.t = Date.now();
+      };
+      const onEnd = (x,y)=>{
+        if(!touch.active) return;
+        const dx = x - touch.x;
+        const dy = y - touch.y;
+        touch.active = false;
+        if(Math.abs(dx) < thresh && Math.abs(dy) < thresh) return;
 
-  backBtn.addEventListener('click', async ()=>{ if(state.gridOpen){ closeGrid(); return; } const prev=state.historyStack.pop(); if(prev) await setAnchor(prev,false); });
+        if(Math.abs(dx) > Math.abs(dy)){
+          if(dx > 0) this.onSwipeRight();
+          else this.onSwipeLeft();
+        } else {
+          if(dy < 0) this.onSwipeUp();
+          else this.onSwipeDown();
+        }
+      };
 
-  // SoftEdit overlay (no browser prompt)
-  function openEdit(){ const id=state.anchorId; const meta=getSavedMeta(id)||{}; editName.value = displayNameFor(id) || meta.name || ''; editDob.value = meta.dob || ''; editOverlay.classList.remove('hidden'); setTimeout(()=>editName.focus(),0); }
-  function closeEdit(){ editOverlay.classList.add('hidden'); }
-  editCancel.addEventListener('click', closeEdit);
-  editOverlay.addEventListener('click', (e)=>{ if(e.target===editOverlay) closeEdit(); });
-  editSave.addEventListener('click', ()=>{ const id=state.anchorId; const meta=getSavedMeta(id)||{}; const name=editName.value.trim(); const dob=editDob.value.trim(); saveMeta(id,{...meta,name,dob}); anchorName.textContent=name||''; closeEdit(); });
+      // Touch
+      stage.addEventListener("touchstart", (e)=>{
+        const t = e.changedTouches[0];
+        onStart(t.clientX, t.clientY);
+      }, {passive:true});
+      stage.addEventListener("touchend", (e)=>{
+        const t = e.changedTouches[0];
+        onEnd(t.clientX, t.clientY);
+      });
 
-  // Attach gestures to anchor
-  ['touchstart','mousedown'].forEach(ev=>anchorWrap.addEventListener(ev,onTouchStart,{passive:true}));
-  ['touchmove','mousemove'].forEach(ev=>anchorWrap.addEventListener(ev,onTouchMove,{passive:true}));
-  ['touchend','mouseup','mouseleave'].forEach(ev=>anchorWrap.addEventListener(ev,onTouchEnd,{passive:true}));
+      // Mouse (for desktop testing)
+      let mouseDown = false;
+      stage.addEventListener("mousedown", (e)=>{ mouseDown = true; onStart(e.clientX, e.clientY); });
+      stage.addEventListener("mouseup", (e)=>{ if(mouseDown){ mouseDown=false; onEnd(e.clientX, e.clientY); } });
+    },
 
-  // Suppress OS context menu
-  document.addEventListener('contextmenu', e=>e.preventDefault());
+    // === Swipe handlers ===
+    onSwipeRight(){
+      // Toggle spouse: X <-> X.1 (bidirectional)
+      if(!this.state.anchorId) return;
+      const id = this.state.anchorId;
+      const spouseId = this.toSpouseId(id);
+      // Try spouse image; if not found, show toast
+      this.imageExists(this.imageURL(spouseId)).then(exists=>{
+        if(exists){
+          this.navigateTo(spouseId);
+        }else{
+          this.toast("No spouse image found for this ID.");
+        }
+      });
+    },
+    onSwipeLeft(){
+      this.toast("Siblings will appear here in the next build.");
+    },
+    onSwipeUp(){
+      this.toast("Parents will appear here in the next build.");
+    },
+    onSwipeDown(){
+      this.toast("Children will appear here in the next build.");
+    },
 
-  // Disable native interactions when grid closed
-  document.addEventListener('gesturestart', e=>e.preventDefault());
-  document.addEventListener('gesturechange', e=>e.preventDefault());
-  document.addEventListener('gestureend', e=>e.preventDefault());
-  document.addEventListener('touchmove', e=>{ if(state.gridOpen===false) e.preventDefault(); }, {passive:false});
+    toSpouseId(id){
+      // If already a spouse (ends with .1 or contains .1.), strip first '.1' segment
+      if(id.includes(".1")){
+        // Remove only the first occurrence of ".1"
+        return id.replace(".1","");
+      }
+      // Else, add .1
+      return id + ".1";
+    },
 
-  (async function boot(){ await tryLoadNamesMap(); let start=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim(); if(!start) start='100000'; await setAnchor(start,false); })();
+    // === Navigation & rendering ===
+    navigateTo(newId, opts={}){
+      const { pushHistory=true, replaceHash=true } = opts;
+      const prev = this.state.anchorId;
+      if(pushHistory && prev) this.state.history.push(prev);
+      this.state.anchorId = newId;
+      if(replaceHash){
+        try { history.replaceState(null, "", `#${newId}`); } catch {}
+      } else {
+        try { history.pushState(null, "", `#${newId}`); } catch {}
+      }
+      this.renderAnchor();
+      this.closeOverlay();
+    },
 
+    goBack(){
+      const last = this.state.history.pop();
+      if(!last){ this.toast("Start to pick an anchor."); return; }
+      this.navigateTo(last, {pushHistory:false, replaceHash:true});
+    },
+
+    setName(id, name){
+      // In this spouse-only test build, keep labels in-memory per session
+      this._names = this._names || {};
+      this._names[id] = (name || "").trim();
+    },
+    getName(id){
+      return (this._names && this._names[id]) || "";
+    },
+
+    renderAnchor(){
+      const id = this.state.anchorId;
+      const url = this.imageURL(id);
+      this.els.anchorImg.src = url;
+      this.els.anchorImg.alt = id;
+      this.els.anchorName.textContent = this.getName(id) || "";
+      // Brief highlight flash
+      this.els.anchorCard.style.outlineColor = "rgba(255,255,255,.35)";
+      setTimeout(()=>{ this.els.anchorCard.style.outlineColor = "rgba(255,255,255,.08)"; }, 250);
+    },
+
+    imageURL(id){
+      // Images are flat file names like 140000.jpg or 140000.1.jpg
+      return `${IMG_BASE}${id}.jpg${CACHE_BUST}`;
+    },
+
+    imageExists(src){
+      return new Promise(res=>{
+        const img = new Image();
+        let done = false;
+        const finish = (v)=>{ if(!done){ done=true; res(v); } };
+        img.onload = ()=> finish(true);
+        img.onerror = ()=> finish(false);
+        img.src = src;
+        // Fallback timeout
+        setTimeout(()=> finish(false), 1200);
+      });
+    },
+
+    openOverlay(contentEl){
+      this.state.isOverlayOpen = true;
+      this.els.overlay.innerHTML = "";
+      this.els.overlay.appendChild(contentEl);
+      this.els.overlay.classList.remove("hidden");
+    },
+    closeOverlay(){
+      this.state.isOverlayOpen = false;
+      this.els.overlay.classList.add("hidden");
+      this.els.overlay.innerHTML = "";
+    },
+
+    toast(msg){
+      const el = this.els.toast;
+      el.textContent = msg;
+      el.classList.remove("hidden");
+      clearTimeout(this._toastTimer);
+      this._toastTimer = setTimeout(()=> el.classList.add("hidden"), 1400);
+    },
+  };
+
+  window.addEventListener("load", ()=> app.init());
 })();
