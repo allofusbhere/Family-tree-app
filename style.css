@@ -16,7 +16,11 @@ html, body { margin: 0; padding: 0; background: #0b0b0b; color: #f2f2f2; font-fa
 .btn.small { padding: 6px 10px; font-size: 14px; }
 .btn:active { transform: translateY(1px); }
 
-.overlay { position: absolute; inset: 0; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.overlay { position: absolute; inset: 0; background: rgba(0,0,0,.9); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.overlay .grid { display: grid; grid-template-columns: repeat(2, minmax(140px, 240px)); gap: 20px; }
+.overlay .pCard { background:#161616; border-radius:20px; padding:10px; text-align:center; border:1px solid #2a2a2a; }
+.overlay .pCard img { width: 100%; height: auto; border-radius: 14px; }
+.overlay .pLabel { font-size: 14px; margin-top: 6px; opacity:.8; }
 .hidden { display: none !important; }
 
 .toast { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); background: #222; border: 1px solid #444; padding: 10px 14px; border-radius: 10px; font-size: 14px; }

@@ -1,5 +1,5 @@
 
-// SwipeTree — Spouse Tap-to-Enter Branch + ID Indicator
+// SwipeTree — Spouse Tap-to-Enter Branch + Parents on Up Swipe
 (function(){
   const qs = (s, el=document)=> el.querySelector(s);
 
@@ -91,7 +91,7 @@
           if(dx>0) this.onSwipeRight();
           else this.toast("Left swipe reserved for siblings (next build).");
         }else{
-          if(dy<0) this.toast("Up swipe reserved for parents (next build).");
+          if(dy<0) this.onSwipeUp();
           else this.toast("Down swipe reserved for children (next build).");
         }
       };
@@ -109,7 +109,7 @@
       this.els.anchorCard.addEventListener("click", ()=>{
         if(this.state.suppressTap) return;
         const id = this.state.anchorId || "";
-        if(!id.includes(".1")) return; // Only act on spouse face
+        if(!id.includes(".1")) return;
         const mainId = id.replace(".1","");
         const partnerId = this.state.spouseMap[mainId];
         if(partnerId){
@@ -121,6 +121,7 @@
       });
     },
 
+    // === Swipe handlers ===
     async onSwipeRight(){
       const id = this.state.anchorId;
       if(!id) return;
@@ -128,15 +129,78 @@
       const mainId = isSpouse ? id.replace(".1","") : id;
 
       if(!isSpouse){
-        const spouseId = `${mainId}.1`; // MAIN -> spouse face
+        const spouseId = `${mainId}.1`;
         if(await this.imageExists(this.imageURL(spouseId))){
           this.navigateTo(spouseId);
         }else{
           this.toast("No spouse image found for this ID.");
         }
       } else {
-        this.navigateTo(mainId); // SPOUSE face -> back to main on right swipe
+        this.navigateTo(mainId);
       }
+    },
+
+    async onSwipeUp(){
+      const id = this.state.anchorId;
+      if(!id) return;
+      if(id.includes(".1")){
+        this.toast("Parents from spouse face not supported; swipe back to main first.");
+        return;
+      }
+      const parentA = this.computeParent(id);
+      if(!parentA){
+        this.toast("No parent computed for this ID.");
+        return;
+      }
+
+      const cards = [];
+      const c1 = await this.makeParentCard(parentA, "Parent A");
+      if(c1) cards.push(c1);
+      const parentB = `${parentA}.1`;
+      const c2 = await this.makeParentCard(parentB, "Parent B");
+      if(c2) cards.push(c2);
+
+      if(cards.length===0){
+        this.toast("No parent images found.");
+        return;
+      }
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      cards.forEach(c=> grid.appendChild(c));
+      this.openOverlay(grid);
+    },
+
+    async makeParentCard(pid, label){
+      const src = this.imageURL(pid);
+      const exists = await this.imageExists(src);
+      if(!exists) return null;
+      const card = document.createElement("div");
+      card.className = "pCard";
+      const img = document.createElement("img");
+      img.src = src; img.alt = pid;
+      const cap = document.createElement("div");
+      cap.className = "pLabel"; cap.textContent = `${label} (${pid})`;
+      card.appendChild(img); card.appendChild(cap);
+      card.addEventListener("click", ()=> this.navigateTo(pid));
+      return card;
+    },
+
+    computeParent(id){
+      // Normalize
+      id = id.replace(".1","");
+      if(!/^\d+$/.test(id)) return null;
+      const len = id.length;
+      const n = parseInt(id,10);
+      const thousands = Math.floor(n/1000)%10;
+      const tenThousands = Math.floor(n/10000)%10;
+      if(thousands>0){
+        const parent = n - thousands*1000;
+        return String(parent).padStart(len,"0");
+      }else if(tenThousands>0){
+        const parent = n - tenThousands*10000;
+        return String(parent).padStart(len,"0");
+      }
+      return null; // top branch
     },
 
     navigateTo(newId, opts={}){
@@ -171,7 +235,7 @@
       this.els.anchorImg.src = this.imageURL(id);
       this.els.anchorImg.alt = id;
       this.els.anchorName.textContent = this.getName(id) || "";
-      this.els.anchorIdTag.textContent = id; // <-- show current exact ID
+      this.els.anchorIdTag.textContent = id;
       this.els.anchorCard.style.outlineColor = "rgba(255,255,255,.35)";
       setTimeout(()=> this.els.anchorCard.style.outlineColor = "rgba(255,255,255,.08)", 250);
     },
