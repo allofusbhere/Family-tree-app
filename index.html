@@ -4,16 +4,26 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SwipeTree — Last Night (RootDrop)</title>
-  <link rel="stylesheet" href="style.css?v=kg2" />
+  <link rel="stylesheet" href="style.css?v=kg3" />
+  <link rel="stylesheet" href="style_add_kg2.css?v=kg3" />
 </head>
 <body>
   <div class="hintbar">Right swipe (→) toggles spouse</div>
 
-  <!-- Existing app markup stays as-is above/below; these are safe placeholders -->
+  <!-- REQUIRED APP MARKUP -->
+  <main id="app" aria-live="polite">
+    <div id="anchorCard" class="card">
+      <img id="anchorImg" alt="person" />
+      <div id="caption" class="caption"></div>
+    </div>
+  </main>
+
+  <!-- Optional/expected elements so JS bindings never crash -->
   <section id="overlay" hidden></section>
   <button id="backBtn" style="display:none"></button>
   <button id="closeOverlay" style="display:none"></button>
 
-  <script src="script.js?v=kg2" defer></script>
+  <!-- Your script (keeps same name), add cache-buster -->
+  <script src="script.js?v=kg3" defer></script>
 </body>
 </html>
