@@ -4,27 +4,56 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SwipeTree — rc1 (patched)</title>
+  <title>SwipeTree — rc1 (patched + start overlay)</title>
 
   <!-- Project base styles -->
   <link rel="stylesheet" href="style.css">
 
   <!-- Parents grid centering (drop-in) -->
   <link rel="stylesheet" href="parents_fix.css">
+
   <style>
-    /* Ensure the app canvas fills the viewport so overlays center properly */
-    html, body { height: 100%; margin: 0; }
+    html, body { height: 100%; margin: 0; background:#111; color:#eee; }
     #app { min-height: 100%; }
+    /* Minimal Start Overlay scaffold (matches what script.js expects) */
+    #startOverlay {
+      position: fixed; inset: 0; display:flex; align-items:center; justify-content:center;
+      background: rgba(0,0,0,0.8); z-index: 1000;
+    }
+    #startOverlay.hidden { display: none; }
+    .start-panel {
+      background:#1f2937; padding: 20px 24px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      min-width: 280px; display:flex; flex-direction:column; gap:12px;
+    }
+    .start-panel h1 { font-size: 1.1rem; margin:0; color:#fff; }
+    .start-panel input {
+      padding: 10px 12px; border-radius: 10px; border: 1px solid #374151; background:#111827; color:#e5e7eb;
+    }
+    .start-panel button {
+      padding: 10px 12px; border-radius: 10px; border: 0; cursor: pointer;
+    }
+    .start-primary { background:#e5e7eb; color:#111; }
+    .muted { font-size:.85rem; color:#9ca3af; }
   </style>
 </head>
 <body>
-  <!-- App root (your existing JS will attach here as usual) -->
+  <!-- Minimal Start Overlay expected by script.js -->
+  <div id="startOverlay">
+    <div class="start-panel">
+      <h1>Start at ID</h1>
+      <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 100000" value="100000">
+      <button id="startBtn" class="start-primary" type="button">Start</button>
+      <div class="muted">Tip: you can also open with <code>#id=140000</code> in the URL.</div>
+    </div>
+  </div>
+
+  <!-- App root -->
   <div id="app"></div>
 
-  <!-- Your main app script -->
+  <!-- Main app script (existing) -->
   <script src="script.js"></script>
 
-  <!-- Drop-in fixes: long-press editing + parents centering -->
+  <!-- Drop-in fixes -->
   <script src="edit_parents_fix.js"></script>
 </body>
 </html>
