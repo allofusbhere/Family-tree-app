@@ -4,18 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1">
   <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=rc1b-20250819">
 </head>
 <body>
-  <div id="buildTag">SwipeTree • 20250819-162557 • all-swipes-rc1</div>
+  <div id="buildTag">SwipeTree • 20250819 • all-swipes-rc1b</div>
 
-  <!-- Top bar: Start + Back -->
   <div id="topBar">
     <button id="startBtn" aria-label="Start" title="Start">Start</button>
     <button id="backBtn" aria-label="Back" title="Back">Back</button>
   </div>
 
-  <!-- Anchor (current person) -->
   <main id="stage">
     <div id="anchorCard" class="card">
       <img id="anchorImg" alt="anchor">
@@ -23,7 +21,6 @@
     </div>
   </main>
 
-  <!-- Overlay grid (parents/siblings/children/spouse) -->
   <section id="overlay" class="hidden" aria-hidden="true">
     <header id="overlayHeader">
       <h2 id="overlayTitle"></h2>
@@ -32,11 +29,10 @@
     <div id="grid" class="grid"></div>
   </section>
 
-  <!-- Hints (tiny, unobtrusive) -->
   <div id="hintBar">
     <span>Swipe: ↑ parents • ← siblings • → spouse • ↓ children</span>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=rc1b-20250819"></script>
 </body>
 </html>
