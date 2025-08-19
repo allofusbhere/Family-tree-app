@@ -4,18 +4,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SwipeTree — rc1 (patched + start overlay)</title>
+  <title>SwipeTree — rc1 (patched + start IDs synced)</title>
 
-  <!-- Project base styles -->
   <link rel="stylesheet" href="style.css">
-
-  <!-- Parents grid centering (drop-in) -->
   <link rel="stylesheet" href="parents_fix.css">
 
   <style>
     html, body { height: 100%; margin: 0; background:#111; color:#eee; }
     #app { min-height: 100%; }
-    /* Minimal Start Overlay scaffold (matches what script.js expects) */
     #startOverlay {
       position: fixed; inset: 0; display:flex; align-items:center; justify-content:center;
       background: rgba(0,0,0,0.8); z-index: 1000;
@@ -34,26 +30,45 @@
     }
     .start-primary { background:#e5e7eb; color:#111; }
     .muted { font-size:.85rem; color:#9ca3af; }
+    /* hidden fallback elements (kept in DOM for legacy IDs) */
+    .legacy-hide { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
   </style>
 </head>
 <body>
-  <!-- Minimal Start Overlay expected by script.js -->
+  <!-- Start Overlay: includes BOTH new and legacy IDs -->
   <div id="startOverlay">
     <div class="start-panel">
       <h1>Start at ID</h1>
+      <!-- Primary visible input -->
       <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 100000" value="100000">
+      <!-- Legacy IDs some builds expect -->
+      <input id="inputBase" class="legacy-hide" type="text" value="100000" />
       <button id="startBtn" class="start-primary" type="button">Start</button>
+      <button id="btnStart" class="legacy-hide" type="button">Start</button>
       <div class="muted">Tip: you can also open with <code>#id=140000</code> in the URL.</div>
     </div>
   </div>
 
-  <!-- App root -->
   <div id="app"></div>
 
-  <!-- Main app script (existing) -->
-  <script src="script.js"></script>
+  <script>
+    // Keep legacy IDs in sync with the visible input/button
+    (function(){
+      const startId = document.getElementById('startId');
+      const inputBase = document.getElementById('inputBase');
+      const startBtn = document.getElementById('startBtn');
+      const btnStart = document.getElementById('btnStart');
+      function syncVal(){ inputBase.value = startId.value; }
+      startId.addEventListener('input', syncVal);
+      syncVal();
+      function clickBoth(){ btnStart.click(); }
+      startBtn.addEventListener('click', clickBoth);
+      // Also allow Enter to trigger Start
+      startId.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ startBtn.click(); }});
+    })();
+  </script>
 
-  <!-- Drop-in fixes -->
+  <script src="script.js"></script>
   <script src="edit_parents_fix.js"></script>
 </body>
 </html>
