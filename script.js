@@ -1,62 +1,69 @@
-// Patched script.js — adds null checks and defers binding until DOMContentLoaded
-// This preserves your existing logic but prevents crashes when optional elements
-// are missing from the HTML (e.g., back button, close button, overlays).
+// script.js — image base set to your `family-tree-images` repo
+const IMAGE_BASE = 'https://allofusbhere.github.io/family-tree-images/';
+const MAP_URL = 'spouse_links.json?v=imgbase1';
 
-(function () {
-  function safeBind(selector, event, handler, options) {
-    var el = typeof selector === 'string' ? document.querySelector(selector) : selector;
-    if (el) el.addEventListener(event, handler, options || false);
+let SPOUSES = null;
+let current = null;
+const q = s => document.querySelector(s);
+
+function startId() {
+  const u = new URL(location.href);
+  return u.searchParams.get('id') || location.hash.replace('#','') || '100000';
+}
+function baseId(id){ return String(id).split('.')[0]; }
+function imgUrl(id){ return IMAGE_BASE + encodeURIComponent(baseId(id)) + '.jpg'; }
+
+async function loadMap(){
+  if (SPOUSES) return SPOUSES;
+  try {
+    const r = await fetch(MAP_URL, {cache:'no-store'});
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    SPOUSES = await r.json();
+  } catch(e){
+    SPOUSES = {};
   }
-
-  function init() {
-    try {
-      // === ORIGINAL INITIALIZATION ===
-      // If your existing code defines functions like go(), closeOverlay(), etc.,
-      // they will still be found on the global scope. We only protect the binds.
-
-      // Touch handlers (guarded to avoid null errors)
-      safeBind(document.body, 'touchstart', window.onTouchStart || window.onDown, { passive: true });
-      safeBind(document.body, 'touchend',   window.onTouchEnd   || window.onUp,   { passive: true });
-
-      // Keyboard handlers
-      safeBind(document, 'keydown', function(e){
-        if (typeof window.onKeyDown === 'function') return window.onKeyDown(e);
-        // Fallback: spouse toggle on ArrowRight if a global toggle() exists
-        if (e && e.key === 'ArrowRight' && typeof window.toggle === 'function') {
-          window.toggle();
-        }
-      });
-
-      // Optional UI
-      safeBind('#backBtn', 'click', function(){
-        if (typeof window.closeOverlay === 'function') {
-          var overlay = document.getElementById('overlay');
-          if (overlay && !overlay.hidden) return window.closeOverlay();
-        }
-        if (Array.isArray(window.historyStack) && window.historyStack.length && typeof window.goTo === 'function') {
-          var prev = window.historyStack.pop();
-          if (prev) window.goTo(prev);
-        }
-      });
-
-      safeBind('#closeOverlay', 'click', function(){
-        if (typeof window.closeOverlay === 'function') window.closeOverlay();
-        var overlay = document.getElementById('overlay');
-        if (overlay) overlay.hidden = true;
-      });
-
-      // If your code exposes an init/start method, call it here safely
-      if (typeof window.appInit === 'function') window.appInit();
-      if (typeof window.start === 'function') window.start();
-
-    } catch (err) {
-      console.error('Initialization error (guarded):', err);
-    }
+  return SPOUSES;
+}
+async function spouseOf(id){
+  const b = baseId(id);
+  const map = await loadMap();
+  if (/^\d+\.1$/.test(id)) return b;           // if spouse file, go back to base
+  if (map[b]) return String(map[b]);             // direct map
+  for (const [k,v] of Object.entries(map)) {     // reverse map
+    if (String(v) === b) return String(k);
   }
+  return b + '.1';                                // fallback to .1 image
+}
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
-  } else {
-    init();
-  }
-})(); 
+function render(id){
+  const img = q('#anchorImg');
+  if (img) img.src = imgUrl(id);
+  const cap = q('#caption');
+  if (cap) cap.textContent = id;
+  document.title = 'SwipeTree — ' + id;
+  location.hash = id;
+}
+async function go(id){ current = id; render(id); }
+async function toggle(){ const s = await spouseOf(current); go(s); }
+
+// touch right-swipe
+let sx=0, sy=0, touching=false;
+const TH=50;
+function onDown(e){ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; touching=true; }
+async function onUp(e){
+  if(!touching) return; touching=false;
+  const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy;
+  if(Math.abs(dx)>Math.abs(dy) && dx>TH){ await toggle(); }
+}
+document.addEventListener('keydown', e=>{ if(e.key==='ArrowRight') toggle(); });
+
+function init(){
+  document.body.addEventListener('touchstart', onDown, {passive:true});
+  document.body.addEventListener('touchend', onUp, {passive:true});
+  go(startId());
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init, {once:true});
+} else {
+  init();
+}
