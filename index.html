@@ -1,39 +1,21 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1">
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css?v=rc1d-20250819-172702">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwipeTree RC3.7</title>
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="script.js"></script>
 </head>
 <body>
-  <div id="buildTag">SwipeTree • 20250819-172702 • all-swipes-rc1d (imgbase fixed)</div>
-
-  <div id="topBar">
-    <button id="startBtn" aria-label="Start" title="Start">Start</button>
-    <button id="backBtn" aria-label="Back" title="Back">Back</button>
-  </div>
-
-  <main id="stage">
-    <div id="anchorCard" class="card">
-      <img id="anchorImg" alt="anchor">
-      <div id="anchorLabel" class="label"></div>
+  <div id="startOverlay" class="overlay">
+    <div class="overlay-content">
+      <h2>Start SwipeTree</h2>
+      <label>Starting ID: <input type="text" id="startId" value="100000" /></label><br/>
+      <label>Image Base URL: <input type="text" id="imgBase" value="./" /></label><br/>
+      <button id="startBtn">Start</button>
     </div>
-  </main>
-
-  <section id="overlay" class="hidden" aria-hidden="true">
-    <header id="overlayHeader">
-      <h2 id="overlayTitle"></h2>
-      <button id="overlayClose" aria-label="Close">×</button>
-    </header>
-    <div id="grid" class="grid"></div>
-  </section>
-
-  <div id="hintBar">
-    <span>Swipe: ↑ parents • ← siblings • → spouse • ↓ children</span>
   </div>
-
-  <script>window.SWIPE_TREE_IMG_BASE = "https://allofusbhere.github.io/family-tree-images/";</script>
-  <script src="script.js?v=rc1d-20250819-172702"></script>
+  <div id="app"></div>
 </body>
 </html>
