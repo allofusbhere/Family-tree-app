@@ -1,40 +1,30 @@
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>SwipeTree RC1</title>
-  <link rel="stylesheet" href="style.css?v=rc1d-20250819">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SwipeTree — rc1 (patched)</title>
+
+  <!-- Project base styles -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Parents grid centering (drop-in) -->
+  <link rel="stylesheet" href="parents_fix.css">
+  <style>
+    /* Ensure the app canvas fills the viewport so overlays center properly */
+    html, body { height: 100%; margin: 0; }
+    #app { min-height: 100%; }
+  </style>
 </head>
 <body>
-  <div id="app" class="app">
-    <header class="topbar">
-      <button id="startBtn" class="btn">Start</button>
-      <div class="spacer"></div>
-      <button id="backBtn" class="btn btn-ghost">Back</button>
-    </header>
+  <!-- App root (your existing JS will attach here as usual) -->
+  <div id="app"></div>
 
-    <main class="stage" id="stage" aria-live="polite">
-      <div id="anchorWrap" class="anchor-wrap">
-        <img id="anchorImg" class="anchor" alt="anchor">
-        <div id="anchorLabel" class="label"></div>
-      </div>
-    </main>
+  <!-- Your main app script -->
+  <script src="script.js"></script>
 
-    <!-- Overlays -->
-    <section id="gridOverlay" class="overlay hidden" aria-hidden="true">
-      <div class="overlay-inner">
-        <div class="overlay-head">
-          <h2 id="overlayTitle">Items</h2>
-          <button id="overlayClose" class="btn btn-ghost">Close</button>
-        </div>
-        <div id="grid" class="grid"></div>
-      </div>
-    </section>
-
-    <section id="toast" class="toast hidden"></section>
-  </div>
-
-  <script src="script.js?v=rc1d-20250819"></script>
+  <!-- Drop-in fixes: long-press editing + parents centering -->
+  <script src="edit_parents_fix.js"></script>
 </body>
 </html>
