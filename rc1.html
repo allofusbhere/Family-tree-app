@@ -4,13 +4,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SwipeTree — rc1 (patched defer)</title>
+  <title>SwipeTree — rc1 (HOTFIX: legacy IDs)</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="parents_fix.css">
   <style>
     html, body { height: 100%; margin: 0; background:#111; color:#eee; }
     #app { min-height: 100%; }
-    .legacy-hide { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
     #startOverlay { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center;
       background: rgba(0,0,0,0.8); z-index: 1000; }
     #startOverlay.hidden { display: none; }
@@ -22,40 +21,21 @@
     .start-primary { background:#e5e7eb; color:#111; }
     .muted { font-size:.85rem; color:#9ca3af; }
   </style>
-  <!-- Legacy elements guaranteed to exist BEFORE script.js runs -->
 </head>
 <body>
-  <input id="inputBase" class="legacy-hide" type="text" value="100000" />
-  <button id="btnStart" class="legacy-hide" type="button">Start</button>
-  <div id="anchorType" class="legacy-hide"></div>
-
-  <!-- Pretty Start overlay UI -->
+  <!-- Start overlay uses the *legacy IDs directly* so script.js can bind -->
   <div id="startOverlay">
     <div class="start-panel">
       <h1>Start at ID</h1>
-      <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 100000" value="100000">
-      <button id="startBtn" class="start-primary" type="button">Start</button>
+      <input id="inputBase" type="text" inputmode="numeric" placeholder="e.g., 100000" value="100000">
+      <button id="btnStart" class="start-primary" type="button">Start</button>
       <div class="muted">Tip: you can also open with <code>#id=140000</code> in the URL.</div>
     </div>
   </div>
 
   <div id="app"></div>
 
-  <!-- Keep legacy and pretty controls in sync -->
-  <script>
-    (function(){
-      var startId = document.getElementById('startId');
-      var inputBase = document.getElementById('inputBase');
-      var startBtn = document.getElementById('startBtn');
-      var btnStart = document.getElementById('btnStart');
-      function sync(){ inputBase.value = startId.value; }
-      startId.addEventListener('input', sync); sync();
-      startBtn.addEventListener('click', function(){ btnStart.click(); });
-      startId.addEventListener('keydown', function(e){ if(e.key==='Enter'){ startBtn.click(); }});
-    })();
-  </script>
-
-  <!-- Use defer so script.js runs AFTER the DOM is parsed (no console needed) -->
+  <!-- Defer scripts so DOM is parsed first -->
   <script defer src="script.js"></script>
   <script defer src="edit_parents_fix.js"></script>
 </body>
