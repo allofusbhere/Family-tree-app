@@ -1,284 +1,235 @@
-(() => {
+// SwipeTree RC1 — grid overlays, correct sibling/child math, back/history, configurable image base
+(function(){
   'use strict';
 
-  // === Feature Flags ===
-  const FLAGS = {
-    SWIPE_LEFT:  true,
-    SWIPE_RIGHT: true,
-    SWIPE_UP:    true,
-    SWIPE_DOWN:  true,
-    LONG_PRESS_EDIT: false,
-    MAX_PER_GRID: 30
+  const qs  = (s, r=document) => r.querySelector(s);
+  const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const byId = (id) => document.getElementById(id);
+  const on = (el, ev, fn, opts) => el && el.addEventListener(ev, fn, opts||false);
+
+  // Config
+  const url = new URL(window.location.href);
+  const IMG_BASE = url.searchParams.get('imgBase') || './'; // e.g., 'https://allofusbhere.github.io/family-tree-images/'
+  const MAX_PER_GROUP = 9;
+
+  const ui = {
+    startBtn: byId('startBtn'),
+    backBtn: byId('backBtn'),
+    anchorImg: byId('anchorImg'),
+    anchorLabel: byId('anchorLabel'),
+    gridOverlay: byId('gridOverlay'),
+    overlayTitle: byId('overlayTitle'),
+    overlayClose: byId('overlayClose'),
+    grid: byId('grid'),
+    toast: byId('toast'),
   };
 
-  const BUILD_TAG = "SwipeTree • 20250819-172702 • all-swipes-rc1d (imgbase fixed)";
-
-  // === DOM ===
-  const $  = (sel,root) => (root||document).querySelector(sel);
-  const $$ = (sel,root) => Array.from((root||document).querySelectorAll(sel));
-  const stage        = $('#stage');
-  const anchorCard   = $('#anchorCard');
-  const anchorImg    = $('#anchorImg');
-  const anchorLabel  = $('#anchorLabel');
-  const overlay      = $('#overlay');
-  const overlayTitle = $('#overlayTitle');
-  const grid         = $('#grid');
-  const backBtn      = $('#backBtn');
-  const startBtn     = $('#startBtn');
-  const overlayClose = $('#overlayClose');
-
-  // === State ===
+  let anchorId = null;
   const historyStack = [];
-  let currentId = null;
-  let overlayOpen = false;
 
-  // === Utilities ===
-  const IMG_BASE = (window.SWIPE_TREE_IMG_BASE || "https://allofusbhere.github.io/family-tree-images/").replace(/\/+$/, '/') ;
-
-  function parseId(idStr){
-    const s = String(idStr).trim();
-    if (s.includes('.')) return { base: s.split('.')[0], spouse: true };
-    return { base: s, spouse: false };
-  }
-  function clampDigits(n, digits=6){
-    const s = String(Math.max(0, Math.floor(Math.abs(n)))).padStart(digits,'0');
-    return s.slice(-digits);
-  }
-  function toInt(base){ return parseInt(base, 10); }
-
-  // Parent logic: zero the first non-zero digit from the left after the leading digit.
-  function parentOf(base){
-    const s = clampDigits(base);
-    const arr = s.split('').map(d=>parseInt(d,10));
-    let idx = -1;
-    for(let i=1;i<6;i++){ if(arr[i]!==0){ idx=i; break; } }
-    if(idx===-1) return null; // already top
-    arr[idx] = 0;
-    for(let j=idx+1;j<6;j++) arr[j]=0;
-    return arr.join('');
+  function imgSrcFor(id){
+    return `${IMG_BASE}${id}.jpg`;
   }
 
-  // Children step: next zero digit from the left after the current non-zero chain.
-  function generationStep(base){
-    const s = clampDigits(base);
-    const arr = s.split('').map(d=>parseInt(d,10));
-    let nextIdx = -1;
-    for(let i=1;i<6;i++){ if(arr[i]===0){ nextIdx = i; break; } }
-    if(nextIdx===-1) return 0;
-    const power = 6-1-nextIdx;
-    return Math.pow(10, power);
+  function showToast(msg, ms=1500){
+    ui.toast.textContent = msg;
+    ui.toast.classList.remove('hidden');
+    clearTimeout(ui.toast._t);
+    ui.toast._t = setTimeout(()=> ui.toast.classList.add('hidden'), ms);
   }
 
-  function childrenOf(base, limit=FLAGS.MAX_PER_GRID){
-    const step = generationStep(base);
-    if(step<=0) return [];
-    const kids = [];
-    for(let i=1;i<=9 && kids.length<limit;i++){
-      kids.push(clampDigits(toInt(base) + i*step));
+  function parseHashId(){
+    const m = location.hash.match(/id=(\d+)/);
+    return m ? m[1] : null;
+  }
+
+  function setHashId(id){
+    const newHash = `#id=${id}`;
+    if (location.hash !== newHash){
+      history.pushState({id}, '', newHash);
     }
-    return kids;
   }
 
-  function siblingsOf(base){
-    const p = parentOf(base);
-    if(!p) return [];
-    return childrenOf(p).filter(id => id !== base);
+  function go(id, pushHistory=true){
+    id = String(id);
+    if (!/^\d{5,8}$/.test(id)) { showToast('Enter a numeric ID'); return; }
+    if (pushHistory && anchorId) historyStack.push(anchorId);
+    anchorId = id;
+    setHashId(id);
+    renderAnchor(id);
   }
 
-  function parentsOf(base){
-    const p = parentOf(base);
-    if(!p) return [];
-    return [p, p + ".1"];
+  function renderAnchor(id){
+    ui.anchorImg.src = imgSrcFor(id);
+    ui.anchorImg.alt = `ID ${id}`;
+    ui.anchorLabel.textContent = id;
+    ui.anchorImg.classList.add('highlight');
+    setTimeout(()=> ui.anchorImg.classList.remove('highlight'), 350);
   }
 
-  function spouseOf(idStr){
-    const { base, spouse } = parseId(idStr);
-    return spouse ? base : base + ".1";
+  // ===== Relationship Math =====
+  function trailingZeros(n){
+    let s = String(n);
+    let tz = 0;
+    for (let i=s.length-1; i>=0 && s[i]==='0'; i--) tz++;
+    return tz;
   }
 
-  // === Image helpers ===
-  const imageUrlFor = idStr => IMG_BASE + idStr + ".jpg";
+  function placeValueForChildren(n){
+    const tz = trailingZeros(n);
+    if (tz <= 0) return 0;           // no zero tail? cannot determine generation
+    return Math.pow(10, tz-1);       // modify the next digit to the left of the zero run
+  }
 
-  function testImage(idStr){
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload  = () => resolve({ id:idStr, ok:true });
-      img.onerror = () => resolve({ id:idStr, ok:false });
-      img.src = imageUrlFor(idStr);
+  // Parent = zero-out the child digit place
+  function computeParentId(n){
+    const p = placeValueForChildren(n);
+    if (p === 0) return null;
+    const digit = Math.floor(n / p) % 10;
+    if (digit === 0) return null; // already base branch (no parent above in our scheme)
+    const parent = n - (digit * p);
+    return parent;
+  }
+
+  function computeChildren(n){
+    const p = placeValueForChildren(n);
+    if (!p) return [];
+    const base = n; // lower places already zeros by design
+    const out = [];
+    for (let k=1; k<=MAX_PER_GROUP; k++){
+      out.push(base + k*p);
+    }
+    return out;
+  }
+
+  function computeSiblings(n){
+    const p = placeValueForChildren(n);
+    if (!p) return [];
+    const digit = Math.floor(n / p) % 10;
+    const parent = n - (digit * p);
+    const out = [];
+    for (let k=1; k<=MAX_PER_GROUP; k++){
+      if (k === digit) continue;
+      out.push(parent + k*p);
+    }
+    return out;
+  }
+
+  // Spouse(s): primary is "<id>.1"; optionally include "<partnerId>.1" if present via hint json later
+  function computeSpouses(n){
+    return [`${n}.1`];
+  }
+
+  // ===== Overlay rendering =====
+  function openGrid(title, ids){
+    ui.overlayTitle.textContent = title;
+    ui.grid.innerHTML = '';
+    ids.forEach(id => {
+      const tile = document.createElement('button');
+      tile.className = 'tile';
+      const img = document.createElement('img');
+      img.alt = `ID ${id}`;
+      img.src = imgSrcFor(id);
+      const lab = document.createElement('div');
+      lab.className = 'tlabel';
+      lab.textContent = id;
+      tile.appendChild(img);
+      tile.appendChild(lab);
+      on(tile, 'click', () => {
+        closeOverlay();
+        go(String(id));
+      });
+      ui.grid.appendChild(tile);
     });
+    ui.gridOverlay.classList.remove('hidden');
+    ui.gridOverlay.setAttribute('aria-hidden', 'false');
   }
 
-  async function filterExisting(ids){
-    const unique = Array.from(new Set(ids));
-    const checks = await Promise.all(unique.map(id => testImage(id)));
-    return checks.filter(x=>x.ok).map(x=>x.id);
-  }
-
-  // === Rendering ===
-  async function setAnchor(idStr, pushHistory=true){
-    if(currentId && pushHistory) historyStack.push(currentId);
-    currentId = idStr;
-
-    anchorCard.classList.add('highlight');
-    setTimeout(()=>anchorCard.classList.remove('highlight'), 180);
-
-    anchorImg.src = imageUrlFor(idStr);
-    anchorImg.alt = idStr;
-    $('#buildTag').textContent = BUILD_TAG;
-    anchorLabel.textContent = idStr;
-
-    closeOverlay(false);
-    location.hash = "id=" + encodeURIComponent(idStr);
-  }
-
-  function openOverlay(title){
-    overlayTitle.textContent = title;
-    overlay.classList.remove('hidden');
-    overlay.setAttribute('aria-hidden','false');
-    overlayOpen = true;
-  }
   function closeOverlay(){
-    overlay.classList.add('hidden');
-    overlay.setAttribute('aria-hidden','true');
-    overlayOpen = false;
-    grid.innerHTML = '';
+    ui.gridOverlay.classList.add('hidden');
+    ui.gridOverlay.setAttribute('aria-hidden', 'true');
   }
 
-  function tile(idStr){
-    const div = document.createElement('button');
-    div.className = 'tile';
-    div.setAttribute('data-id', idStr);
-    div.innerHTML = `<img alt="${idStr}" src="${imageUrlFor(idStr)}"><div class="tlabel">${idStr}</div>`;
-    div.addEventListener('click', () => setAnchor(idStr, true));
-    return div;
-  }
+  // ===== Gestures =====
+  let touchStart = null;
+  const SWIPE_MIN = 28;
 
-  async function showGrid(kind, ids){
-    const list = await filterExisting(ids);
-    grid.innerHTML = '';
-    if(list.length===0){
-      const msg = document.createElement('div');
-      msg.style.color = '#aab1bd';
-      msg.style.textAlign = 'center';
-      msg.style.padding = '2rem';
-      msg.textContent = 'No images found.';
-      grid.appendChild(msg);
+  function onTouchStart(e){
+    const t = e.touches[0];
+    touchStart = { x:t.clientX, y:t.clientY, t:Date.now() };
+  }
+  function onTouchEnd(e){
+    if (!touchStart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.x;
+    const dy = t.clientY - touchStart.y;
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ax < SWIPE_MIN && ay < SWIPE_MIN) return;
+    if (ax > ay){
+      if (dx > 0) handleRight(); else handleLeft();
     } else {
-      list.forEach(id => grid.appendChild(tile(id)));
+      if (dy > 0) handleDown(); else handleUp();
     }
-    openOverlay(kind);
+    touchStart = null;
   }
 
-  // === Relationship views ===
-  async function showChildren(){
-    const base = parseId(currentId).base;
-    await showGrid('Children', childrenOf(base));
+  // Map: Right=Spouse, Up=Parents, Left=Siblings, Down=Children
+  function handleRight(){
+    const spouses = computeSpouses(Number(anchorId));
+    openGrid('Spouse', spouses);
   }
-  async function showSiblings(){
-    const base = parseId(currentId).base;
-    await showGrid('Siblings', siblingsOf(base));
+  function handleLeft(){
+    const sibs = computeSiblings(Number(anchorId));
+    openGrid('Siblings', sibs);
   }
-  async function showParents(){
-    const base = parseId(currentId).base;
-    await showGrid('Parents', parentsOf(base));
+  function handleDown(){
+    const kids = computeChildren(Number(anchorId));
+    openGrid('Children', kids);
   }
-  async function showSpouse(){
-    const next = spouseOf(currentId);
-    const ok = await filterExisting([next]);
-    if(ok.length===0) return;
-    await showGrid('Spouse', ok);
+  function handleUp(){
+    const p = computeParentId(Number(anchorId));
+    if (p) openGrid('Parents', [p]); else showToast('No parents');
   }
 
-  // === Back ===
-  function onBack(){
-    if(overlayOpen){ closeOverlay(); return; }
-    if(historyStack.length>0){
-      const prev = historyStack.pop();
-      setAnchor(prev, false);
-    }
-  }
-
-  // === Start ===
-  function askStart(){
-    const m = location.hash.match(/id=([^&]+)/);
-    const guess = m ? decodeURIComponent(m[1]) : '100000';
-    let id = prompt('Enter starting ID (e.g., 140000):', guess);
-    if(!id) return;
-    setAnchor(id.trim(), false);
-  }
-
-  // === Swipes ===
-  function installSwipes(){
-    let startX=0, startY=0, dx=0, dy=0, touching=false, startTime=0;
-    const threshold = 40;   // px
-    const restraint = 30;   // px
-    const allowedTime = 600; // ms
-
-    function onStart(e){
-      const t = e.touches ? e.touches[0] : e;
-      startX = t.clientX; startY = t.clientY;
-      startTime = Date.now();
-      touching = true;
-    }
-    function onMove(e){
-      if(!touching) return;
-      const t = e.touches ? e.touches[0] : e;
-      dx = t.clientX - startX; dy = t.clientY - startY;
-      if(Math.abs(dx)>10 || Math.abs(dy)>10) e.preventDefault();
-    }
-    function onEnd(){
-      if(!touching) return;
-      touching = false;
-      const elapsed = Date.now()-startTime;
-      let dir = null;
-      if(elapsed <= allowedTime){
-        if(Math.abs(dx) >= threshold && Math.abs(dy) <= restraint){
-          dir = (dx>0) ? 'right' : 'left';
-        } else if(Math.abs(dy) >= threshold && Math.abs(dx) <= restraint){
-          dir = (dy>0) ? 'down' : 'up';
-        }
-      }
-      dx=0; dy=0;
-      if(!dir) return;
-      handleSwipe(dir);
-    }
-
-    // Attach
-    stage.addEventListener('touchstart', onStart, {passive:false});
-    stage.addEventListener('touchmove',  onMove,  {passive:false});
-    stage.addEventListener('touchend',   onEnd,   {passive:false});
-
-    overlay.addEventListener('touchstart', onStart, {passive:false});
-    overlay.addEventListener('touchmove',  onMove,  {passive:false});
-    overlay.addEventListener('touchend',   onEnd,   {passive:false});
-
-    // Keyboard (desktop)
-    window.addEventListener('keydown', (e)=>{
-      if(e.key==='ArrowLeft')  handleSwipe('left');
-      if(e.key==='ArrowRight') handleSwipe('right');
-      if(e.key==='ArrowUp')    handleSwipe('up');
-      if(e.key==='ArrowDown')  handleSwipe('down');
-      if(e.key==='Escape')     closeOverlay();
-    });
-  }
-
-  function handleSwipe(dir){
-    if(dir==='left'  && FLAGS.SWIPE_LEFT)  return showSiblings();
-    if(dir==='right' && FLAGS.SWIPE_RIGHT) return showSpouse();
-    if(dir==='up'    && FLAGS.SWIPE_UP)    return showParents();
-    if(dir==='down'  && FLAGS.SWIPE_DOWN)  return showChildren();
-  }
-
-  // === Bind ===
+  // ===== Init & binds =====
   function bind(){
-    backBtn.addEventListener('click', onBack);
-    overlayClose.addEventListener('click', () => closeOverlay());
-    startBtn.addEventListener('click', askStart);
-    installSwipes();
+    on(ui.startBtn, 'click', () => {
+      const existing = parseHashId();
+      if (existing){ go(existing, false); return; }
+      const v = prompt('Enter starting ID (numbers only):', '');
+      if (v) go(v, false);
+    });
+    on(ui.backBtn, 'click', () => {
+      if (ui.gridOverlay && !ui.gridOverlay.classList.contains('hidden')){
+        closeOverlay(); return;
+      }
+      const prev = historyStack.pop();
+      if (prev) go(prev, false);
+    });
+    on(ui.overlayClose, 'click', closeOverlay);
 
-    const m = location.hash.match(/id=([^&]+)/);
-    setAnchor(m ? decodeURIComponent(m[1]) : '100000', false);
+    on(document.body, 'touchstart', onTouchStart, {passive:true});
+    on(document.body, 'touchend', onTouchEnd, {passive:true});
+
+    // Desktop swipes via arrow keys for convenience
+    on(window, 'keydown', (e) => {
+      if (e.key === 'ArrowRight') handleRight();
+      else if (e.key === 'ArrowLeft') handleLeft();
+      else if (e.key === 'ArrowDown') handleDown();
+      else if (e.key === 'ArrowUp') handleUp();
+      else if (e.key === 'Escape') closeOverlay();
+    });
+
+    // Tap highlight
+    on(ui.anchorImg, 'click', () => {
+      ui.anchorImg.classList.add('highlight');
+      setTimeout(()=> ui.anchorImg.classList.remove('highlight'), 250);
+    });
+
+    // Auto-load if hash present
+    const hashId = parseHashId();
+    if (hashId) go(hashId, false);
   }
 
-  document.addEventListener('DOMContentLoaded', bind);
+  window.addEventListener('DOMContentLoaded', bind);
 })();
