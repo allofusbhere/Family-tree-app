@@ -3,110 +3,73 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1">
-  <title>SwipeTree RC1 (Inline)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SwipeTree — rc1_inline (patched)</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="parents_fix.css">
   <style>
-  :root{--bg:#0b0b0c;--card:#111217;--accent:#e2e8f0;--muted:#7a828f;--ring:#48a3ff}
-  *{box-sizing:border-box} html,body{height:100%;margin:0;padding:0;background:var(--bg);color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;}
-  #buildTag{position:fixed;top:.5rem;left:.5rem;font-size:.75rem;color:var(--muted);opacity:.85;z-index:20;pointer-events:none}
-  #topBar{position:fixed;top:.5rem;right:.5rem;display:flex;gap:.5rem;z-index:30}
-  #topBar button{background:#1b1e28;border:1px solid #2a2f3b;color:#e5e7eb;padding:.5rem .75rem;border-radius:.75rem;cursor:pointer}
-  #topBar button:hover{border-color:#3f4756}
-  #stage{display:grid;place-items:center;height:100dvh;width:100vw;padding:2rem;}
-  .card{background:var(--card);border:1px solid #1f2632;border-radius:1.25rem;padding:1rem;box-shadow:0 10px 30px rgba(0,0,0,.35);width:min(80vw,520px);}
-  .card img{display:block;width:100%;height:auto;border-radius:1rem;object-fit:cover;border:1px solid #242b37;}
-  .label{text-align:center;margin-top:.5rem;font-size:1rem;color:#e5e7eb;min-height:1.25rem;}
-  #overlay{position:fixed;inset:0;background:rgba(5,6,8,.95);display:flex;flex-direction:column;z-index:40;}
-  #overlay.hidden{display:none}
-  #overlayHeader{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid #1f2632}
-  #overlayHeader h2{margin:0;font-size:1.125rem;color:#e5e7eb}
-  #overlayHeader button{background:#1b1e28;border:1px solid #2a2f3b;color:#e5e7eb;padding:.4rem .6rem;border-radius:.75rem;cursor:pointer}
-  .grid{padding:1rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1rem;overflow:auto;}
-  .tile{background:#12141a;border:1px solid #1f2632;border-radius:1rem;padding:.6rem;cursor:pointer;transition:transform .08s ease-out;}
-  .tile:focus,.tile:active{outline:2px solid var(--ring);outline-offset:2px}
-  .tile:hover{transform:translateY(-2px)}
-  .tile img{width:100%;height:160px;object-fit:cover;border-radius:.75rem;border:1px solid #242b37;background:#0e1015}
-  .tile .tlabel{margin-top:.4rem;text-align:center;font-size:.95rem;color:#e5e7eb;min-height:1.1rem}
-  #hintBar{position:fixed;bottom:.5rem;left:0;right:0;display:flex;justify-content:center;z-index:10}
-  #hintBar span{background:#111217;color:#aab1bd;border:1px solid #1f2632;border-radius:999px;padding:.25rem .6rem;font-size:.8rem;opacity:.85}
-  .highlight{box-shadow:0 0 0 3px var(--ring);transition:box-shadow .08s ease-out;}
+    html, body { height: 100%; margin: 0; background:#111; color:#eee; }
+    #app { min-height: 100%; }
+    #startOverlay {
+      position: fixed; inset: 0; display:flex; align-items:center; justify-content:center;
+      background: rgba(0,0,0,0.8); z-index: 1000;
+    }
+    #startOverlay.hidden { display: none; }
+    .start-panel {
+      background:#1f2937; padding: 20px 24px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      min-width: 280px; display:flex; flex-direction:column; gap:12px;
+    }
+    .start-panel h1 { font-size: 1.1rem; margin:0; color:#fff; }
+    .start-panel input {
+      padding: 10px 12px; border-radius: 10px; border: 1px solid #374151; background:#111827; color:#e5e7eb;
+    }
+    .start-panel button {
+      padding: 10px 12px; border-radius: 10px; border: 0; cursor: pointer;
+    }
+    .start-primary { background:#e5e7eb; color:#111; }
+    .muted { font-size:.85rem; color:#9ca3af; }
+    .legacy-hide { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
   </style>
 </head>
 <body>
-  <div id="buildTag">SwipeTree • 20250819-171651 • inline-rc1</div>
-
-  <div id="topBar">
-    <button id="startBtn" aria-label="Start" title="Start">Start</button>
-    <button id="backBtn" aria-label="Back" title="Back">Back</button>
-  </div>
-
-  <main id="stage">
-    <div id="anchorCard" class="card">
-      <img id="anchorImg" alt="anchor">
-      <div id="anchorLabel" class="label"></div>
+  <div id="startOverlay">
+    <div class="start-panel">
+      <h1>Start at ID</h1>
+      <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 100000" value="100000">
+      <input id="inputBase" class="legacy-hide" type="text" value="100000" />
+      <button id="startBtn" class="start-primary" type="button">Start</button>
+      <button id="btnStart" class="legacy-hide" type="button">Start</button>
+      <div class="muted">Tip: you can also open with <code>#id=140000</code> in the URL.</div>
     </div>
-  </main>
-
-  <section id="overlay" class="hidden" aria-hidden="true">
-    <header id="overlayHeader">
-      <h2 id="overlayTitle"></h2>
-      <button id="overlayClose" aria-label="Close">×</button>
-    </header>
-    <div id="grid" class="grid"></div>
-  </section>
-
-  <div id="hintBar">
-    <span>Swipe: ↑ parents • ← siblings • → spouse • ↓ children</span>
   </div>
 
-  <script>
-  (()=>{
-    'use strict';
-    const FLAGS={SWIPE_LEFT:true,SWIPE_RIGHT:true,SWIPE_UP:true,SWIPE_DOWN:true,LONG_PRESS_EDIT:false,MAX_PER_GRID:30};
-    const BUILD_TAG="SwipeTree • 20250819-171651 • inline-rc1";
-    const $=(s,r)=>(r||document).querySelector(s);
-    const stage=$('#stage'), anchorCard=$('#anchorCard'), anchorImg=$('#anchorImg'), anchorLabel=$('#anchorLabel');
-    const overlay=$('#overlay'), overlayTitle=$('#overlayTitle'), grid=$('#grid'), backBtn=$('#backBtn'), startBtn=$('#startBtn'), overlayClose=$('#overlayClose');
-    const historyStack=[]; let currentId=null, overlayOpen=false;
-    const clampDigits=(n,d=6)=>String(Math.max(0,Math.floor(Math.abs(n)))).padStart(d,'0').slice(-d);
-    const toInt=b=>parseInt(b,10);
-    const parseId=s=>{s=String(s).trim();return s.includes('.')?{base:s.split('.')[0],spouse:true}:{base:s,spouse:false};};
-    function parentOf(base){const a=clampDigits(base).split('').map(d=>+d);let i=-1;for(let k=1;k<6;k++){if(a[k]!==0){i=k;break;}}if(i===-1)return null;a[i]=0;for(let j=i+1;j<6;j++)a[j]=0;return a.join('');}
-    function generationStep(base){const a=clampDigits(base).split('').map(d=>+d);let idx=-1;for(let i=1;i<6;i++){if(a[i]===0){idx=i;break;}}if(idx===-1)return 0;const p=6-1-idx;return Math.pow(10,p);}
-    function childrenOf(base,l=FLAGS.MAX_PER_GRID){const step=generationStep(base);if(step<=0)return[];const ks=[];for(let i=1;i<=9&&ks.length<l;i++)ks.push(clampDigits(toInt(base)+i*step));return ks;}
-    function siblingsOf(base){const p=parentOf(base);if(!p)return[];return childrenOf(p).filter(id=>id!==base);}
-    function parentsOf(base){const p=parentOf(base);if(!p)return[];return [p,p+".1"];}
-    function spouseOf(id){const {base,spouse}=parseId(id);return spouse?base:base+".1";}
-    const imageUrlFor=id=>`${id}.jpg`;
-    const testImage=id=>new Promise(res=>{const img=new Image();img.onload=()=>res({id,ok:true});img.onerror=()=>res({id,ok:false});img.src=imageUrlFor(id);});
-    async function filterExisting(ids){const u=[...new Set(ids)];const checks=await Promise.all(u.map(testImage));return checks.filter(x=>x.ok).map(x=>x.id);}
-    async function setAnchor(id,push=true){if(currentId&&push)historyStack.push(currentId);currentId=id;anchorCard.classList.add('highlight');setTimeout(()=>anchorCard.classList.remove('highlight'),180);anchorImg.src=imageUrlFor(id);anchorImg.alt=id;document.getElementById('buildTag').textContent=BUILD_TAG;anchorLabel.textContent=id;closeOverlay(false);location.hash="id="+encodeURIComponent(id);}
-    function openOverlay(t){overlayTitle.textContent=t;overlay.classList.remove('hidden');overlay.setAttribute('aria-hidden','false');overlayOpen=true;}
-    function closeOverlay(){overlay.classList.add('hidden');overlay.setAttribute('aria-hidden','true');overlayOpen=false;grid.innerHTML='';}
-    function tile(id){const b=document.createElement('button');b.className='tile';b.setAttribute('data-id',id);b.innerHTML=`<img alt="${id}" src="${imageUrlFor(id)}"><div class="tlabel">${id}</div>`;b.addEventListener('click',()=>setAnchor(id,true));return b;}
-    async function showGrid(kind,ids){const list=await filterExisting(ids);grid.innerHTML='';if(list.length===0){const m=document.createElement('div');m.style.color='#aab1bd';m.style.textAlign='center';m.style.padding='2rem';m.textContent='No images found.';grid.appendChild(m);}else{list.forEach(id=>grid.appendChild(tile(id)));}openOverlay(kind);}
-    async function showChildren(){const base=parseId(currentId).base;await showGrid('Children',childrenOf(base));}
-    async function showSiblings(){const base=parseId(currentId).base;await showGrid('Siblings',siblingsOf(base));}
-    async function showParents(){const base=parseId(currentId).base;await showGrid('Parents',parentsOf(base));}
-    async function showSpouse(){const next=spouseOf(currentId);const ok=await filterExisting([next]);if(ok.length===0)return;await showGrid('Spouse',ok);}
-    function onBack(){if(overlayOpen){closeOverlay();return;}if(historyStack.length>0){const prev=historyStack.pop();setAnchor(prev,false);}}
-    function askStart(){const m=location.hash.match(/id=([^&]+)/);const guess=m?decodeURIComponent(m[1]):'100000';let id=prompt('Enter starting ID (e.g., 140000):',guess);if(!id)return;setAnchor(id.trim(),false);}
-    function installSwipes(){let sx=0,sy=0,dx=0,dy=0,touching=false,t0=0;const T=40,R=30,MS=600;
-      function start(e){const t=e.touches?e.touches[0]:e;sx=t.clientX;sy=t.clientY;t0=Date.now();touching=true}
-      function move(e){if(!touching)return;const t=e.touches?e.touches[0]:e;dx=t.clientX-sx;dy=t.clientY-sy;if(Math.abs(dx)>10||Math.abs(dy)>10)e.preventDefault();}
-      function end(){if(!touching)return;touching=false;const elapsed=Date.now()-t0;let dir=null;if(elapsed<=MS){if(Math.abs(dx)>=T&&Math.abs(dy)<=R){dir=(dx>0)?'right':'left';}else if(Math.abs(dy)>=T&&Math.abs(dx)<=R){dir=(dy>0)?'down':'up';}}dx=0;dy=0;if(!dir)return;handle(dir);}
-      stage.addEventListener('touchstart',start,{passive:false});
-      stage.addEventListener('touchmove', move,{passive:false});
-      stage.addEventListener('touchend',  end, {passive:false});
-      overlay.addEventListener('touchstart',start,{passive:false});
-      overlay.addEventListener('touchmove', move,{passive:false});
-      overlay.addEventListener('touchend',  end, {passive:false});
-      window.addEventListener('keydown',(e)=>{if(e.key==='ArrowLeft')handle('left');if(e.key==='ArrowRight')handle('right');if(e.key==='ArrowUp')handle('up');if(e.key==='ArrowDown')handle('down');if(e.key==='Escape')closeOverlay();});
+  <div id="app"></div>
+
+
+<script>
+  // Ensure legacy elements exist before script.js runs
+  (function(){
+    function ensure(id, tag, attrs){
+      var el = document.getElementById(id);
+      if (!el) {
+        el = document.createElement(tag);
+        el.id = id;
+        for (var k in (attrs||{})) el.setAttribute(k, attrs[k]);
+        el.className = (el.className ? (el.className + ' ') : '') + 'legacy-hide';
+        document.body.appendChild(el);
+      }
+      return el;
     }
-    function handle(dir){if(dir==='left'&&FLAGS.SWIPE_LEFT)return showSiblings();if(dir==='right'&&FLAGS.SWIPE_RIGHT)return showSpouse();if(dir==='up'&&FLAGS.SWIPE_UP)return showParents();if(dir==='down'&&FLAGS.SWIPE_DOWN)return showChildren();}
-    function bind(){document.getElementById('backBtn').addEventListener('click',onBack);document.getElementById('overlayClose').addEventListener('click',()=>closeOverlay());document.getElementById('startBtn').addEventListener('click',askStart);installSwipes();const m=location.hash.match(/id=([^&]+)/);if(m){setAnchor(decodeURIComponent(m[1]),false);}}
-    document.addEventListener('DOMContentLoaded',bind);
+    var visible = document.getElementById('startId');
+    var base = ensure('inputBase', 'input', { type: 'text', value: (visible && visible.value) || '100000' });
+    if (visible) { visible.addEventListener('input', function(){ base.value = visible.value; }); }
+    var legacyBtn = ensure('btnStart', 'button', {});
+    var startBtn = document.getElementById('startBtn');
+    if (startBtn) { startBtn.addEventListener('click', function(){ legacyBtn.click(); }); }
   })();
-  </script>
+</script>
+
+  <script src="script.js"></script>
+  <script src="edit_parents_fix.js"></script>
 </body>
 </html>

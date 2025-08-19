@@ -4,11 +4,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SwipeTree — rc1 (patched + start IDs synced)</title>
-
+  <title>SwipeTree — rc1 (patched)</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="parents_fix.css">
-
   <style>
     html, body { height: 100%; margin: 0; background:#111; color:#eee; }
     #app { min-height: 100%; }
@@ -30,18 +28,14 @@
     }
     .start-primary { background:#e5e7eb; color:#111; }
     .muted { font-size:.85rem; color:#9ca3af; }
-    /* hidden fallback elements (kept in DOM for legacy IDs) */
     .legacy-hide { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
   </style>
 </head>
 <body>
-  <!-- Start Overlay: includes BOTH new and legacy IDs -->
   <div id="startOverlay">
     <div class="start-panel">
       <h1>Start at ID</h1>
-      <!-- Primary visible input -->
       <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 100000" value="100000">
-      <!-- Legacy IDs some builds expect -->
       <input id="inputBase" class="legacy-hide" type="text" value="100000" />
       <button id="startBtn" class="start-primary" type="button">Start</button>
       <button id="btnStart" class="legacy-hide" type="button">Start</button>
@@ -51,22 +45,29 @@
 
   <div id="app"></div>
 
-  <script>
-    // Keep legacy IDs in sync with the visible input/button
-    (function(){
-      const startId = document.getElementById('startId');
-      const inputBase = document.getElementById('inputBase');
-      const startBtn = document.getElementById('startBtn');
-      const btnStart = document.getElementById('btnStart');
-      function syncVal(){ inputBase.value = startId.value; }
-      startId.addEventListener('input', syncVal);
-      syncVal();
-      function clickBoth(){ btnStart.click(); }
-      startBtn.addEventListener('click', clickBoth);
-      // Also allow Enter to trigger Start
-      startId.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ startBtn.click(); }});
-    })();
-  </script>
+
+<script>
+  // Ensure legacy elements exist before script.js runs
+  (function(){
+    function ensure(id, tag, attrs){
+      var el = document.getElementById(id);
+      if (!el) {
+        el = document.createElement(tag);
+        el.id = id;
+        for (var k in (attrs||{})) el.setAttribute(k, attrs[k]);
+        el.className = (el.className ? (el.className + ' ') : '') + 'legacy-hide';
+        document.body.appendChild(el);
+      }
+      return el;
+    }
+    var visible = document.getElementById('startId');
+    var base = ensure('inputBase', 'input', { type: 'text', value: (visible && visible.value) || '100000' });
+    if (visible) { visible.addEventListener('input', function(){ base.value = visible.value; }); }
+    var legacyBtn = ensure('btnStart', 'button', {});
+    var startBtn = document.getElementById('startBtn');
+    if (startBtn) { startBtn.addEventListener('click', function(){ legacyBtn.click(); }); }
+  })();
+</script>
 
   <script src="script.js"></script>
   <script src="edit_parents_fix.js"></script>

@@ -1,68 +1,75 @@
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-  <title>SwipeTree RC3.5</title>
-  <link rel="stylesheet" href="style.css?v=rc3_5-20250819">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SwipeTree — rc3_5 (patched)</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="parents_fix.css">
+  <style>
+    html, body { height: 100%; margin: 0; background:#111; color:#eee; }
+    #app { min-height: 100%; }
+    #startOverlay {
+      position: fixed; inset: 0; display:flex; align-items:center; justify-content:center;
+      background: rgba(0,0,0,0.8); z-index: 1000;
+    }
+    #startOverlay.hidden { display: none; }
+    .start-panel {
+      background:#1f2937; padding: 20px 24px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      min-width: 280px; display:flex; flex-direction:column; gap:12px;
+    }
+    .start-panel h1 { font-size: 1.1rem; margin:0; color:#fff; }
+    .start-panel input {
+      padding: 10px 12px; border-radius: 10px; border: 1px solid #374151; background:#111827; color:#e5e7eb;
+    }
+    .start-panel button {
+      padding: 10px 12px; border-radius: 10px; border: 0; cursor: pointer;
+    }
+    .start-primary { background:#e5e7eb; color:#111; }
+    .muted { font-size:.85rem; color:#9ca3af; }
+    .legacy-hide { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+  </style>
 </head>
 <body>
-  <div id="app" class="app">
-    <header class="topbar">
-      <button id="startBtn" class="btn">Start</button>
-      <div class="spacer"></div>
-      <button id="backBtn" class="btn btn-ghost">Back</button>
-    </header>
-
-    <main class="stage" id="stage" aria-live="polite">
-      <div id="anchorWrap" class="anchor-wrap placeholder">
-        <div class="placeholder-note" id="placeholderNote">Tap Start</div>
-        <img id="anchorImg" class="anchor hidden" alt="anchor">
-        <div id="anchorLabel" class="label hidden"></div>
-      </div>
-    </main>
-
-    <!-- Grid Overlay -->
-    <section id="gridOverlay" class="overlay hidden" aria-hidden="true">
-      <div class="overlay-backdrop" id="overlayBackdrop"></div>
-      <div class="overlay-inner" role="dialog" aria-modal="true">
-        <div class="overlay-head">
-          <h2 id="overlayTitle">Items</h2>
-          <button id="overlayClose" class="btn btn-ghost">Close</button>
-        </div>
-        <div id="grid" class="grid"></div>
-        <div id="gridEmpty" class="empty hidden">No images found for this group.</div>
-      </div>
-    </section>
-
-    <!-- Start Dialog -->
-    <section id="startOverlay" class="overlay hidden" aria-hidden="true">
-      <div class="overlay-backdrop" id="startBackdrop"></div>
-      <div class="overlay-inner" role="dialog" aria-modal="true">
-        <div class="overlay-head">
-          <h2>Start</h2>
-          <button id="startClose" class="btn btn-ghost">Close</button>
-        </div>
-        <div class="form">
-          <label>
-            <span>Starting ID (optional)</span>
-            <input id="inputId" type="text" inputmode="numeric" placeholder="e.g., 140000 or 140000.1">
-          </label>
-          <label>
-            <span>Image Base URL (optional)</span>
-            <input id="inputImgBase" type="url" placeholder="https://allofusbhere.github.io/family-tree-images/">
-          </label>
-          <div class="row">
-            <button id="btnStartGo" class="btn">Go</button>
-            <button id="btnQuick100000" class="btn btn-ghost">Use 100000</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="toast" class="toast hidden"></section>
+  <div id="startOverlay">
+    <div class="start-panel">
+      <h1>Start at ID</h1>
+      <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 100000" value="100000">
+      <input id="inputBase" class="legacy-hide" type="text" value="100000" />
+      <button id="startBtn" class="start-primary" type="button">Start</button>
+      <button id="btnStart" class="legacy-hide" type="button">Start</button>
+      <div class="muted">Tip: you can also open with <code>#id=140000</code> in the URL.</div>
+    </div>
   </div>
 
-  <script src="script.js?v=rc3_5-20250819"></script>
+  <div id="app"></div>
+
+
+<script>
+  // Ensure legacy elements exist before script.js runs
+  (function(){
+    function ensure(id, tag, attrs){
+      var el = document.getElementById(id);
+      if (!el) {
+        el = document.createElement(tag);
+        el.id = id;
+        for (var k in (attrs||{})) el.setAttribute(k, attrs[k]);
+        el.className = (el.className ? (el.className + ' ') : '') + 'legacy-hide';
+        document.body.appendChild(el);
+      }
+      return el;
+    }
+    var visible = document.getElementById('startId');
+    var base = ensure('inputBase', 'input', { type: 'text', value: (visible && visible.value) || '100000' });
+    if (visible) { visible.addEventListener('input', function(){ base.value = visible.value; }); }
+    var legacyBtn = ensure('btnStart', 'button', {});
+    var startBtn = document.getElementById('startBtn');
+    if (startBtn) { startBtn.addEventListener('click', function(){ legacyBtn.click(); }); }
+  })();
+</script>
+
+  <script src="script.js"></script>
+  <script src="edit_parents_fix.js"></script>
 </body>
 </html>
