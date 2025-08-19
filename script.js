@@ -1,165 +1,134 @@
+// SwipeTree — labels fix + centered parents + SoftEdit overlay + iOS long-press suppression + optional names.json
+(function(){
+  'use strict';
+  const params = new URLSearchParams(location.search);
+  const DEFAULT_IMG_BASE = 'https://allofusbhere.github.io/family-tree-images/';
+  const IMG_BASE = (window.SWIPE_TREE_IMG_BASE || params.get('imgbase') || DEFAULT_IMG_BASE).replace(/\/?$/, '/');
+  const IMG_EXT = '.jpg';
+  const PLACEHOLDER_NAME = 'placeholder.jpg';
+  const PLACEHOLDER = IMG_BASE + PLACEHOLDER_NAME;
+  const MAX_CANDIDATES = 9, SWIPE_THRESHOLD = 40, LONGPRESS_MS = 520;
 
-// SwipeTree — Full Swipe Build (20250818d)
-// Right=Spouse toggle, Left=Siblings grid, Down=Children grid, Up=Parents grid
-// Strict numeric-derivation; spouse cross-branch via spouse_links.json.
+  const state = { anchorId:null, historyStack:[], gridOpen:false, gridType:null, touchStart:null, longPressTimer:null, namesMap:{} };
 
-const BUILD_TAG = '20250818d';
-const IMAGE_BASE = 'https://allofusbhere.github.io/family-tree-images/';
-const SPOUSE_JSON_URL = 'spouse_links.json?v=' + BUILD_TAG;
+  const anchorImg = document.getElementById('anchorImg');
+  const anchorWrap = document.getElementById('anchorWrap');
+  const anchorName = document.getElementById('anchorName');
+  const gridOverlay = document.getElementById('gridOverlay');
+  const grid = document.getElementById('grid');
+  const gridTitle = document.getElementById('gridTitle');
+  const backBtn = document.getElementById('backBtn');
 
-let SPOUSE_MAP = null;
-let currentId = null;
-const historyStack = [];
+  const editOverlay = document.getElementById('editOverlay');
+  const editName = document.getElementById('editName');
+  const editDob = document.getElementById('editDob');
+  const editCancel = document.getElementById('editCancel');
+  const editSave = document.getElementById('editSave');
 
-const q = sel => document.querySelector(sel);
+  function idToSrc(id){ return IMG_BASE + id + IMG_EXT; }
+  function exists(src){ return new Promise(r=>{ const i=new Image(); i.onload=()=>r(true); i.onerror=()=>r(false); i.src=src+cacheBust(); }); }
+  const cacheBust = ()=> `?v=${Date.now()%1e7}`;
+  function getSavedMeta(id){ try{ return JSON.parse(localStorage.getItem(`swipetree.meta.${id}`)||'null'); }catch{return null;} }
+  function saveMeta(id, meta){ localStorage.setItem(`swipetree.meta.${id}`, JSON.stringify(meta||{})); }
+  function displayNameFor(id){ if(state.namesMap[id]) return state.namesMap[id]; const m=getSavedMeta(id); return m&&m.name?m.name:''; }
+  function setURLHash(id){ try{ history.replaceState(null,'',`#${encodeURIComponent(id)}`); }catch{} }
 
-function baseId(id) { return String(id).split('.')[0]; }
-function imgUrlFor(id) { return IMAGE_BASE + encodeURIComponent(id) + '.jpg?v=' + BUILD_TAG; }
+  function getIdParts(idStr){ const p=idStr.split('.'); return { baseId:p[0], isSpouse:(p[1]==='1'), partnerHint:(p[2]||null) }; }
+  function countTrailingZeros(s){ let c=0; for(let i=s.length-1;i>=0;i--){ if(s[i]!=='0') break; c++; } return c; }
+  const toInt = s=>parseInt(s,10);
+  function toStr(n,d){ let s=String(n); while(s.length<d) s='0'+s; return s; }
 
-async function loadSpouseMap() {
-  if (SPOUSE_MAP) return SPOUSE_MAP;
-  try {
-    const res = await fetch(SPOUSE_JSON_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    SPOUSE_MAP = await res.json();
-  } catch (e) {
-    console.warn('No spouse_links.json; fallback only.', e);
-    SPOUSE_MAP = {};
+  function parentOf(idStr){
+    const {baseId}=getIdParts(idStr); const d=baseId.length; const tz=countTrailingZeros(baseId);
+    if(tz<=0) return null; const n=toInt(baseId); const step=Math.pow(10,tz); const parent=n-(n%(step*10)); return toStr(parent,d);
   }
-  return SPOUSE_MAP;
-}
-
-async function resolveSpouse(id) {
-  const b = baseId(id);
-  const map = await loadSpouseMap();
-  if (/^\d+\.1$/.test(id)) return b;       // spouse file -> base
-  if (map[b]) return String(map[b]);         // direct map
-  for (const [k,v] of Object.entries(map)) { // reverse map
-    if (String(v) === String(b)) return String(k);
+  function childrenOf(idStr){
+    const {baseId}=getIdParts(idStr); const d=baseId.length; const tz=countTrailingZeros(baseId);
+    const childStep=Math.pow(10, Math.max(0,tz-1)); const floor=toInt(baseId) - (toInt(baseId) % (childStep*10));
+    const out=[]; for(let k=1;k<=MAX_CANDIDATES;k++) out.push(toStr(floor+k*childStep,d)); return out;
   }
-  return b + '.1';                            // fallback
-}
+  function siblingsOf(idStr){
+    const {baseId}=getIdParts(idStr); const d=baseId.length; const tz=countTrailingZeros(baseId);
+    const sibStep=Math.pow(10,tz); const floor=toInt(baseId) - (toInt(baseId) % (sibStep*10));
+    const out=[]; for(let k=1;k<=MAX_CANDIDATES;k++){ const s=toStr(floor+k*sibStep,d); if(s!==baseId) out.push(s); } return out;
+  }
 
-// --- Digit helpers (6-digit IDs) ---
-function toDigits(id) {
-  const s = baseId(id).padStart(6, '0');
-  return s.split('').map(d => parseInt(d, 10));
-}
-function fromDigits(d) { return d.join(''); }
-function rightmostNonZeroIndex(d) { for (let i=5;i>=0;i--) if (d[i]!==0) return i; return -1; }
+  async function tryLoadNamesMap(){
+    try{
+      const res = await fetch(IMG_BASE + 'names.json' + cacheBust());
+      if(res.ok){ const data = await res.json(); if(data && typeof data==='object') state.namesMap=data; }
+    }catch{}
+  }
 
-function parentOf(id) {
-  const d = toDigits(id);
-  const idx = rightmostNonZeroIndex(d);
-  if (idx <= 0) return null; // top of branch
-  const p = d.slice();
-  for (let i=idx;i<6;i++) p[i]=0;
-  return fromDigits(p);
-}
-function childrenOf(id) {
-  const d = toDigits(id);
-  const idx = rightmostNonZeroIndex(d);
-  const childIndex = Math.min(idx+1, 5);
-  if (childIndex >= 6) return [];
-  const base = d.slice();
-  for (let i=childIndex+1;i<6;i++) base[i]=0;
-  const res = [];
-  for (let k=1;k<=9;k++) { const dd = base.slice(); dd[childIndex]=k; res.push(fromDigits(dd)); }
-  return res;
-}
-function siblingsOf(id) {
-  const b = baseId(id);
-  const p = parentOf(b);
-  if (!p) return [];
-  return childrenOf(p).filter(x => x !== b);
-}
-async function parentsOf(id) {
-  const b = baseId(id);
-  const p = parentOf(b);
-  if (!p) return [];
-  const spouse = await resolveSpouse(p);
-  const arr = [p];
-  if (spouse && spouse !== p) arr.push(spouse);
-  return arr.slice(0,2);
-}
+  async function setAnchor(idStr, pushHistory=true){
+    if(state.gridOpen) closeGrid();
+    if(state.anchorId && pushHistory) state.historyStack.push(state.anchorId);
+    state.anchorId=idStr; setURLHash(idStr);
+    const src=idToSrc(idStr); const ok=await exists(src);
+    anchorImg.src = ok ? (src+cacheBust()) : (PLACEHOLDER+cacheBust());
+    anchorImg.classList.remove('highlight');
+    anchorName.textContent = displayNameFor(idStr) || '';
+    requestAnimationFrame(()=>{ anchorImg.classList.add('highlight'); setTimeout(()=>anchorImg.classList.remove('highlight'),350); });
+  }
 
-// --- Rendering ---
-function renderAnchor(id) {
-  q('#anchorImg').src = imgUrlFor(id);
-  q('#caption').textContent = id;
-  document.title = 'SwipeTree — ' + id;
-  location.hash = id;
-}
-function goTo(id) {
-  if (!id) return;
-  if (currentId) historyStack.push(currentId);
-  currentId = id;
-  closeOverlay();
-  renderAnchor(id);
-}
+  function openGrid(title,cards,kind=null){
+    gridTitle.textContent=title; grid.innerHTML=''; grid.classList.remove('parents'); if(kind==='parents') grid.classList.add('parents');
+    cards.forEach(c=>{
+      const tile=document.createElement('div'); tile.className='tile noselect'; tile.dataset.id=c.id;
+      tile.innerHTML=`<img alt="${c.id}" src="${c.src}${cacheBust()}"><div class="label">${c.name||''}</div>`;
+      tile.addEventListener('click', async ()=>{ closeGrid(); await setAnchor(c.id); });
+      grid.appendChild(tile);
+    });
+    gridOverlay.classList.remove('hidden'); state.gridOpen=true;
+  }
+  function closeGrid(){ gridOverlay.classList.add('hidden'); state.gridOpen=false; state.gridType=null; }
 
-// --- Overlay grid ---
-function openOverlay(title, ids) {
-  const overlay = q('#overlay');
-  q('#overlayTitle').textContent = title;
-  const grid = q('#grid');
-  grid.innerHTML = '';
-  ids.forEach(id => {
-    const btn = document.createElement('button');
-    btn.className = 'cell';
-    const img = document.createElement('img');
-    img.src = imgUrlFor(id);
-    img.alt = id;
-    const cap = document.createElement('div');
-    cap.className = 'cellcap';
-    cap.textContent = id;
-    btn.append(img, cap);
-    btn.addEventListener('click', () => goTo(id));
-    grid.appendChild(btn);
-  });
-  overlay.hidden = false;
-}
-function closeOverlay() { q('#overlay').hidden = true; }
+  function onTouchStart(e){ if(state.longPressTimer) clearTimeout(state.longPressTimer);
+    const t=e.touches?e.touches[0]:e; state.touchStart={x:t.clientX,y:t.clientY,time:Date.now()};
+    state.longPressTimer=setTimeout(()=>{ openEdit(); }, LONGPRESS_MS);
+  }
+  function onTouchMove(e){ if(!state.touchStart) return; const t=e.touches?e.touches[0]:e;
+    if(Math.abs(t.clientX-state.touchStart.x)>10||Math.abs(t.clientY-state.touchStart.y)>10) clearTimeout(state.longPressTimer);
+  }
+  function onTouchEnd(e){ if(state.longPressTimer) clearTimeout(state.longPressTimer); if(!state.touchStart) return;
+    const t=e.changedTouches?e.changedTouches[0]:e; const dx=t.clientX-state.touchStart.x, dy=t.clientY-state.touchStart.y;
+    const adx=Math.abs(dx), ady=Math.abs(dy); state.touchStart=null; if(adx<40 && ady<40) return;
+    if(adx>ady){ if(dx>0) handleSpouseSwipe(); else handleSiblingsSwipe(); } else { if(dy>0) handleChildrenSwipe(); else handleParentsSwipe(); }
+  }
 
-// --- Gestures ---
-let sx=0, sy=0, touching=false;
-const TH=45;
-function onTouchStart(e){ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; touching=true; }
-async function onTouchEnd(e){
-  if(!touching) return; touching=false;
-  const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy;
-  const ax=Math.abs(dx), ay=Math.abs(dy);
-  if(!q('#overlay').hidden) return; // ignore when grid open
-  if(ax>ay && dx>TH){ const s=await resolveSpouse(currentId); goTo(s); return; }
-  if(ax>ay && dx<-TH){ openOverlay('Siblings', siblingsOf(currentId).slice(0,9)); return; }
-  if(ay>ax && dy>TH){ openOverlay('Children', childrenOf(currentId).slice(0,9)); return; }
-  if(ay>ax && dy<-TH){ const pars=await parentsOf(currentId); openOverlay('Parents', pars); return; }
-}
+  async function existingCards(ids){ const checks=await Promise.all(ids.map(id=>exists(idToSrc(id))));
+    const out=[]; for(let i=0;i<ids.length;i++) if(checks[i]) out.push({id:ids[i], src:idToSrc(ids[i]), name:displayNameFor(ids[i])}); return out; }
+  async function handleChildrenSwipe(){ openGrid('Children', await existingCards(childrenOf(state.anchorId)), 'children'); state.gridType='children'; }
+  async function handleSiblingsSwipe(){ openGrid('Siblings', await existingCards(siblingsOf(state.anchorId)), 'siblings'); state.gridType='siblings'; }
+  async function handleParentsSwipe(){ const p=parentOf(state.anchorId); const cards=[];
+    if(p){ const ok=await exists(idToSrc(p)); cards.push({id:p, src: ok?idToSrc(p):PLACEHOLDER, name:displayNameFor(p)});
+      const sp=p+'.1'; const ok2=await exists(idToSrc(sp)); cards.push(ok2?{id:sp, src:idToSrc(sp), name:displayNameFor(sp)}:{id:'Parent2', src:PLACEHOLDER, name:''}); }
+    openGrid('Parents', cards, 'parents'); state.gridType='parents'; }
+  async function handleSpouseSwipe(){ const p=getIdParts(state.anchorId); const t=p.isSpouse?p.baseId:p.baseId+'.1'; if(await exists(idToSrc(t))) await setAnchor(t); }
 
-// Keyboard (desktop)
-document.addEventListener('keydown', async e=>{
-  if(!q('#overlay').hidden) return;
-  if(e.key==='ArrowRight'){ const s=await resolveSpouse(currentId); goTo(s); }
-  if(e.key==='ArrowLeft'){ openOverlay('Siblings', siblingsOf(currentId).slice(0,9)); }
-  if(e.key==='ArrowDown'){ openOverlay('Children', childrenOf(currentId).slice(0,9)); }
-  if(e.key==='ArrowUp'){ const pars=await parentsOf(currentId); openOverlay('Parents', pars); }
-});
+  backBtn.addEventListener('click', async ()=>{ if(state.gridOpen){ closeGrid(); return; } const prev=state.historyStack.pop(); if(prev) await setAnchor(prev,false); });
 
-// Back + close
-document.addEventListener('DOMContentLoaded', ()=>{
-  q('#backBtn').addEventListener('click', ()=>{
-    if(!q('#overlay').hidden) return closeOverlay();
-    const prev = historyStack.pop();
-    if(prev) goTo(prev);
-  });
-  q('#closeOverlay').addEventListener('click', closeOverlay);
-});
+  // SoftEdit overlay (no browser prompt)
+  function openEdit(){ const id=state.anchorId; const meta=getSavedMeta(id)||{}; editName.value = displayNameFor(id) || meta.name || ''; editDob.value = meta.dob || ''; editOverlay.classList.remove('hidden'); setTimeout(()=>editName.focus(),0); }
+  function closeEdit(){ editOverlay.classList.add('hidden'); }
+  editCancel.addEventListener('click', closeEdit);
+  editOverlay.addEventListener('click', (e)=>{ if(e.target===editOverlay) closeEdit(); });
+  editSave.addEventListener('click', ()=>{ const id=state.anchorId; const meta=getSavedMeta(id)||{}; const name=editName.value.trim(); const dob=editDob.value.trim(); saveMeta(id,{...meta,name,dob}); anchorName.textContent=name||''; closeEdit(); });
 
-// Init
-window.addEventListener('load', ()=>{
-  document.body.addEventListener('touchstart', onTouchStart, {passive:true});
-  document.body.addEventListener('touchend', onTouchEnd, {passive:true});
-  const u=new URL(location.href);
-  const start=u.searchParams.get('id') || location.hash.replace('#','') || '100000';
-  goTo(start);
-});
+  // Attach gestures to anchor
+  ['touchstart','mousedown'].forEach(ev=>anchorWrap.addEventListener(ev,onTouchStart,{passive:true}));
+  ['touchmove','mousemove'].forEach(ev=>anchorWrap.addEventListener(ev,onTouchMove,{passive:true}));
+  ['touchend','mouseup','mouseleave'].forEach(ev=>anchorWrap.addEventListener(ev,onTouchEnd,{passive:true}));
+
+  // Suppress OS context menu
+  document.addEventListener('contextmenu', e=>e.preventDefault());
+
+  // Disable native interactions when grid closed
+  document.addEventListener('gesturestart', e=>e.preventDefault());
+  document.addEventListener('gesturechange', e=>e.preventDefault());
+  document.addEventListener('gestureend', e=>e.preventDefault());
+  document.addEventListener('touchmove', e=>{ if(state.gridOpen===false) e.preventDefault(); }, {passive:false});
+
+  (async function boot(){ await tryLoadNamesMap(); let start=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim(); if(!start) start='100000'; await setAnchor(start,false); })();
+
+})();
