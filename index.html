@@ -1,29 +1,42 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Last Night (RootDrop)</title>
-  <link rel="stylesheet" href="style.css?v=kg3" />
-  <link rel="stylesheet" href="style_add_kg2.css?v=kg3" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1">
+  <title>SwipeTree</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="hintbar">Right swipe (→) toggles spouse</div>
+  <div id="buildTag">SwipeTree • 20250819-162557 • all-swipes-rc1</div>
 
-  <!-- REQUIRED APP MARKUP -->
-  <main id="app" aria-live="polite">
+  <!-- Top bar: Start + Back -->
+  <div id="topBar">
+    <button id="startBtn" aria-label="Start" title="Start">Start</button>
+    <button id="backBtn" aria-label="Back" title="Back">Back</button>
+  </div>
+
+  <!-- Anchor (current person) -->
+  <main id="stage">
     <div id="anchorCard" class="card">
-      <img id="anchorImg" alt="person" />
-      <div id="caption" class="caption"></div>
+      <img id="anchorImg" alt="anchor">
+      <div id="anchorLabel" class="label"></div>
     </div>
   </main>
 
-  <!-- Optional/expected elements so JS bindings never crash -->
-  <section id="overlay" hidden></section>
-  <button id="backBtn" style="display:none"></button>
-  <button id="closeOverlay" style="display:none"></button>
+  <!-- Overlay grid (parents/siblings/children/spouse) -->
+  <section id="overlay" class="hidden" aria-hidden="true">
+    <header id="overlayHeader">
+      <h2 id="overlayTitle"></h2>
+      <button id="overlayClose" aria-label="Close">×</button>
+    </header>
+    <div id="grid" class="grid"></div>
+  </section>
 
-  <!-- Your script (keeps same name), add cache-buster -->
-  <script src="script.js?v=kg3" defer></script>
+  <!-- Hints (tiny, unobtrusive) -->
+  <div id="hintBar">
+    <span>Swipe: ↑ parents • ← siblings • → spouse • ↓ children</span>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
