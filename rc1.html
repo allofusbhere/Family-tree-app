@@ -1,48 +1,23 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SwipeTree — rc1 (HOTFIX anchor guard)</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="parents_fix.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1, initial-scale=1">
+  <title>SwipeTree — rc1 Hotfix</title>
   <style>
-    html, body { height: 100%; margin: 0; background:#111; color:#eee; }
-    #app { min-height: 100%; }
-    #startOverlay { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center;
-      background: rgba(0,0,0,0.8); z-index: 1000; }
-    #startOverlay.hidden { display: none; }
-    .start-panel { background:#1f2937; padding: 20px 24px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
-      min-width: 280px; display:flex; flex-direction:column; gap:12px; }
-    .start-panel h1 { font-size: 1.1rem; margin:0; color:#fff; }
-    .start-panel input { padding: 10px 12px; border-radius: 10px; border: 1px solid #374151; background:#111827; color:#e5e7eb; }
-    .start-panel button { padding: 10px 12px; border-radius: 10px; border: 0; cursor: pointer; }
-    .start-primary { background:#e5e7eb; color:#111; }
-    .muted { font-size:.85rem; color:#9ca3af; }
-    .legacy-hide { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+    body { margin:0; font-family:sans-serif; background:#111; color:#fff; text-align:center; }
+    #anchor { max-width:90vw; max-height:80vh; margin:5vh auto; display:block; }
+    .hidden { display:none; }
   </style>
 </head>
 <body>
-  <!-- AnchorType scaffold exists in DOM -->
-  <div id="anchorType" class="legacy-hide"></div>
+  <div id="anchorType" class="hidden"></div>
 
-  <!-- Start overlay uses legacy IDs your script expects -->
-  <div id="startOverlay">
-    <div class="start-panel">
-      <h1>Start at ID</h1>
-      <input id="inputBase" type="text" inputmode="numeric" placeholder="e.g., 100000" value="100000">
-      <button id="btnStart" class="start-primary" type="button">Start</button>
-      <div class="muted">Tip: you can also open with <code>#id=140000</code> in the URL.</div>
-    </div>
-  </div>
+  <input id="inputBase" type="text" placeholder="Enter ID">
+  <button id="btnStart">Start</button>
 
-  <div id="app"></div>
+  <img id="anchor" src="" alt="Anchor">
 
-  <!-- App scripts -->
-  <script defer src="script.js"></script>
-  <script defer src="edit_parents_fix.js"></script>
-  <!-- Hotfix: guarantee anchorType and guard go() -->
-  <script defer src="hotfix_anchor.js"></script>
+  <script src="hotfix_anchor.js" defer></script>
 </body>
 </html>
