@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SwipeTree RC2</title>
+  <link rel="stylesheet" href="style.css?v=rc2-20250819">
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="topbar">
+      <button id="startBtn" class="btn">Start</button>
+      <div class="spacer"></div>
+      <button id="backBtn" class="btn btn-ghost">Back</button>
+    </header>
+
+    <main class="stage" id="stage" aria-live="polite">
+      <div id="anchorWrap" class="anchor-wrap placeholder">
+        <div class="placeholder-note" id="placeholderNote">Tap Start</div>
+        <img id="anchorImg" class="anchor hidden" alt="anchor">
+        <div id="anchorLabel" class="label hidden"></div>
+      </div>
+    </main>
+
+    <!-- Grid Overlay -->
+    <section id="gridOverlay" class="overlay hidden" aria-hidden="true">
+      <div class="overlay-inner">
+        <div class="overlay-head">
+          <h2 id="overlayTitle">Items</h2>
+          <button id="overlayClose" class="btn btn-ghost">Close</button>
+        </div>
+        <div id="grid" class="grid"></div>
+      </div>
+    </section>
+
+    <!-- Start Dialog -->
+    <section id="startOverlay" class="overlay hidden" aria-hidden="true">
+      <div class="overlay-inner">
+        <div class="overlay-head">
+          <h2>Start</h2>
+          <button id="startClose" class="btn btn-ghost">Close</button>
+        </div>
+        <div class="form">
+          <label>
+            <span>Starting ID (optional)</span>
+            <input id="inputId" type="text" inputmode="numeric" pattern="\d*"
+                   placeholder="e.g., 100000">
+          </label>
+          <label>
+            <span>Image Base URL (optional)</span>
+            <input id="inputImgBase" type="url"
+                   placeholder="https://allofusbhere.github.io/family-tree-images/">
+          </label>
+          <div class="row">
+            <button id="btnStartGo" class="btn">Go</button>
+            <button id="btnQuick100000" class="btn btn-ghost">Use 100000</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="toast" class="toast hidden"></section>
+  </div>
+
+  <script src="script.js?v=rc2-20250819"></script>
+</body>
+</html>
