@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SwipeTree — rc1 (HOTFIX: legacy IDs)</title>
+  <title>SwipeTree — rc1 (HOTFIX anchor guard)</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="parents_fix.css">
   <style>
@@ -20,10 +20,14 @@
     .start-panel button { padding: 10px 12px; border-radius: 10px; border: 0; cursor: pointer; }
     .start-primary { background:#e5e7eb; color:#111; }
     .muted { font-size:.85rem; color:#9ca3af; }
+    .legacy-hide { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
   </style>
 </head>
 <body>
-  <!-- Start overlay uses the *legacy IDs directly* so script.js can bind -->
+  <!-- AnchorType scaffold exists in DOM -->
+  <div id="anchorType" class="legacy-hide"></div>
+
+  <!-- Start overlay uses legacy IDs your script expects -->
   <div id="startOverlay">
     <div class="start-panel">
       <h1>Start at ID</h1>
@@ -35,8 +39,10 @@
 
   <div id="app"></div>
 
-  <!-- Defer scripts so DOM is parsed first -->
+  <!-- App scripts -->
   <script defer src="script.js"></script>
   <script defer src="edit_parents_fix.js"></script>
+  <!-- Hotfix: guarantee anchorType and guard go() -->
+  <script defer src="hotfix_anchor.js"></script>
 </body>
 </html>
