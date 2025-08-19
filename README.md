@@ -1,10 +1,13 @@
-# SwipeTree — REVERT (Last Night)
-**Date:** 2025-08-17
+# SwipeTree — Spouse Tracing (Right Swipe Only)
+This package enables spouse tracing today: **right swipe toggles between the current person and their spouse**.
 
-This build removes all spouse/partner changes and restores the simple, stable behavior:
-- **Gestures:** Up=Parents, Down=Children, Left/Right=Siblings
-- **Images:** 140px thumbnails with `object-fit: contain` (no cropping)
-- **Logic:** Children/siblings derived exactly as before; Parents one-level up
-- **No timers / no extras**
+- Images load from: `https://allofusbhere.github.io/family-tree-images/ID.jpg`
+- Start person can be set with `?id=140000` or `#140000` in the URL. Defaults to `100000`.
+- Spouse resolution order:
+  1. `spouse_links.json` direct map (e.g., `"140000": "240000"`)
+  2. Reverse map (e.g., `"240000": "140000"`)
+  3. Fallback to `.1` file (e.g., `140000.1`)
+- Right swipe (or keyboard →) toggles A ↔ B.
+- No other gestures are active in this build (parents/children/siblings are off).
 
-Drop these files into your repo and reload with `?cb=revert1`.
+Update `spouse_links.json` to add explicit cross-branch spouse pairs.

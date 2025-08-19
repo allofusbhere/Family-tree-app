@@ -2,14 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css?v=20250818a" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SwipeTree — Spouse Tracing (Right Swipe)</title>
+  <link rel="stylesheet" href="style.css?v=20250818b" />
 </head>
 <body>
-  <div id="app"></div>
+  <header class="topbar">
+    <div class="title">SwipeTree — Spouse Tracing</div>
+    <div class="hint">Right swipe (→) = toggle spouse · Start with ?id=140000</div>
+  </header>
 
-  <!-- Always load only THIS script -->
-  <script src="script.js?v=20250818a" defer></script>
+  <main id="app">
+    <div id="anchorCard" class="card">
+      <img id="anchorImg" alt="person" />
+      <div id="caption" class="caption"></div>
+    </div>
+  </main>
+
+  <script src="script.js?v=20250818b" defer></script>
 </body>
 </html>
