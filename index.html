@@ -1,22 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <h1>SwipeTree</h1>
 
   <div class="controls">
-    <input id="idInput" type="text" placeholder="Enter ID">
-    <button id="startBtn">Start</button>
-    <button id="backBtn">Back</button>
+    <input id="idInput" type="text" placeholder="Enter ID" />
+    <button id="startBtn" onclick="start()">Start</button>
+    <button id="backBtn" onclick="goBack()">Back</button>
   </div>
 
   <div id="status">No ID Loaded</div>
-  <div id="image-container"></div>
+
+  <div id="image-container" aria-live="polite"></div>
 
   <script src="script.js"></script>
 </body>
