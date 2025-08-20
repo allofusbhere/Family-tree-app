@@ -1,23 +1,16 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, initial-scale=1">
-  <title>SwipeTree — rc1 Hotfix</title>
-  <style>
-    body { margin:0; font-family:sans-serif; background:#111; color:#fff; text-align:center; }
-    #anchor { max-width:90vw; max-height:80vh; margin:5vh auto; display:block; }
-    .hidden { display:none; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwipeTree — rc1 (Hotfix)</title>
+  <link rel="stylesheet" href="parents_fix.css">
 </head>
 <body>
-  <div id="anchorType" class="hidden"></div>
+  <div id="app"></div>
 
-  <input id="inputBase" type="text" placeholder="Enter ID">
-  <button id="btnStart">Start</button>
-
-  <img id="anchor" src="" alt="Anchor">
-
-  <script src="hotfix_anchor.js" defer></script>
+  <!-- Load hotfix BEFORE main script -->
+  <script src="hotfix_anchor.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
