@@ -1,11 +1,21 @@
-body {
-  background-color: #111;
-  color: white;
-  font-family: Arial, sans-serif;
-  text-align: center;
-}
-#anchorContainer img {
-  max-width: 200px;
-  border: 2px solid white;
-  margin-top: 20px;
-}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:#0d0d0d;color:#eee;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+.topbar{position:fixed;inset:0 0 auto 0;height:56px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#111;border-bottom:1px solid #222;z-index:10}
+.title{font-weight:700}
+.controls{display:flex;gap:8px;align-items:center}
+#idInput{width:180px;padding:8px 10px;border-radius:10px;border:1px solid #333;background:#1b1b1b;color:#fff}
+button{padding:8px 12px;border:0;border-radius:10px;background:#2a2a2a;color:#fff}
+button:active{transform:translateY(1px)}
+.stage{position:absolute;inset:56px 0 30px 0;display:grid;place-items:center;touch-action:none;/* critical for iOS swipes */}
+.anchor-wrap{position:relative;width:min(78vmin,560px);aspect-ratio:1;border-radius:24px;overflow:hidden;border:2px solid #222;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.anchor-img{width:100%;height:100%;object-fit:contain;background:#000}
+.anchor-label{position:absolute;left:0;right:0;bottom:0;padding:10px 12px;background:linear-gradient(transparent,rgba(0,0,0,.7));text-align:center;font-weight:600}
+.overlay{position:absolute;inset:0;background:#0b0b0b;display:flex;flex-direction:column;padding:14px;gap:12px}
+.overlay.hidden{display:none}
+.overlay-header{display:flex;justify-content:space-between;align-items:center}
+.close{background:#222}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:1;overflow:auto}
+.card{background:#111;border:1px solid #222;border-radius:16px;padding:8px;display:flex;flex-direction:column;cursor:pointer}
+.card img{width:100%;aspect-ratio:1;border-radius:12px;object-fit:cover;background:#000}
+.card .label{margin-top:6px;color:#eee;text-align:center;font-size:14px}
+.hint{position:fixed;inset:auto 0 0 0;height:30px;display:grid;place-items:center;background:#111;color:#9a9a9a;font-size:12px;border-top:1px solid #222}

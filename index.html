@@ -1,18 +1,38 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css?v=20250820b">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+  <title>SwipeTree — Navigation Stable</title>
+  <link rel="stylesheet" href="style.css?v=20250820d"/>
 </head>
 <body>
-  <h1>SwipeTree</h1>
-  <input type="text" id="startId" placeholder="Enter ID" />
-  <button onclick="start()">Start</button>
-  <button onclick="goBack()">Back</button>
-  <p id="loadedId"></p>
-  <div id="anchorContainer"></div>
-  <script src="script.js?v=20250820b"></script>
+  <header class="topbar">
+    <div class="title">SwipeTree</div>
+    <div class="controls">
+      <input id="idInput" type="text" inputmode="numeric" placeholder="Enter 6+ digit ID"/>
+      <button id="startBtn">Start</button>
+      <button id="backBtn">Back</button>
+    </div>
+  </header>
+
+  <main id="stage" class="stage" aria-label="Swipe stage">
+    <div id="anchorWrap" class="anchor-wrap">
+      <img id="anchorImg" class="anchor-img" alt="anchor"/>
+      <div id="anchorLabel" class="anchor-label">—</div>
+    </div>
+
+    <section id="overlay" class="overlay hidden" aria-hidden="true">
+      <div class="overlay-header">
+        <h2 id="overlayTitle">Grid</h2>
+        <button id="closeOverlayBtn" class="close">Close</button>
+      </div>
+      <div id="grid" class="grid"></div>
+    </section>
+  </main>
+
+  <footer class="hint">Swipe ↑ Parents • ← Siblings • → Spouse • ↓ Children</footer>
+
+  <script src="script.js?v=20250820d"></script>
 </body>
 </html>
