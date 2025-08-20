@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  // Point to your image repo
+  // --- CONFIG: images live in separate repo ---
   const IMAGE_BASE = 'https://allofusbhere.github.io/family-tree-images/';
   const EXTS = ['.jpg','.jpeg','.png','.webp','.JPG','.JPEG','.PNG','.WEBP'];
 
@@ -13,72 +13,80 @@
 
   function setStatus(msg){ statusEl.textContent = msg; }
 
-  function placeholder(id){
+  function showPlaceholder(id){
     container.innerHTML = '<div class="placeholder">No image for ' + id + '</div>';
-  }
-
-  function loadWithExtensions(id, cb){
-    let i = 0;
-    const img = new Image();
-    function tryNext(){
-      if(i >= EXTS.length){ cb(null); return; }
-      const url = IMAGE_BASE + String(id) + EXTS[i] + '?v=' + Date.now();
-      img.onload = () => cb(url);
-      img.onerror = () => { i++; tryNext(); };
-      img.src = url;
-    }
-    tryNext();
   }
 
   function renderImage(url, id){
     container.innerHTML = '';
-    const imgTag = document.createElement('img');
-    imgTag.alt = 'ID ' + id;
-    imgTag.src = url;
-    container.appendChild(imgTag);
+    const img = document.createElement('img');
+    img.alt = 'ID ' + id;
+    img.src = url;
+    container.appendChild(img);
+
+    // Debug helper: show which URL was used (small, subtle)
+    const small = document.createElement('div');
+    small.style.fontSize = '12px';
+    small.style.opacity = '0.6';
+    small.style.marginTop = '6px';
+    small.textContent = url;
+    container.appendChild(small);
+    console.log('[SwipeTree] loaded:', url);
   }
 
-  function loadPerson(id){
+  function tryExtensions(id){
+    return new Promise((resolve) => {
+      let idx = 0;
+      function next(){
+        if(idx >= EXTS.length){ resolve(null); return; }
+        const url = IMAGE_BASE + String(id) + EXTS[idx] + '?v=' + Date.now();
+        const probe = new Image();
+        probe.onload = () => resolve(url);
+        probe.onerror = () => { idx++; next(); };
+        probe.src = url;
+        console.log('[SwipeTree] trying', url);
+      }
+      next();
+    });
+  }
+
+  async function loadPerson(id){
     const clean = String(id || '').trim();
     if(!clean){ setStatus('Enter an ID'); return; }
+
     setStatus('Loaded ID: ' + clean);
 
-    // push to history
     if(historyStack.length === 0 || historyStack[historyStack.length-1] !== clean){
       historyStack.push(clean);
     }
 
-    // attempt to load with any extension
-    loadWithExtensions(clean, function(foundUrl){
-      if(foundUrl){ renderImage(foundUrl, clean); }
-      else { placeholder(clean); }
-    });
+    const found = await tryExtensions(clean);
+    if(found){ renderImage(found, clean); }
+    else { showPlaceholder(clean); }
   }
 
-  // Public functions for buttons
+  // Expose for buttons
   window.start = function(){
     loadPerson(inputEl.value);
   };
-
   window.goBack = function(){
     if(historyStack.length > 1){
-      historyStack.pop(); // current
-      const prev = historyStack.pop(); // previous
+      historyStack.pop();
+      const prev = historyStack.pop();
       if(prev){ inputEl.value = prev; loadPerson(prev); }
     }
   };
 
-  // support Enter key
-  inputEl.addEventListener('keydown', function(e){
+  // Enter key support
+  inputEl.addEventListener('keydown', e => {
     if(e.key === 'Enter'){ e.preventDefault(); window.start(); }
   });
 
-  // Auto-load if URL has ?id=
-  const params = new URLSearchParams(location.search);
-  const idFromQuery = params.get('id');
-  if(idFromQuery){
-    inputEl.value = idFromQuery;
-    loadPerson(idFromQuery);
+  // Auto-load via ?id=
+  const q = new URLSearchParams(location.search);
+  const qid = q.get('id');
+  if(qid){
+    inputEl.value = qid;
+    loadPerson(qid);
   }
-
 })();
