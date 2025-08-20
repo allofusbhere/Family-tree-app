@@ -11,7 +11,7 @@
   'use strict';
 
   // === CONFIG ===
-  const IMAGE_BASE = 'https://allofusbhere.github.io/Family-tree-images/'; // flat repo with JPGs
+  const IMAGE_BASE = 'https://allofusbhere.github.io/family-tree-images/'; // flat repo with JPGs
   const DEFAULT_START_ID = '100000'; // per 08/16 notes
   const MAX_PER_GROUP = 9; // cap for children/siblings
 
