@@ -1,54 +1,52 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>SwipeTree — Generational Tester</title>
-  <link rel="stylesheet" href="style.css?v=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>SwipeTree — Clean Grids + SoftEdit</title>
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
   <div id="app">
-    <header>
-      <div class="left">
-        <button id="backBtn" aria-label="Back">⟵ Back</button>
-      </div>
-      <div class="center">
-        <h1>SwipeTree</h1>
-      </div>
-      <div class="right">
-        <button id="startBtn">Start</button>
-      </div>
+    <header id="titlebar">
+      <button id="backBtn" aria-label="Back">⟵ Back</button>
+      <h1 id="anchorTitle">SwipeTree</h1>
+      <button id="startBtn" aria-label="Start/Reload">Start</button>
     </header>
 
-    <div id="controls">
-      <label for="startId">Start ID:</label>
-      <input id="startId" type="text" inputmode="numeric" pattern="\d+(\.\d)?"
-             placeholder="e.g., 100000" />
-      <button id="goBtn">Go</button>
-      <span id="status"></span>
-    </div>
-
-    <main id="stage" tabindex="0" aria-live="polite">
-      <div id="anchorCard" class="card anchor">
-        <img id="anchorImg" alt="anchor" />
-        <div id="anchorLabel" class="label"></div>
+    <main id="stage">
+      <div id="anchorWrap">
+        <img id="anchorImg" alt="anchor"/>
+        <div id="anchorCaption" class="caption"></div>
       </div>
 
-      <!-- Overlay grids -->
+      <!-- Overlays -->
       <section id="gridOverlay" class="overlay hidden">
         <div class="gridHeader">
           <h2 id="gridTitle"></h2>
-          <button id="closeGrid" aria-label="Close">✕</button>
+          <button id="closeGrid">Close ✕</button>
         </div>
         <div id="grid" class="grid"></div>
       </section>
-    </main>
 
-    <footer>
-      <div>Swipe: ↑ Parents | ↓ Children | ← Siblings | → Spouse</div>
-    </footer>
+      <section id="editOverlay" class="overlay hidden">
+        <div class="editCard">
+          <h3 id="editTitle">Edit</h3>
+          <label>First name
+            <input id="nameInput" type="text" autocomplete="off" />
+          </label>
+          <div class="row">
+            <button id="saveEdit">Save</button>
+            <button id="cancelEdit">Cancel</button>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <script src="script.js?v=1"></script>
+  <script>
+    window.BUILD_TAG = "20250820-clean-softedit";
+  </script>
+  <script src="script.js"></script>
 </body>
 </html>
