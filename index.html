@@ -1,41 +1,54 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>SwipeTree — Generational Tester</title>
+  <link rel="stylesheet" href="style.css?v=1" />
 </head>
 <body>
-  <div class="app">
-    <h1>SwipeTree</h1>
-    <div class="controls">
-      <input id="idInput" inputmode="numeric" pattern="\d*" placeholder="Enter 6+ digit ID" />
-      <button id="startBtn" class="btn">Start</button>
-      <button id="backBtn" class="btn">Back</button>
-    </div>
-
-    <div id="status" class="status">No ID Loaded</div>
-
-    <div id="stage" class="stage" aria-live="polite">
-      <div id="anchorWrap" class="anchor">
-        <img id="anchorImg" alt="person image" />
-        <div id="anchorLabel" class="anchor-label"></div>
+  <div id="app">
+    <header>
+      <div class="left">
+        <button id="backBtn" aria-label="Back">⟵ Back</button>
       </div>
-      <div class="hint">Swipe: ↑ Parents • ← Siblings • → Spouse • ↓ Children</div>
+      <div class="center">
+        <h1>SwipeTree</h1>
+      </div>
+      <div class="right">
+        <button id="startBtn">Start</button>
+      </div>
+    </header>
+
+    <div id="controls">
+      <label for="startId">Start ID:</label>
+      <input id="startId" type="text" inputmode="numeric" pattern="\d+(\.\d)?"
+             placeholder="e.g., 100000" />
+      <button id="goBtn">Go</button>
+      <span id="status"></span>
     </div>
 
-    <div id="overlay" class="overlay hidden" aria-hidden="true">
-      <div class="overlay-inner">
-        <div class="overlay-header">
-          <div id="overlayTitle"></div>
-          <button id="closeOverlayBtn" class="btn small">Close</button>
+    <main id="stage" tabindex="0" aria-live="polite">
+      <div id="anchorCard" class="card anchor">
+        <img id="anchorImg" alt="anchor" />
+        <div id="anchorLabel" class="label"></div>
+      </div>
+
+      <!-- Overlay grids -->
+      <section id="gridOverlay" class="overlay hidden">
+        <div class="gridHeader">
+          <h2 id="gridTitle"></h2>
+          <button id="closeGrid" aria-label="Close">✕</button>
         </div>
         <div id="grid" class="grid"></div>
-      </div>
-    </div>
+      </section>
+    </main>
+
+    <footer>
+      <div>Swipe: ↑ Parents | ↓ Children | ← Siblings | → Spouse</div>
+    </footer>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=1"></script>
 </body>
 </html>
