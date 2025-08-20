@@ -2,27 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SwipeTree</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app">
-    <h1>SwipeTree</h1>
-    <input type="text" id="idInput" placeholder="Enter ID">
+  <h1>SwipeTree</h1>
+
+  <div class="controls">
+    <input id="idInput" type="text" placeholder="Enter ID">
     <button id="startBtn">Start</button>
     <button id="backBtn">Back</button>
-
-    <!-- Anchor display -->
-    <div id="anchorWrap">
-      <div id="anchor"></div>
-      <div id="label"></div>
-    </div>
-
-    <!-- Overlay for grids -->
-    <div id="overlay" class="hidden">
-      <div id="grid"></div>
-    </div>
   </div>
+
+  <div id="status">No ID Loaded</div>
+  <div id="image-container"></div>
 
   <script src="script.js"></script>
 </body>

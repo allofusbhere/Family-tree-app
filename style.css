@@ -1,3 +1,54 @@
-body { background: #111; color: white; font-family: sans-serif; }
-.app { text-align: center; margin-top: 50px; }
-#anchor { width: 300px; height: 300px; margin: 20px auto; border: 2px solid #444; border-radius: 20px; }
+body {
+  background: #111;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  margin: 0;
+  padding: 20px;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+.controls {
+  margin-bottom: 20px;
+}
+
+input {
+  padding: 8px;
+  font-size: 16px;
+  width: 120px;
+}
+
+button {
+  padding: 8px 12px;
+  margin-left: 5px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+#status {
+  margin: 20px 0;
+  font-size: 18px;
+}
+
+#image-container {
+  margin: 20px auto;
+  width: 300px;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #555;
+  border-radius: 10px;
+  background: #222;
+}
+
+#image-container img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+}
