@@ -2,40 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>SwipeTree — Clean 3-File Base</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>SwipeTree — Test Build</title>
   <link rel="stylesheet" href="style.css"/>
-  <script>
-    // Permanent fix: images live in the images repo
-    window.IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/";
-    window.DEFAULT_START_ID = "100000";
-  </script>
 </head>
 <body>
   <div id="app">
     <header class="topbar">
-      <div class="start">
-        <input id="startId" inputmode="numeric" pattern="\d+(\.\d+)?" placeholder="Enter ID (e.g., 140000)"/>
-        <button id="startBtn" class="btn">Start</button>
-        <button id="backBtn" class="btn btn-ghost">Back</button>
+      <div class="title">SwipeTree</div>
+      <div class="controls">
+        <input id="idInput" type="text" inputmode="numeric" placeholder="Enter 6+ digit ID"/>
+        <button id="startBtn">Start</button>
+        <button id="backBtn">Back</button>
       </div>
-      <div class="status" id="status"></div>
     </header>
 
-    <main>
-      <div id="anchorWrap">
-        <img id="anchorImg" alt="anchor"/>
-        <div id="anchorLabel"></div>
+    <main id="stage">
+      <div id="anchorWrap" class="anchor-wrap">
+        <img id="anchorImg" class="anchor-img" alt="anchor"/>
+        <div id="anchorLabel" class="anchor-label"></div>
       </div>
 
-      <section id="overlay" class="hidden">
-        <div class="overlay-head">
-          <span id="overlayTitle"></span>
-          <button id="closeOverlay" class="btn btn-ghost">Close</button>
+      <section id="overlay" class="overlay hidden" aria-hidden="true">
+        <div class="overlay-header">
+          <h2 id="overlayTitle">Grid</h2>
+          <button id="closeOverlayBtn" class="close">Close</button>
         </div>
         <div id="grid" class="grid"></div>
       </section>
     </main>
+
+    <footer class="hint">Swipe: ↑ Parents • ← Siblings • → Spouse • ↓ Children</footer>
   </div>
 
   <script src="script.js"></script>
