@@ -1,5 +1,4 @@
-// SwipeTree — Full Grid + Any Extension Loader (jpg/jpeg/png/webp; any case)
-// Directions: Right→Spouse, Up→Parents, Left→Siblings, Down→Children
+// SwipeTree — Full Grid + Safari-safe any-extension loader
 (function(){
   'use strict';
 
@@ -7,6 +6,7 @@
   const IMAGE_BASE = 'https://allofusbhere.github.io/family-tree-images/';
   const DEFAULT_START_ID = '100000';
   const MAX_PER_GROUP = 9;
+  // Lowercase first (preferred), then uppercase
   const EXTENSIONS = ['.jpg','.jpeg','.png','.webp','.JPG','.JPEG','.PNG','.WEBP'];
 
   // === STATE ===
@@ -35,6 +35,7 @@
     let i = 0;
     function tryNext(){
       if (i >= EXTENSIONS.length){
+        console.warn('[image] not found for', basePath);
         imgEl.src = 'data:image/svg+xml;utf8,'+ encodeURIComponent(
           `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
           <rect width="200" height="200" fill="#000"/>
@@ -46,6 +47,7 @@
         return;
       }
       const url = basePath + EXTENSIONS[i] + '?v=' + Date.now();
+      console.log('[image] try', url);
       i++;
       imgEl.onerror = tryNext;
       imgEl.src = url;
@@ -53,7 +55,8 @@
     tryNext();
   }
 
-  function asPersonId(idish){ return String(idish).split('.')[0]; }
+  const asPersonId = idish => String(idish).split('.')[0];
+
   function clampList(list){
     const seen = new Set(); const out = [];
     for (const v of list){
@@ -70,6 +73,7 @@
     el.classList.toggle('hidden', !show);
     el.setAttribute('aria-hidden', show ? 'false' : 'true');
   }
+
   function openOverlay(title){
     overlayTitle.textContent = title;
     setVisible(overlay, true);
@@ -77,22 +81,27 @@
     anchorWrap.style.visibility = 'hidden';
     grid.scrollTop = 0;
   }
+
   function closeOverlay(){
     setVisible(overlay, false);
     state.overlayOpen = false;
     anchorWrap.style.visibility = 'visible';
     grid.innerHTML = '';
   }
+
   function pushHistory(){ if (state.anchorId) state.history.push(state.anchorId); }
+
   function goBack(){
     if (state.overlayOpen){ closeOverlay(); return; }
     const prev = state.history.pop();
     if (prev){ navigateTo(prev, {push:false}); }
   }
+
   function setAnchorImage(idish){
     setImageWithProbes(anchorImg, IMAGE_BASE + String(idish), String(idish));
     anchorLabel.textContent = idish;
   }
+
   function navigateTo(idish, opts){
     opts = opts || {};
     const clean = String(idish).trim();
@@ -114,6 +123,7 @@
     const p2 = p1 + '.1';
     return clampList([p1,p2]);
   }
+
   function getSiblings(idish){
     const id = asPersonId(idish);
     const n = parseInt(id,10); const L = id.length;
@@ -126,6 +136,7 @@
     }
     return clampList(sibs);
   }
+
   function getChildren(idish){
     const id = asPersonId(idish);
     const n = parseInt(id,10); const L = id.length;
@@ -136,6 +147,7 @@
     }
     return clampList(kids);
   }
+
   function getSpouseCards(idish){
     const id = asPersonId(idish);
     return clampList([id + '.1']);
@@ -159,14 +171,13 @@
     });
   }
 
-  // === GESTURES (robust for iOS Safari) ===
+  // === GESTURES (iPad friendly) ===
   function onTouchStart(e){
     if (e.touches.length !== 1) return;
     const t = e.touches[0];
     state.touching = { x: t.clientX, y: t.clientY, t: Date.now() };
   }
   function onTouchMove(e){
-    // prevent iOS from treating short horizontal swipes as scroll when inside stage
     if (!state.touching) return;
     const dx = e.touches[0].clientX - state.touching.x;
     const dy = e.touches[0].clientY - state.touching.y;
@@ -180,7 +191,7 @@
     const dy = (e.changedTouches[0].clientY - state.touching.y);
     const dt = Date.now() - state.touching.t;
     state.touching = null;
-    if (dt > 800) return; // long press reserved for future edit
+    if (dt > 800) return;
     const THRESH = 40;
     if (Math.abs(dx) < THRESH && Math.abs(dy) < THRESH) return;
     if (Math.abs(dx) > Math.abs(dy)){
@@ -204,7 +215,6 @@
   stage.addEventListener('touchmove', onTouchMove, {passive:false});
   stage.addEventListener('touchend', onTouchEnd, {passive:true});
 
-  // Auto-load
   window.addEventListener('load', () => {
     const fromHash = (location.hash.match(/id=([^&]+)/)||[])[1];
     if (fromHash){ navigateTo(decodeURIComponent(fromHash)); }
