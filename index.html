@@ -1,38 +1,41 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-  <title>SwipeTree — Navigation Stable</title>
-  <link rel="stylesheet" href="style.css?v=20250820d"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SwipeTree</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="title">SwipeTree</div>
+  <div class="app">
+    <h1>SwipeTree</h1>
     <div class="controls">
-      <input id="idInput" type="text" inputmode="numeric" placeholder="Enter 6+ digit ID"/>
-      <button id="startBtn">Start</button>
-      <button id="backBtn">Back</button>
-    </div>
-  </header>
-
-  <main id="stage" class="stage" aria-label="Swipe stage">
-    <div id="anchorWrap" class="anchor-wrap">
-      <img id="anchorImg" class="anchor-img" alt="anchor"/>
-      <div id="anchorLabel" class="anchor-label">—</div>
+      <input id="idInput" inputmode="numeric" pattern="\d*" placeholder="Enter 6+ digit ID" />
+      <button id="startBtn" class="btn">Start</button>
+      <button id="backBtn" class="btn">Back</button>
     </div>
 
-    <section id="overlay" class="overlay hidden" aria-hidden="true">
-      <div class="overlay-header">
-        <h2 id="overlayTitle">Grid</h2>
-        <button id="closeOverlayBtn" class="close">Close</button>
+    <div id="status" class="status">No ID Loaded</div>
+
+    <div id="stage" class="stage" aria-live="polite">
+      <div id="anchorWrap" class="anchor">
+        <img id="anchorImg" alt="person image" />
+        <div id="anchorLabel" class="anchor-label"></div>
       </div>
-      <div id="grid" class="grid"></div>
-    </section>
-  </main>
+      <div class="hint">Swipe: ↑ Parents • ← Siblings • → Spouse • ↓ Children</div>
+    </div>
 
-  <footer class="hint">Swipe ↑ Parents • ← Siblings • → Spouse • ↓ Children</footer>
+    <div id="overlay" class="overlay hidden" aria-hidden="true">
+      <div class="overlay-inner">
+        <div class="overlay-header">
+          <div id="overlayTitle"></div>
+          <button id="closeOverlayBtn" class="btn small">Close</button>
+        </div>
+        <div id="grid" class="grid"></div>
+      </div>
+    </div>
+  </div>
 
-  <script src="script.js?v=20250820d"></script>
+  <script src="script.js"></script>
 </body>
 </html>
