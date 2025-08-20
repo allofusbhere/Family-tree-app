@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>SwipeTree — Test Build</title>
+  <title>SwipeTree — Any Extension Loader</title>
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
@@ -18,18 +18,7 @@
     </header>
 
     <main id="stage">
-      <div id="anchorWrap" class="anchor-wrap">
-        <img id="anchorImg" class="anchor-img" alt="anchor"/>
-        <div id="anchorLabel" class="anchor-label"></div>
-      </div>
-
-      <section id="overlay" class="overlay hidden" aria-hidden="true">
-        <div class="overlay-header">
-          <h2 id="overlayTitle">Grid</h2>
-          <button id="closeOverlayBtn" class="close">Close</button>
-        </div>
-        <div id="grid" class="grid"></div>
-      </section>
+      <div id="anchor" class="anchor-wrap"></div>
     </main>
 
     <footer class="hint">Swipe: ↑ Parents • ← Siblings • → Spouse • ↓ Children</footer>
