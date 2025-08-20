@@ -2,15 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SwipeTree — rc1 (Hotfix)</title>
+  <title>SwipeTree RC1</title>
+  <script src="script.js"></script>
+  <script src="hotfix_anchor.js"></script>
   <link rel="stylesheet" href="parents_fix.css">
 </head>
 <body>
-  <div id="app"></div>
-
-  <!-- Load hotfix BEFORE main script -->
-  <script src="hotfix_anchor.js"></script>
-  <script src="script.js"></script>
+  <input id="startId" type="text" value="100000">
+  <button onclick="start()">Start</button>
+  <div id="anchor">Anchor</div>
 </body>
 </html>
