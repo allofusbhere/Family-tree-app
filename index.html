@@ -1,15 +1,43 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>SwipeTree</title>
-  <script src="script.js"></script>
-  <script src="hotfix_anchor.js"></script>
-  <link rel="stylesheet" href="parents_fix.css">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>SwipeTree — Clean 3-File Base</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script>
+    // Permanent fix: images live in the images repo
+    window.IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/";
+    window.DEFAULT_START_ID = "100000";
+  </script>
 </head>
 <body>
-  <input id="startId" type="text" placeholder="Enter ID">
-  <button onclick="start()">Start</button>
-  <div id="anchor">Anchor</div>
+  <div id="app">
+    <header class="topbar">
+      <div class="start">
+        <input id="startId" inputmode="numeric" pattern="\d+(\.\d+)?" placeholder="Enter ID (e.g., 140000)"/>
+        <button id="startBtn" class="btn">Start</button>
+        <button id="backBtn" class="btn btn-ghost">Back</button>
+      </div>
+      <div class="status" id="status"></div>
+    </header>
+
+    <main>
+      <div id="anchorWrap">
+        <img id="anchorImg" alt="anchor"/>
+        <div id="anchorLabel"></div>
+      </div>
+
+      <section id="overlay" class="hidden">
+        <div class="overlay-head">
+          <span id="overlayTitle"></span>
+          <button id="closeOverlay" class="btn btn-ghost">Close</button>
+        </div>
+        <div id="grid" class="grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
