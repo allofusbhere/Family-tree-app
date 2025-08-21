@@ -1,9 +1,9 @@
 
-// SwipeTree v3 — adds cache-busting for Safari/iPad, keeps v2 fixes
+// SwipeTree v6 — Parents grid shows both parents (p and p.1) and centers the grid
 (function () {
   'use strict';
 
-  const BUILD = (window.BUILD_TAG || 'v3');
+  const BUILD = (window.BUILD_TAG || 'v6');
   const IMAGES_BASE = 'https://allofusbhere.github.io/family-tree-images/';
   const IMAGE_EXT = '.jpg';
 
@@ -16,13 +16,7 @@
     if (el) el.addEventListener(ev, fn, opts || false);
   };
 
-  const state = {
-    anchorId: null,
-    history: [],
-    longPressTimer: null,
-    longPressMs: 520,
-    namesCache: {}
-  };
+  const state = { anchorId:null, history:[], longPressTimer:null, longPressMs:520, namesCache:{} };
 
   function idFromURL() {
     const m = location.hash.match(/id=([0-9.]+)/);
@@ -31,11 +25,7 @@
     if (q.get('id')) return q.get('id');
     return null;
   }
-
-  function pushHistory(id) {
-    if (state.anchorId) state.history.push(state.anchorId);
-    try { history.replaceState({}, '', `#id=${id}`); } catch {}
-  }
+  function pushHistory(id){ if(state.anchorId) state.history.push(state.anchorId); try{history.replaceState({},'',`#id=${id}`);}catch{} }
 
   function imageURL(id){ return IMAGES_BASE + id + IMAGE_EXT + '?v=' + encodeURIComponent(BUILD); }
   function toInt(id){ return parseInt(String(id).split('.')[0], 10); }
@@ -48,85 +38,46 @@
     while(n%10===0 && n!==0){ n=Math.floor(n/10); c++;}
     return c;
   }
-  function magnitudeForChildren(n){
-    const tz = trailingZerosCount(n);
-    const exp = Math.max(0, tz-1);
-    return Math.pow(10, exp);
-  }
+  function magSibling(n){ const tz=trailingZerosCount(n); return Math.pow(10, tz); }
+  function magChildren(n){ const tz=trailingZerosCount(n); return Math.pow(10, Math.max(0, tz-1)); }
   function parentOf(n){
     n = toInt(n);
-    const mag = magnitudeForChildren(n);
-    const digit = Math.floor(n/mag)%10;
-    if (digit===0) return null;
-    return n - digit*mag;
+    const magS = magSibling(n);
+    const digit = Math.floor(n/magS)%10;
+    return n - digit*magS; // may return 0 at top
   }
   function siblingsOf(n){
     n = toInt(n);
-    const mag = magnitudeForChildren(n);
-    const p = parentOf(n);
-    if (p===null) return [];
+    const magS = magSibling(n);
+    const digit = Math.floor(n/magS)%10;
+    const base = n - digit*magS;
     const arr=[];
     for(let d=1; d<=9; d++){
-      const cand = p + d*mag;
+      const cand = base + d*magS;
       if (cand!==n) arr.push(String(cand));
     }
     return arr;
   }
   function childrenOf(n){
     n = toInt(n);
-    const mag = magnitudeForChildren(n);
+    const magC = magChildren(n);
     const arr=[];
-    for(let d=1; d<=9; d++) arr.push(String(n + d*mag));
+    for(let d=1; d<=9; d++) arr.push(String(n + d*magC));
     return arr;
   }
 
-  async function fetchLabelRemote(id){
-    if (!LABELS_GET_URL) return null;
-    try{
-      const r = await fetch(LABELS_GET_URL + encodeURIComponent(id), {cache:'no-store'});
-      if (!r.ok) return null;
-      const j = await r.json();
-      return (j && (j.name||j.label)) || null;
-    }catch{return null;}
-  }
-  async function saveLabelRemote(id,name){
-    if (!LABELS_SET_URL) return false;
-    try{
-      const r = await fetch(LABELS_SET_URL, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({id,name})
-      });
-      return r.ok;
-    }catch{return false;}
-  }
+  function unique(arr){ return [...new Set(arr)]; }
 
-  function setLabel(id,name){
-    state.namesCache[id]=name;
-    const lab = $('#anchorLabel');
-    if (lab) lab.textContent = name || '';
-  }
+  function setLabel(id,name){ state.namesCache[id]=name; const lab=$('#anchorLabel'); if(lab) lab.textContent=name||''; }
   async function loadLabel(id){
-    const lab = $('#anchorLabel');
-    if (!lab) return;
-    if (state.namesCache[id]){
-      lab.textContent = state.namesCache[id];
-      return;
-    }
-    const nm = await fetchLabelRemote(id);
-    lab.textContent = nm || '';
-    if (nm) state.namesCache[id]=nm;
+    const lab=$('#anchorLabel'); if(!lab) return;
+    if(state.namesCache[id]){ lab.textContent=state.namesCache[id]; return; }
+    lab.textContent = '';
   }
 
-  function clearGrid(){ const g=$('#grid'); if (g) g.innerHTML=''; }
-  function showOverlay(title){
-    const ov = $('#gridOverlay'); if (!ov) return;
-    $('#overlayTitle').textContent = title || '';
-    ov.classList.remove('hidden');
-  }
-  function hideOverlay(){
-    const ov = $('#gridOverlay'); if (!ov) return;
-    ov.classList.add('hidden');
-  }
+  function clearGrid(){ const g=$('#grid'); if(g) g.innerHTML=''; }
+  function showOverlay(title){ const ov=$('#gridOverlay'); if(!ov) return; $('#overlayTitle').textContent=title||''; ov.classList.remove('hidden'); }
+  function hideOverlay(){ const ov=$('#gridOverlay'); if(!ov) return; ov.classList.add('hidden'); }
 
   function renderTile(container, id){
     const tile = document.createElement('div');
@@ -134,38 +85,19 @@
     tile.innerHTML = `<div class="tid">${id}</div><img alt="person"/><div class="name"></div>`;
     const img = tile.querySelector('img');
     img.src = imageURL(id);
-    img.addEventListener('error', ()=> tile.remove(), {once:true});
-    if (LABELS_GET_URL){
-      fetchLabelRemote(id).then(nm=>{ if(nm) tile.querySelector('.name').textContent = nm; });
-    }
+    img.addEventListener('error', ()=> tile.remove(), {once:true}); // suppress if image missing
     tile.addEventListener('click', ()=>{ navigateTo(id); hideOverlay(); });
     container.appendChild(tile);
   }
-
-  function renderGrid(title, ids){
-    clearGrid();
-    showOverlay(title);
-    const grid = $('#grid');
-    if (!grid) return;
-    ids.forEach(id=>renderTile(grid, id));
-  }
+  function renderGrid(title, ids){ clearGrid(); showOverlay(title); const grid=$('#grid'); if(!grid) return; unique(ids).forEach(id=>renderTile(grid,id)); }
 
   async function loadAnchor(id){
     state.anchorId = String(id);
-    const img = $('#anchorImg');
-    const idEl = $('#anchorId');
-    if (idEl) idEl.textContent = state.anchorId;
-    if (img){
-      img.src = imageURL(state.anchorId);
-      img.removeAttribute('hidden');
-    }
+    const idEl=$('#anchorId'); if(idEl) idEl.textContent = state.anchorId;
+    const img=$('#anchorImg'); if(img){ img.src = imageURL(state.anchorId); img.removeAttribute('hidden'); }
     await loadLabel(state.anchorId);
   }
-
-  function navigateTo(id){
-    pushHistory(String(id));
-    loadAnchor(String(id));
-  }
+  function navigateTo(id){ pushHistory(String(id)); loadAnchor(String(id)); }
 
   function attachSwipe(el){
     if (!el) return;
@@ -183,12 +115,21 @@
     }, {passive:true});
   }
 
-  function onSwipeRight(){ renderGrid('Spouse', [spouseOf(state.anchorId)]); }
+  // === Swipe behaviors ===
+  function onSwipeRight(){
+    if (isSpouseId(state.anchorId)) { navigateTo(spouseOf(state.anchorId)); return; }
+    renderGrid('Spouse', [spouseOf(state.anchorId)]);
+  }
   function onSwipeLeft(){ renderGrid('Siblings', siblingsOf(state.anchorId)); }
   function onSwipeDown(){ renderGrid('Children', childrenOf(state.anchorId)); }
   function onSwipeUp(){
     const p = parentOf(state.anchorId);
-    renderGrid('Parents', p? [String(p)] : []);
+    const list = [];
+    if (p && p !== 0) {
+      list.push(String(p));
+      list.push(spouseOf(String(p))); // show other parent (p.1)
+    }
+    renderGrid('Parents', list);
   }
 
   function attachLongPressEdit(el, getId){
@@ -201,12 +142,9 @@
         const name = window.prompt('Edit label (name):', current);
         if (name===null) return;
         setLabel(id,name);
-        await saveLabelRemote(id,name);
       }, state.longPressMs);
     };
-    const cancel = ()=>{
-      if (state.longPressTimer){ clearTimeout(state.longPressTimer); state.longPressTimer=null; }
-    };
+    const cancel = ()=>{ if(state.longPressTimer){ clearTimeout(state.longPressTimer); state.longPressTimer=null; } };
     el.addEventListener('touchstart', start, {passive:true});
     el.addEventListener('touchend', cancel, {passive:true});
     el.addEventListener('mousedown', start);
@@ -217,10 +155,9 @@
   function init(){
     on('#closeOverlay','click', hideOverlay);
     on('#backBtn','click', ()=>{
-      const ov = $('#gridOverlay');
+      const ov=$('#gridOverlay');
       if (ov && !ov.classList.contains('hidden')){ hideOverlay(); return; }
-      const prev = state.history.pop();
-      if (prev) loadAnchor(prev);
+      const prev = state.history.pop(); if(prev) loadAnchor(prev);
     });
     on('#startBtn','click', ()=>{
       const input = prompt('Enter starting ID', state.anchorId || '100000');
