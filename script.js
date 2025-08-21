@@ -1,11 +1,14 @@
 
-// v7b — readable, conflict-free script. Keeps all previous logic.
+// v8 — Per-image override: specific IDs render with object-fit: contain (no crop)
 (function () {
   'use strict';
 
-  const BUILD = window.BUILD_TAG || 'v7b';
+  const BUILD = window.BUILD_TAG || 'v8';
   const IMAGES_BASE = 'https://allofusbhere.github.io/family-tree-images/';
   const IMAGE_EXT = '.jpg';
+
+  // Add any IDs you want to render full-frame (no cropping)
+  const OVERRIDE_CONTAIN = new Set(['100000']); // Fred by default
 
   const $ = (sel) => document.querySelector(sel);
   const bind = (target, ev, fn, opts) => {
@@ -13,67 +16,37 @@
     if (el) el.addEventListener(ev, fn, opts || false);
   };
 
-  const appState = {
-    anchorId: null,
-    history: [],
-  };
+  const appState = { anchorId: null, history: [] };
 
-  // ---------- ID helpers ----------
+  // Helpers
   const toInt = (id) => parseInt(String(id).split('.')[0], 10);
   const isSpouseId = (id) => String(id).includes('.1');
   const spouseOf = (id) => isSpouseId(id) ? String(id).replace('.1', '') : String(id) + '.1';
-
-  const trailingZerosCount = (n) => {
-    n = toInt(n);
-    let c = 0;
-    while (n % 10 === 0 && n !== 0) { n = Math.floor(n / 10); c++; }
-    return c;
-  };
+  const trailingZerosCount = (n) => { n = toInt(n); let c = 0; while (n % 10 === 0 && n !== 0){ n = Math.floor(n/10); c++; } return c; };
   const magSibling = (n) => Math.pow(10, trailingZerosCount(n));
   const magChildren = (n) => Math.pow(10, Math.max(0, trailingZerosCount(n) - 1));
+  const parentOf = (n) => { n = toInt(n); const m = magSibling(n); const digit = Math.floor(n/m) % 10; return n - digit*m; };
+  const siblingsOf = (n) => { n = toInt(n); const m = magSibling(n); const digit = Math.floor(n/m)%10; const base = n - digit*m; const out=[]; for(let d=1; d<=9; d++){ const cand=base + d*m; if(cand!==n) out.push(String(cand)); } return out; };
+  const childrenOf = (n) => { n = toInt(n); const m = magChildren(n); const out=[]; for(let d=1; d<=9; d++) out.push(String(n + d*m)); return out; };
 
-  const parentOf = (n) => {
-    n = toInt(n);
-    const m = magSibling(n);
-    const digit = Math.floor(n / m) % 10;
-    return n - digit * m; // 0 if top
-  };
-  const siblingsOf = (n) => {
-    n = toInt(n);
-    const m = magSibling(n);
-    const digit = Math.floor(n / m) % 10;
-    const base = n - digit * m;
-    const out = [];
-    for (let d = 1; d <= 9; d++) {
-      const cand = base + d * m;
-      if (cand !== n) out.push(String(cand));
-    }
-    return out;
-  };
-  const childrenOf = (n) => {
-    n = toInt(n);
-    const m = magChildren(n);
-    const out = [];
-    for (let d = 1; d <= 9; d++) out.push(String(n + d * m));
-    return out;
-  };
-
-  // ---------- Nav helpers ----------
-  const idFromURL = () => {
-    const m = location.hash.match(/id=([0-9.]+)/);
-    if (m) return m[1];
-    const q = new URLSearchParams(location.search);
-    if (q.get('id')) return q.get('id');
-    return null;
-  };
+  const idFromURL = () => { const m = location.hash.match(/id=([0-9.]+)/); if (m) return m[1]; const q = new URLSearchParams(location.search); if (q.get('id')) return q.get('id'); return null; };
   const imageURL = (id) => IMAGES_BASE + id + IMAGE_EXT + '?v=' + encodeURIComponent(BUILD);
   const pushHistory = (id) => { if (appState.anchorId) appState.history.push(appState.anchorId); try{ history.replaceState({}, '', '#id=' + id); }catch{} };
   const navigateTo = (id) => { pushHistory(String(id)); loadAnchor(String(id)); };
 
-  // ---------- UI ----------
   const clearGrid = () => { const g = $('#grid'); if (g) g.innerHTML = ''; };
   const showOverlay = (title) => { const ov = $('#gridOverlay'); if (ov){ $('#overlayTitle').textContent = title || ''; ov.classList.remove('hidden'); } };
   const hideOverlay = () => { const ov = $('#gridOverlay'); if (ov) ov.classList.add('hidden'); };
+
+  // Apply per-image fit mode
+  function applyFitMode(imgEl, id){
+    if (!imgEl) return;
+    if (OVERRIDE_CONTAIN.has(String(id))) {
+      imgEl.classList.add('contain');
+    } else {
+      imgEl.classList.remove('contain');
+    }
+  }
 
   const renderTile = (container, id) => {
     const tile = document.createElement('div');
@@ -81,6 +54,7 @@
     tile.dataset.id = id;
     tile.innerHTML = `<div class="tid">${id}</div><img alt="person"/><div class="name"></div>`;
     const img = tile.querySelector('img');
+    applyFitMode(img, id);
     img.src = imageURL(id);
     img.addEventListener('error', () => tile.remove(), { once: true });
     tile.addEventListener('click', () => { navigateTo(id); hideOverlay(); });
@@ -101,30 +75,26 @@
     const idEl = $('#anchorId');
     if (idEl) idEl.textContent = appState.anchorId;
     const img = $('#anchorImg');
-    if (img) { img.src = imageURL(appState.anchorId); img.removeAttribute('hidden'); }
+    if (img) {
+      applyFitMode(img, appState.anchorId);
+      img.src = imageURL(appState.anchorId);
+      img.removeAttribute('hidden');
+    }
   }
 
-  // ---------- Swipes ----------
+  // Swipes
   function attachSwipe(el){
     if (!el) return;
     let startX = 0, startY = 0, active = false;
     const TH = 30;
-
-    el.addEventListener('touchstart', (e) => {
-      const t = e.changedTouches[0];
-      startX = t.clientX; startY = t.clientY; active = true;
-    }, { passive: true });
-
+    el.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; startX = t.clientX; startY = t.clientY; active = true; }, { passive: true });
     el.addEventListener('touchend', (e) => {
       if (!active) return; active = false;
       const t = e.changedTouches[0];
       const dx = t.clientX - startX, dy = t.clientY - startY;
       if (Math.abs(dx) < TH && Math.abs(dy) < TH) return;
-      if (Math.abs(dx) > Math.abs(dy)) {
-        if (dx > 0) onSwipeRight(); else onSwipeLeft();
-      } else {
-        if (dy > 0) onSwipeDown(); else onSwipeUp();
-      }
+      if (Math.abs(dx) > Math.abs(dy)) { if (dx > 0) onSwipeRight(); else onSwipeLeft(); }
+      else { if (dy > 0) onSwipeDown(); else onSwipeUp(); }
     }, { passive: true });
   }
 
@@ -141,7 +111,6 @@
     renderGrid('Parents', list);
   }
 
-  // ---------- Init ----------
   function init(){
     bind('#closeOverlay','click', hideOverlay);
     bind('#backBtn','click', () => {
