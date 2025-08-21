@@ -1,29 +1,26 @@
 
+:root{
+  --bg:#0d1117; --panel:#0e1622; --accent:#22304a; --text:#dfe7f2;
+  --muted:#8ea2c2; --ring:#2b3a55;
+}
 *{box-sizing:border-box}
-body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0b0c10;color:#e5e7eb}
-#titlebar{display:flex;align-items:center;gap:.5rem;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid #1f2937;background:#111827;position:sticky;top:0;z-index:10}
-#titlebar h1{font-size:1rem;margin:0;color:#cbd5e1;font-weight:600;letter-spacing:.02em}
-#titlebar button{background:#111827;border:1px solid #374151;color:#e5e7eb;padding:.4rem .7rem;border-radius:.6rem;cursor:pointer}
-#titlebar button:hover{border-color:#6b7280}
-
-#stage{position:relative;min-height:calc(100vh - 56px);display:grid;place-items:center;padding:2.5rem 1rem}
-#anchorWrap{position:relative;display:grid;place-items:center;gap:.5rem}
-#anchorWrap img{width:min(60vw,360px);max-width:90vw;height:auto;border-radius:1rem;box-shadow:0 10px 30px rgba(0,0,0,.45);border:2px solid #1f2937;background:#0f172a;user-select:none;touch-action:none}
-.caption{margin-top:.25rem;font-size:1rem;text-align:center;color:#e5e7eb;min-height:1.2em}
-
-.overlay{position:fixed;inset:0;background:rgba(2,6,23,.9);backdrop-filter:saturate(140%) blur(6px);display:flex;flex-direction:column;gap:1rem;padding:1rem;z-index:20}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;position:sticky;top:0;background:linear-gradient(180deg,var(--bg),rgba(13,17,23,.8));backdrop-filter:blur(6px);z-index:5}
+h1{margin:0;font-size:24px;letter-spacing:.5px}
+.btn{background:transparent;border:1px solid var(--ring);color:var(--text);padding:8px 14px;border-radius:999px;cursor:pointer}
+.btn:active{transform:scale(.98)}
+#app{height:calc(100% - 64px);display:grid;place-items:center;padding:24px}
+.card{width:min(78vw,480px);height:min(78vw,480px);background:radial-gradient(120% 120% at 50% 0%,#0e1622,#0a0f16);border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.35);border:1px solid var(--ring);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;outline:none}
+.card .id{position:absolute;top:10px;left:12px;color:var(--muted);font-size:14px;letter-spacing:.5px}
+.card img{max-width:88%;max-height:76%;border-radius:12px;object-fit:contain;user-select:none;-webkit-user-drag:none}
+.card .label{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:16px;color:#e6eefc}
+.card.focus{outline:2px solid #7aa2f7}
+.overlay{position:fixed;inset:0;background:rgba(4,7,11,.86);display:flex;flex-direction:column;gap:12px;padding:16px;z-index:10}
 .hidden{display:none}
-.gridHeader{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
-.gridHeader h2{margin:0;font-weight:600;font-size:1rem;color:#cbd5e1}
-#closeGrid{background:#0b1324;border:1px solid #334155;color:#e5e7eb;padding:.4rem .7rem;border-radius:.6rem;cursor:pointer}
-
-.grid{display:grid;grid-template-columns:repeat(3, 1fr);gap:.75rem;align-content:start}
-.card{display:flex;flex-direction:column;align-items:center;gap:.4rem;background:#0b1324;border:1px solid #1f2937;border-radius:1rem;padding:.6rem}
-.card img{width:100%;height:auto;border-radius:.75rem;border:1px solid #1f2937;background:#0f172a}
-.card .caption{font-size:.95rem;color:#e5e7eb}
-
-.editCard{margin:auto;background:#0b1324;border:1px solid #1f2937;border-radius:1rem;padding:1rem;min-width:min(90vw,420px);display:flex;flex-direction:column;gap:.75rem}
-.editCard input{width:100%;padding:.6rem;border-radius:.6rem;border:1px solid #334155;background:#0f172a;color:#e5e7eb}
-.row{display:flex;gap:.5rem;justify-content:flex-end}
-.row button{background:#0b1324;border:1px solid #334155;color:#e5e7eb;padding:.5rem .9rem;border-radius:.6rem;cursor:pointer}
-.row button:hover{border-color:#64748b}
+.overlayHeader{display:flex;align-items:center;justify-content:space-between}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:960px;margin:0 auto}
+.tile{background:var(--panel);border:1px solid var(--ring);border-radius:18px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;position:relative}
+.tile .tid{position:absolute;top:8px;left:10px;color:var(--muted);font-size:12px}
+.tile img{width:100%;aspect-ratio:1;border-radius:10px;object-fit:contain;background:#09111a}
+.tile .name{font-size:14px;text-align:center;min-height:1.6em}
+/* Long-press hint intentionally omitted (SoftEdit) */
