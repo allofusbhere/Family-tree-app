@@ -1,8 +1,9 @@
 
-// SwipeTree v2 — defensive binds, no legacy refs, fixed image base, grid suppression, SoftEdit
+// SwipeTree v3 — adds cache-busting for Safari/iPad, keeps v2 fixes
 (function () {
   'use strict';
 
+  const BUILD = (window.BUILD_TAG || 'v3');
   const IMAGES_BASE = 'https://allofusbhere.github.io/family-tree-images/';
   const IMAGE_EXT = '.jpg';
 
@@ -36,7 +37,7 @@
     try { history.replaceState({}, '', `#id=${id}`); } catch {}
   }
 
-  function imageURL(id){ return IMAGES_BASE + id + IMAGE_EXT; }
+  function imageURL(id){ return IMAGES_BASE + id + IMAGE_EXT + '?v=' + encodeURIComponent(BUILD); }
   function toInt(id){ return parseInt(String(id).split('.')[0], 10); }
   function isSpouseId(id){ return String(id).includes('.1'); }
   function spouseOf(id){ return isSpouseId(id) ? String(id).replace('.1','') : String(id)+'.1'; }
@@ -133,7 +134,7 @@
     tile.innerHTML = `<div class="tid">${id}</div><img alt="person"/><div class="name"></div>`;
     const img = tile.querySelector('img');
     img.src = imageURL(id);
-    img.addEventListener('error', ()=> tile.remove(), {once:true}); // suppress if missing
+    img.addEventListener('error', ()=> tile.remove(), {once:true});
     if (LABELS_GET_URL){
       fetchLabelRemote(id).then(nm=>{ if(nm) tile.querySelector('.name').textContent = nm; });
     }
@@ -166,14 +167,7 @@
     loadAnchor(String(id));
   }
 
-  // Swipes
   function attachSwipe(el){
-    if (!el) return;
-    let x0=0,y0=0,active=false; const th=30;
-    el.addEventListener('touchstart', e=>{const t=e.changedTouches[0]; x0=t.clientX;y0=t.clientY;active=True;}.replace('True','true'), {passive:true})
-  }
-  // implement without cleverness to avoid typos
-  function attachSwipeClean(el){
     if (!el) return;
     let sx=0,sy=0,active=false; const TH=30;
     el.addEventListener('touchstart', e=>{const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; active=true; }, {passive:true});
@@ -233,7 +227,7 @@
       if (input) navigateTo(String(input));
     });
 
-    attachSwipeClean($('#anchorCard'));
+    attachSwipe($('#anchorCard'));
     attachLongPressEdit($('#anchorCard'), ()=>state.anchorId);
 
     const id = idFromURL() || '100000';
