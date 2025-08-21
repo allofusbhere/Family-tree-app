@@ -1,1 +1,166 @@
-(function(){function e(e){return document.querySelector(e)}function t(e,t,n,o){const r="string"==typeof e?document.querySelector(e):e;r&&r.addEventListener(t,n,o||!1)}const n={anchorId:null,history:[],longPressTimer:null,longPressMs:520,namesCache:{}};function o(){const e=location.hash.match(/id=([0-9.]+)/);if(e)return e[1];const t=new URLSearchParams(location.search);return t.get("id")||null}function r(e){n.anchorId&&n.history.push(n.anchorId);try{history.replaceState({},"","#id="+e)}catch{}}const a=window.BUILD_TAG||"v7",i="https://allofusbhere.github.io/family-tree-images/",c=".jpg";function s(e){return i+e+c+"?v="+encodeURIComponent(a)}function l(e){return parseInt(String(e).split(".")[0],10)}function d(e){return String(e).includes(".1")}function u(e){return d(e)?String(e).replace(".1",""):String(e)+".1"}function h(e){let t=l(e),n=0;for(;t%10==0&&0!==t;)t=Math.floor(t/10),n++;return n}function p(e){return Math.pow(10,h(e))}function g(e){return Math.pow(10,Math.max(0,h(e)-1))}function f(e){e=l(e);const t=p(e),n=Math.floor(e/t)%10;return e-n*t}function m(e){e=l(e);const t=p(e),n=Math.floor(e/t)%10,o=e-n*t,r=[];for(let a=1;a<=9;a++){const i=o+a*t;i!==e&&r.push(String(i))}return r}function v(e){e=l(e);const t=g(e),n=[];for(let o=1;o<=9;o++)n.push(String(e+o*t));return n}function y(t){n.anchorId=String(t);const o=e("#anchorId");o&&(o.textContent=n.anchorId);const r=e("#anchorImg");r&&(r.src=s(n.anchorId),r.removeAttribute("hidden"))}function b(){const t=e("#grid");t&&(t.innerHTML="")}function S(t){const n=e("#gridOverlay");n&&(e("#overlayTitle").textContent=t||"",n.classList.remove("hidden"))}function w(){const t=e("#gridOverlay");t&&t.classList.add("hidden")}function E(t,n){const o=document.createElement("div");o.className="tile",o.dataset.id=t,o.innerHTML=`<div class="tid">${t}</div><img alt="person"/><div class="name"></div>`;const r=o.querySelector("img");r.src=s(t),r.addEventListener("error",(()=>o.remove()),{once:!0}),o.addEventListener("click",(()=>{(function(t){r(String(t)),y(String(t))})(t),w()})),n.appendChild(o)}function q(e,t){b(),S(e);const n=document.querySelector("#grid");n&&t.forEach((e=>E(e,n)))}function L(){(function(e){r(String(e)),y(String(e))})(u(n.anchorId))}function O(){q("Siblings",m(n.anchorId))}function P(){q("Children",v(n.anchorId))}function x(){const e=f(n.anchorId),t=[];e&&0!==e&&(t.push(String(e)),t.push(u(String(e)))),q("Parents",t)}function k(n){if(!n)return;let o=0,r=0,a=!1;n.addEventListener("touchstart",(e=>{const t=e.changedTouches[0];o=t.clientX,r=t.clientY,a=!0}),{passive:!0}),n.addEventListener("touchend",(e=>{if(!a)return;a=!1;const t=e.changedTouches[0],n=t.clientX-o,r=t.clientY-r;Math.abs(n)<30&&Math.abs(r)<30||(Math.abs(n)>Math.abs(r)?n>0?function(){d(n.anchorId)?(function(e){r(String(e)),y(String(e))})(u(n.anchorId)):q("Spouse",[u(n.anchorId)])}():O():r>0?P():x())}),{passive:!0})}document.addEventListener("DOMContentLoaded",(function(){t("#closeOverlay","click",w),t("#backBtn","click",(()=>{const t=e("#gridOverlay");if(t&&!t.classList.contains("hidden"))return void w();const o=n.history.pop();o&&y(o)})),t("#startBtn","click",(()=>{const e=prompt("Enter starting ID",n.anchorId||"100000");e&&(r(String(e)),y(String(e)))})),k(e("#anchorCard"));const t=o()||"100000";n.anchorId=String(t),y(n.anchorId)}))})();
+
+// v7b — readable, conflict-free script. Keeps all previous logic.
+(function () {
+  'use strict';
+
+  const BUILD = window.BUILD_TAG || 'v7b';
+  const IMAGES_BASE = 'https://allofusbhere.github.io/family-tree-images/';
+  const IMAGE_EXT = '.jpg';
+
+  const $ = (sel) => document.querySelector(sel);
+  const bind = (target, ev, fn, opts) => {
+    const el = typeof target === 'string' ? $(target) : target;
+    if (el) el.addEventListener(ev, fn, opts || false);
+  };
+
+  const appState = {
+    anchorId: null,
+    history: [],
+  };
+
+  // ---------- ID helpers ----------
+  const toInt = (id) => parseInt(String(id).split('.')[0], 10);
+  const isSpouseId = (id) => String(id).includes('.1');
+  const spouseOf = (id) => isSpouseId(id) ? String(id).replace('.1', '') : String(id) + '.1';
+
+  const trailingZerosCount = (n) => {
+    n = toInt(n);
+    let c = 0;
+    while (n % 10 === 0 && n !== 0) { n = Math.floor(n / 10); c++; }
+    return c;
+  };
+  const magSibling = (n) => Math.pow(10, trailingZerosCount(n));
+  const magChildren = (n) => Math.pow(10, Math.max(0, trailingZerosCount(n) - 1));
+
+  const parentOf = (n) => {
+    n = toInt(n);
+    const m = magSibling(n);
+    const digit = Math.floor(n / m) % 10;
+    return n - digit * m; // 0 if top
+  };
+  const siblingsOf = (n) => {
+    n = toInt(n);
+    const m = magSibling(n);
+    const digit = Math.floor(n / m) % 10;
+    const base = n - digit * m;
+    const out = [];
+    for (let d = 1; d <= 9; d++) {
+      const cand = base + d * m;
+      if (cand !== n) out.push(String(cand));
+    }
+    return out;
+  };
+  const childrenOf = (n) => {
+    n = toInt(n);
+    const m = magChildren(n);
+    const out = [];
+    for (let d = 1; d <= 9; d++) out.push(String(n + d * m));
+    return out;
+  };
+
+  // ---------- Nav helpers ----------
+  const idFromURL = () => {
+    const m = location.hash.match(/id=([0-9.]+)/);
+    if (m) return m[1];
+    const q = new URLSearchParams(location.search);
+    if (q.get('id')) return q.get('id');
+    return null;
+  };
+  const imageURL = (id) => IMAGES_BASE + id + IMAGE_EXT + '?v=' + encodeURIComponent(BUILD);
+  const pushHistory = (id) => { if (appState.anchorId) appState.history.push(appState.anchorId); try{ history.replaceState({}, '', '#id=' + id); }catch{} };
+  const navigateTo = (id) => { pushHistory(String(id)); loadAnchor(String(id)); };
+
+  // ---------- UI ----------
+  const clearGrid = () => { const g = $('#grid'); if (g) g.innerHTML = ''; };
+  const showOverlay = (title) => { const ov = $('#gridOverlay'); if (ov){ $('#overlayTitle').textContent = title || ''; ov.classList.remove('hidden'); } };
+  const hideOverlay = () => { const ov = $('#gridOverlay'); if (ov) ov.classList.add('hidden'); };
+
+  const renderTile = (container, id) => {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.dataset.id = id;
+    tile.innerHTML = `<div class="tid">${id}</div><img alt="person"/><div class="name"></div>`;
+    const img = tile.querySelector('img');
+    img.src = imageURL(id);
+    img.addEventListener('error', () => tile.remove(), { once: true });
+    tile.addEventListener('click', () => { navigateTo(id); hideOverlay(); });
+    container.appendChild(tile);
+  };
+
+  const renderGrid = (title, ids) => {
+    clearGrid();
+    showOverlay(title);
+    const grid = $('#grid');
+    if (!grid) return;
+    const uniq = [...new Set(ids)];
+    uniq.forEach((id) => renderTile(grid, id));
+  };
+
+  async function loadAnchor(id) {
+    appState.anchorId = String(id);
+    const idEl = $('#anchorId');
+    if (idEl) idEl.textContent = appState.anchorId;
+    const img = $('#anchorImg');
+    if (img) { img.src = imageURL(appState.anchorId); img.removeAttribute('hidden'); }
+  }
+
+  // ---------- Swipes ----------
+  function attachSwipe(el){
+    if (!el) return;
+    let startX = 0, startY = 0, active = false;
+    const TH = 30;
+
+    el.addEventListener('touchstart', (e) => {
+      const t = e.changedTouches[0];
+      startX = t.clientX; startY = t.clientY; active = true;
+    }, { passive: true });
+
+    el.addEventListener('touchend', (e) => {
+      if (!active) return; active = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX, dy = t.clientY - startY;
+      if (Math.abs(dx) < TH && Math.abs(dy) < TH) return;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0) onSwipeRight(); else onSwipeLeft();
+      } else {
+        if (dy > 0) onSwipeDown(); else onSwipeUp();
+      }
+    }, { passive: true });
+  }
+
+  function onSwipeRight(){
+    if (isSpouseId(appState.anchorId)) { navigateTo(spouseOf(appState.anchorId)); return; }
+    renderGrid('Spouse', [spouseOf(appState.anchorId)]);
+  }
+  function onSwipeLeft(){ renderGrid('Siblings', siblingsOf(appState.anchorId)); }
+  function onSwipeDown(){ renderGrid('Children', childrenOf(appState.anchorId)); }
+  function onSwipeUp(){
+    const p = parentOf(appState.anchorId);
+    const list = [];
+    if (p && p !== 0) { list.push(String(p)); list.push(spouseOf(String(p))); }
+    renderGrid('Parents', list);
+  }
+
+  // ---------- Init ----------
+  function init(){
+    bind('#closeOverlay','click', hideOverlay);
+    bind('#backBtn','click', () => {
+      const ov = $('#gridOverlay');
+      if (ov && !ov.classList.contains('hidden')) { hideOverlay(); return; }
+      const prev = appState.history.pop();
+      if (prev) loadAnchor(prev);
+    });
+    bind('#startBtn','click', () => {
+      const input = prompt('Enter starting ID', appState.anchorId || '100000');
+      if (input) navigateTo(String(input));
+    });
+
+    attachSwipe($('#anchorCard'));
+
+    const id = idFromURL() || '100000';
+    appState.anchorId = String(id);
+    loadAnchor(appState.anchorId);
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
