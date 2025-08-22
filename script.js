@@ -1,209 +1,145 @@
-(function(){
+
+// v9b-fixed — Calls existing Netlify function 'save-labels' (family-tree-swipe.netlify.app)
+(function () {
   'use strict';
-  const BUILD_VER = 'v1.3.1-20250822';
-  const $ = sel => document.querySelector(sel);
-  const $$ = sel => Array.from(document.querySelectorAll(sel));
-  document.addEventListener('contextmenu', e => e.preventDefault());
 
-  function getHashId(){ const m=location.hash.match(/id=(\d+(?:\.\d+)?)/); return m?m[1]:null; }
-  function setHashId(id){ const url=new URL(location.href); url.hash=`id=${id}`; history.pushState({id},"",url); }
-  function digits(nStr){ return nStr.split('.')[0].length; }
-  function padTo(len,n){ return n.toString().padStart(len,'0'); }
-  function toInt(idStr){ return parseInt(idStr.split('.')[0],10); }
+  const BUILD = window.BUILD_TAG || 'v9b-fixed';
+  const IMAGES_BASE = 'https://allofusbhere.github.io/family-tree-images/';
+  const IMAGE_EXT = '.jpg';
 
-  // Generation helpers (locked)
-  function genPlace(idStr){
-    const s=idStr.split('.')[0];
-    for(let i=0;i<s.length;i++){ if(s[i]!=='0'){ return Math.pow(10, s.length-i-1); } }
-    return Math.pow(10, s.length-1);
+  const NETLIFY_BASE = 'https://family-tree-swipe.netlify.app';
+  const LABELS_GET_URL = NETLIFY_BASE + '/.netlify/functions/save-labels?id=';
+  const LABELS_SET_URL = NETLIFY_BASE + '/.netlify/functions/save-labels';
+
+  const OVERRIDE_CONTAIN = new Set(['100000']); // Fred
+
+  const $ = (sel) => document.querySelector(sel);
+  const bind = (target, ev, fn, opts) => {
+    const el = typeof target === 'string' ? $(target) : target;
+    if (el) el.addEventListener(ev, fn, opts || false);
+  };
+
+  const state = { anchorId: null, history: [], namesCache: {} };
+
+  const toInt = (id) => parseInt(String(id).split('.')[0], 10);
+  const isSpouseId = (id) => String(id).includes('.1');
+  const spouseOf = (id) => isSpouseId(id) ? String(id).replace('.1', '') : String(id) + '.1';
+  const trailingZerosCount = (n) => { n = toInt(n); let c = 0; while (n % 10 === 0 && n !== 0){ n = Math.floor(n/10); c++; } return c; };
+  const magSibling = (n) => Math.pow(10, trailingZerosCount(n));
+  const magChildren = (n) => Math.pow(10, Math.max(0, trailingZerosCount(n) - 1));
+  const parentOf = (n) => { n = toInt(n); const m = magSibling(n); const digit = Math.floor(n/m) % 10; return n - digit * m; };
+  const siblingsOf = (n) => { n = toInt(n); const m = magSibling(n); const digit = Math.floor(n/m) % 10; const base = n - digit*m; const out=[]; for(let d=1; d<=9; d++){ const cand = base + d*m; if (cand!==n) out.push(String(cand)); } return out; };
+  const childrenOf = (n) => { n = toInt(n); const m = magChildren(n); const out=[]; for(let d=1; d<=9; d++) out.push(String(n + d*m)); return out; };
+
+  const idFromURL = () => { const m = location.hash.match(/id=([0-9.]+)/); if (m) return m[1]; const q = new URLSearchParams(location.search); if (q.get('id')) return q.get('id'); return null; };
+  const imageURL = (id) => IMAGES_BASE + id + IMAGE_EXT + '?v=' + encodeURIComponent(BUILD);
+  const pushHistory = (id) => { if (state.anchorId) state.history.push(state.anchorId); try{ history.replaceState({}, '', '#id=' + id); }catch{} };
+  const navigateTo = (id) => { pushHistory(String(id)); loadAnchor(String(id)); };
+
+  const localKey = (id) => `swipetree:label:${id}`;
+
+  async function getLabelRemote(id){
+    try{
+      const r = await fetch(LABELS_GET_URL + encodeURIComponent(id), { cache:'no-store' });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return (j && (j.name || j.label)) || null;
+    }catch{ return null; }
   }
-  function childPlace(idStr){ return genPlace(idStr)/10; }
-
-  // Multi-extension (limited) + cache-busting
-  const EXT_LIST = ['.jpg', '.JPG'];
-  function imgUrlCandidates(id){
-    return EXT_LIST.map(ext => `https://allofusbhere.github.io/family-tree-images/${id}${ext}?v=${BUILD_VER}`);
+  async function setLabelRemote(id, name){
+    try{
+      const r = await fetch(LABELS_SET_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id, name }),
+      });
+      return r.ok;
+    }catch{ return false; }
   }
-  function attachMultiSrc(imgEl, id, onAllError){
-    const candidates = imgUrlCandidates(id);
-    let idx = 0;
-    function tryNext(){
-      if(idx >= candidates.length){
-        imgEl.onerror = null; imgEl.onload = null;
-        if(onAllError) onAllError();
-        return;
-      }
-      const url = candidates[idx++];
-      imgEl.onerror = tryNext;
-      imgEl.onload  = () => { imgEl.onerror = null; imgEl.onload = null; };
-      imgEl.src = url;
-      imgEl.alt = `ID ${id}`;
-    }
-    tryNext();
+  async function loadLabel(id){
+    const el = $('#anchorLabel');
+    if (!el) return;
+    if (state.namesCache[id]) { el.textContent = state.namesCache[id]; return; }
+    const remote = await getLabelRemote(id);
+    if (remote){ state.namesCache[id]=remote; el.textContent=remote; localStorage.setItem(localKey(id), remote); return; }
+    const local = localStorage.getItem(localKey(id));
+    el.textContent = local || '';
+    if (local) state.namesCache[id]=local;
   }
-
-  function loadLabel(id){ try{return(JSON.parse(localStorage.getItem('labels')||'{}')[id]||"");}catch(e){return"";} }
-  function saveLabel(id,name){ try{const d=JSON.parse(localStorage.getItem('labels')||'{}');d[id]=name;localStorage.setItem('labels',JSON.stringify(d));}catch(e){} }
-  function displayName(id){ const n=(loadLabel(id)||"").trim(); return n||id; }
-
-  // Relationship derivation (locked)
-  function deriveSiblings(idStr){
-    const base=idStr.split('.')[0], len=digits(base), n=toInt(base);
-    const place=genPlace(base), currentDigit=Math.floor(n/place)%10, floorToPlace=n-currentDigit*place;
-    const out=[]; for(let k=1;k<=9;k++){const sib=floorToPlace+k*place; if(sib!==n) out.push(padTo(len,sib));}
-    return out;
-  }
-  function deriveChildren(idStr){
-    const base=idStr.split('.')[0], len=digits(base), n=toInt(base);
-    const place=childPlace(base), currentDigit=Math.floor(n/place)%10, floorToPlace=n-currentDigit*place;
-    const out=[]; for(let k=1;k<=9;k++){ out.push(padTo(len, floorToPlace + k*place)); }
-    return out;
-  }
-  function deriveParents(idStr){
-    const base=idStr.split('.')[0], len=digits(base), n=toInt(base);
-    const cPlace=childPlace(base), cDigit=Math.floor(n/cPlace)%10;
-    const set=new Set();
-    if(cDigit>0){ set.add(padTo(len, n - cDigit*cPlace)); }
-    else { const gPlace=genPlace(base), gDigit=Math.floor(n/gPlace)%10; if(gDigit>0) set.add(padTo(len, n - gDigit*gPlace)); }
-    return Array.from(set);
-  }
-
-  const historyStack=[]; let anchorId=null;
-  const anchorCard=$('#anchorCard'), anchorImg=$('#anchorImg');
-  const anchorIdEl=$('#anchorId'), anchorNameEl=$('#anchorName');
-  const grid=$('#grid'), tileTemplate=$('#tileTemplate'), notice=$('#notice');
-  const missingTemplate=$('#missingTemplate');
-
-  function setAnchor(id){
-    if(anchorId&&anchorId!==id)historyStack.push(anchorId);
-    anchorId=id;
-    anchorIdEl.textContent=id;
-    anchorNameEl.textContent=displayName(id);
-    attachMultiSrc(anchorImg, id);
-    hideGrid();
-  }
-  function hideGrid(){ grid.innerHTML=''; grid.classList.add('hidden'); notice.classList.add('hidden'); notice.textContent=''; }
-
-  // Render helpers
-  function appendPersonTile(id){
-    const tile=tileTemplate.content.firstElementChild.cloneNode(true);
-    const img=tile.querySelector('img'); const nameSpan=tile.querySelector('.name');
-    tile.querySelector('.id').textContent="";
-    nameSpan.textContent=displayName(id);
-    attachMultiSrc(img, id, ()=>{
-      // turn into missing placeholder
-      const ph=missingTemplate.content.firstElementChild.cloneNode(true);
-      ph.querySelector('.id').textContent='';
-      ph.querySelector('.name').textContent=displayName(id);
-      tile.replaceWith(ph);
-    });
-    tile.addEventListener('click',()=>setAnchor(id));
-    grid.appendChild(tile);
+  async function saveLabel(id, name){
+    state.namesCache[id]=name;
+    localStorage.setItem(localKey(id), name || '');
+    await setLabelRemote(id, name || '');
+    const el=$('#anchorLabel'); if(el) el.textContent = name || '';
   }
 
-  // Sequential render with two modes:
-  // - contiguousMode (Children): stop after first missing *after* at least one success.
-  // - earlyStopMode (Parents/Siblings): stop after 2 consecutive misses.
-  function renderSet(ids, {contiguousMode=false, earlyStopMode=false}={}){
-    grid.innerHTML=''; grid.classList.remove('hidden');
-    let successCount=0, consecutiveMiss=0, stopped=false;
-    let processed=0;
-    const maxTiles=9;
+  const clearGrid = () => { const g = $('#grid'); if (g) g.innerHTML=''; };
+  const showOverlay = (title) => { const ov=$('#gridOverlay'); if(ov){ $('#overlayTitle').textContent=title||''; ov.classList.remove('hidden'); } };
+  const hideOverlay = () => { const ov=$('#gridOverlay'); if(ov) ov.classList.add('hidden'); };
 
-    function next(){
-      if(stopped) return;
-      if(processed>=ids.length || successCount>=maxTiles) return;
-      const id=ids[processed++];
-      const tile=tileTemplate.content.firstElementChild.cloneNode(true);
-      const img=tile.querySelector('img'); const nameSpan=tile.querySelector('.name');
-      tile.querySelector('.id').textContent="";
-      nameSpan.textContent=displayName(id);
-
-      function onAllError(){
-        consecutiveMiss++;
-        if(contiguousMode && successCount>0){
-          // stop at first gap after at least one success
-          const missId = id;
-          // show a single placeholder + notice and stop
-          const ph=missingTemplate.content.firstElementChild.cloneNode(true);
-          ph.querySelector('.name').textContent=`Image not found (${missId})`;
-          grid.appendChild(ph);
-          notice.textContent=`Stopped after first missing ID (${missId}).`;
-          notice.classList.remove('hidden');
-          stopped=true;
-          return;
-        }
-        if(earlyStopMode && consecutiveMiss>=2){
-          notice.textContent='Stopping after repeated missing images.';
-          notice.classList.remove('hidden');
-          stopped=true;
-          return;
-        }
-        // otherwise skip this one and continue
-        tile.remove();
-        next();
-      }
-
-      function onLoad(){
-        consecutiveMiss=0; successCount++;
-        img.removeEventListener('load', onLoad);
-        img.removeEventListener('allerror', onAllError);
-        next();
-      }
-
-      img.addEventListener('load', onLoad);
-      img.addEventListener('allerror', onAllError);
-      attachMultiSrc(img, id, ()=>img.dispatchEvent(new Event('allerror')));
-      tile.addEventListener('click',()=>setAnchor(id));
-      grid.appendChild(tile);
-    }
-
-    // pump initial
-    for(let k=0;k<Math.min(3, ids.length); k++) next();
+  function applyFitMode(imgEl, id){
+    if (!imgEl) return;
+    if (OVERRIDE_CONTAIN.has(String(id))) imgEl.classList.add('contain');
+    else imgEl.classList.remove('contain');
   }
 
-  function showSiblings(){ if(!anchorId) return; renderSet(deriveSiblings(anchorId), {earlyStopMode:true}); }
-  function showChildren(){ if(!anchorId) return; renderSet(deriveChildren(anchorId), {contiguousMode:true}); }
-  function showParents(){ if(!anchorId) return; renderSet(deriveParents(anchorId), {earlyStopMode:true}); }
+  const renderTile = (container, id) => {
+    const tile = document.createElement('div');
+    tile.className='tile'; tile.dataset.id=id;
+    tile.innerHTML = `<div class="tid">${id}</div><img alt="person"/><div class="name"></div>`;
+    const img = tile.querySelector('img');
+    applyFitMode(img, id);
+    img.src = imageURL(id);
+    img.addEventListener('error', ()=> tile.remove(), {once:true});
+    tile.addEventListener('click', ()=>{ navigateTo(id); hideOverlay(); });
+    container.appendChild(tile);
+  };
+  const renderGrid = (title, ids) => { clearGrid(); showOverlay(title); const grid=$('#grid'); if(!grid) return; [...new Set(ids)].forEach(id=>renderTile(grid,id)); };
 
-  // Buttons
-  $('#btnSiblings').addEventListener('click', showSiblings);
-  $('#btnChildren').addEventListener('click', showChildren);
-  $('#btnParents').addEventListener('click', showParents);
-  $('#btnBack').addEventListener('click',()=>{if(historyStack.length)setAnchor(historyStack.pop());});
+  async function loadAnchor(id){
+    state.anchorId = String(id);
+    const idEl=$('#anchorId'); if(idEl) idEl.textContent = state.anchorId;
+    const img=$('#anchorImg'); if(img){ applyFitMode(img, id); img.src=imageURL(id); img.removeAttribute('hidden'); }
+    await loadLabel(id);
+  }
 
-  // Swipe
-  (function enableSwipe(){
-    let x0=0,y0=0; const THRESH=30;
-    anchorCard.addEventListener('touchstart',e=>{const t=e.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
-    anchorCard.addEventListener('touchend',e=>{
-      const t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0;
-      if(Math.max(Math.abs(dx),Math.abs(dy))<THRESH) return;
-      if(Math.abs(dx)>Math.abs(dy)){
-        if(dx<0){ showSiblings(); }
-      } else {
-        if(dy<0){ showParents(); }
-        else { showChildren(); }
-      }
+  function attachSwipe(el){
+    if (!el) return;
+    let sx=0, sy=0, active=false; const TH=30;
+    el.addEventListener('touchstart', e=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; active=true; }, {passive:true});
+    el.addEventListener('touchend', e=>{
+      if(!active) return; active=false;
+      const t=e.changedTouches[0]; const dx=t.clientX-sx, dy=t.clientY-sy;
+      if (Math.abs(dx)<TH && Math.abs(dy)<TH) return;
+      if (Math.abs(dx)>Math.abs(dy)){ if (dx>0) onSwipeRight(); else onSwipeLeft(); }
+      else { if (dy>0) onSwipeDown(); else onSwipeUp(); }
     }, {passive:true});
-  })();
-
-  // Long-press to edit
-  function longPress(el,ms,onLong){
-    let t=null;
-    el.addEventListener('pointerdown',ev=>{ev.preventDefault();t=setTimeout(onLong,ms);});
-    ['pointerup','pointerleave','pointercancel'].forEach(evt=>{
-      el.addEventListener(evt,()=>{if(t){clearTimeout(t);t=null;}});
-    });
   }
-  longPress(anchorImg,500,()=>{
-    if(!anchorId) return;
-    const current=(loadLabel(anchorId)||"").trim();
-    const name=prompt(`Edit display name for ${anchorId}`, current);
-    if(name!==null){ const v=name.trim(); saveLabel(anchorId,v); anchorNameEl.textContent=displayName(anchorId); }
-  });
+  function onSwipeRight(){ if (isSpouseId(state.anchorId)) { navigateTo(spouseOf(state.anchorId)); return; } renderGrid('Spouse', [spouseOf(state.anchorId)]); }
+  function onSwipeLeft(){ renderGrid('Siblings', siblingsOf(state.anchorId)); }
+  function onSwipeDown(){ renderGrid('Children', childrenOf(state.anchorId)); }
+  function onSwipeUp(){ const p=parentOf(state.anchorId); const list=[]; if(p&&p!==0){ list.push(String(p)); list.push(spouseOf(String(p))); } renderGrid('Parents', list); }
 
-  function boot(){ let id=getHashId()||"100000"; setHashId(id); setAnchor(id); }
-  window.addEventListener('popstate',e=>{const id=(e.state&&e.state.id)||getHashId()||anchorId;if(id)setAnchor(id);});
-  document.addEventListener('DOMContentLoaded',boot);
+  function longPress(el, fn, ms=520){ let t=null; const start=()=>{ cancel(); t=setTimeout(fn,ms); }; const cancel=()=>{ if(t){clearTimeout(t); t=null;} }; el.addEventListener('touchstart', start, {passive:true}); el.addEventListener('touchend', cancel, {passive:true}); el.addEventListener('mousedown', start); el.addEventListener('mouseup', cancel); el.addEventListener('mouseleave', cancel); }
+
+  function init(){
+    bind('#closeOverlay','click', hideOverlay);
+    bind('#backBtn','click', ()=>{ const ov=$('#gridOverlay'); if(ov && !ov.classList.contains('hidden')){ hideOverlay(); return; } const prev=state.history.pop(); if(prev) loadAnchor(prev); });
+    bind('#startBtn','click', ()=>{ const input=prompt('Enter starting ID', state.anchorId||'100000'); if(input) navigateTo(String(input)); });
+
+    longPress($('#anchorCard'), async ()=>{
+      const id = state.anchorId;
+      const current = state.namesCache[id] || localStorage.getItem(localKey(id)) || '';
+      const name = window.prompt('Edit label (name):', current);
+      if (name===null) return;
+      await saveLabel(id, name);
+    });
+
+    attachSwipe($('#anchorCard'));
+
+    const id = idFromURL() || '100000';
+    state.anchorId = String(id);
+    loadAnchor(state.anchorId);
+  }
+  document.addEventListener('DOMContentLoaded', init);
 })();

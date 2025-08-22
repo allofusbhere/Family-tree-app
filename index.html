@@ -1,58 +1,40 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Unified (v1.3.2)</title>
-  <link rel="stylesheet" href="style.v132.css" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <title>SwipeTree</title>
+  <link rel="stylesheet" href="style.css?v=v9b-fixed-1755816024"/>
+  <link rel="stylesheet" href="style.patch.css" />
 </head>
 <body>
-  <div id="app">
-    <header>
-      <h1>SwipeTree — Unified</h1>
-      <div class="controls">
-        <button id="btnParents" title="Show parents">Parents</button>
-        <button id="btnSiblings" title="Show siblings">Siblings</button>
-        <button id="btnChildren" title="Show children">Children</button>
-        <button id="btnBack" title="Go back">Back</button>
-      </div>
-    </header>
+  <header class="topbar">
+    <button id="backBtn" class="btn">&larr; Back</button>
+    <h1>SwipeTree</h1>
+    <button id="startBtn" class="btn">Start</button>
+  </header>
 
-    <main>
-      <div id="anchorCard" class="card" aria-label="Swipe area (Up=Parents, Left=Siblings, Down=Children)">
-        <img id="anchorImg" alt="anchor" draggable="false" />
-        <div class="hint" id="swipeHint">↑ Parents &nbsp;← Siblings &nbsp;↓ Children</div>
-        <div class="label">
-          <div id="anchorId" class="id"></div>
-          <div id="anchorName" class="name"></div>
-        </div>
-      </div>
-
-      <div id="grid" class="grid hidden" aria-live="polite"></div>
-      <div id="notice" class="notice hidden"></div>
-    </main>
-  </div>
-
-  <template id="tileTemplate">
-    <div class="tile">
-      <img alt="person" draggable="false" />
-      <div class="tile-label">
-        <div class="id"></div>
-        <div class="name"></div>
-      </div>
+  <main id="app">
+    <div id="anchorCard" class="card anchor" tabindex="0" aria-label="Anchor">
+      <div class="id" id="anchorId"></div>
+      <img id="anchorImg" alt="person"/>
+      <div class="label" id="anchorLabel"></div>
     </div>
-  </template>
 
-  <template id="missingTemplate">
-    <div class="tile missing">
-      <div class="missing-box">Image not found</div>
-      <div class="tile-label">
-        <div class="id"></div>
-        <div class="name"></div>
+    <section id="gridOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+      <div class="overlayHeader">
+        <h2 id="overlayTitle">Items</h2>
+        <button id="closeOverlay" class="btn" data-overlay-close>Close</button>
       </div>
-    </div>
-  </template>
+      <div id="grid" class="grid" data-grid></div>
+    </section>
+  </main>
 
-  <script src="script.v132.js"></script>
+  <script>window.BUILD_TAG="v9b-fixed-1755816024";</script>
+  <script src="script.js?v=v9b-fixed-1755816024"></script>
+  <script src="name-overlay.js" defer></script>
 </body>
 </html>

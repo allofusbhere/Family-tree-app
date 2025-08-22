@@ -1,0 +1,27 @@
+/* === Patch: Bigger anchor image + square tiles === */
+#anchorImg, #anchorCard img, .anchor img, .main-photo img {
+  width: min(92vw, 700px);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 22px;
+  border: 1px solid #2a2f3a;
+}
+
+/* Grid tiles */
+.grid img, .tile img, .person img, .card .tile img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 14px;
+}
+
+/* === Patch: Always show names, hide numeric IDs === */
+.label .id, .tile .id, .person-id, .grid .id {
+  display: none !important;
+}
+.label .name, .tile .name, .person-name, .grid .name {
+  display: block !important;
+  font-weight: 600;
+  font-size: 14px;
+}
