@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Buttons Only Base (v2)</title>
+  <title>SwipeTree — Unified (Buttons + Swipe)</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app">
     <header>
-      <h1>SwipeTree (Buttons-Only Base)</h1>
+      <h1>SwipeTree — Unified</h1>
       <div class="controls">
         <button id="btnParents" title="Show parents">Parents</button>
         <button id="btnSiblings" title="Show siblings">Siblings</button>
@@ -19,10 +19,10 @@
     </header>
 
     <main>
-      <div id="anchorCard" class="card">
+      <div id="anchorCard" class="card" aria-label="Swipe area (Up=Parents, Left=Siblings, Down=Children)">
         <img id="anchorImg" alt="anchor" draggable="false" />
+        <div class="hint" id="swipeHint">↑ Parents &nbsp;← Siblings &nbsp;↓ Children</div>
         <div class="label">
-          <!-- ID is retained in DOM for fallback but hidden by CSS -->
           <div id="anchorId" class="id"></div>
           <div id="anchorName" class="name"></div>
         </div>
@@ -36,7 +36,6 @@
     <div class="tile">
       <img alt="person" draggable="false" />
       <div class="tile-label">
-        <!-- Hide ID globally; name shows instead (falls back to ID when missing) -->
         <div class="id"></div>
         <div class="name"></div>
       </div>
