@@ -1,12 +1,7 @@
 
-# Netlify configuration for SwipeTree labels + functions
 [build]
   command = "npm install"
   functions = "netlify/functions"
 
 [functions]
   node_bundler = "esbuild"
-
-# (Optional) Set function timeout if needed
-#[functions."labels"]
-#  timeout = 10
