@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const BUILD_VER = 'v1.2-20250822';
+  const BUILD_VER = 'v1.3-20250822';
   const $ = sel => document.querySelector(sel);
   const $$ = sel => Array.from(document.querySelectorAll(sel));
   document.addEventListener('contextmenu', e => e.preventDefault());
@@ -11,7 +11,7 @@
   function padTo(len,n){ return n.toString().padStart(len,'0'); }
   function toInt(idStr){ return parseInt(idStr.split('.')[0],10); }
 
-  // Generation helpers
+  // Generation helpers (locked rules)
   function genPlace(idStr){
     const s=idStr.split('.')[0];
     for(let i=0;i<s.length;i++){ if(s[i]!=='0'){ return Math.pow(10, s.length-i-1); } }
@@ -19,13 +19,11 @@
   }
   function childPlace(idStr){ return genPlace(idStr)/10; }
 
-  // Cross-repo image candidates (multi-extension) + cache-busting
+  // Multi-extension image loader + cache-busting
   const EXT_LIST = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.webp'];
   function imgUrlCandidates(id){
     return EXT_LIST.map(ext => `https://allofusbhere.github.io/family-tree-images/${id}${ext}?v=${BUILD_VER}`);
   }
-
-  // Attach to an <img>: try all candidate URLs until one loads, then freeze on success
   function attachMultiSrc(imgEl, id){
     const candidates = imgUrlCandidates(id);
     let idx = 0;
@@ -36,19 +34,31 @@
       }
       const url = candidates[idx++];
       imgEl.onerror = tryNext;
-      imgEl.onload = () => { imgEl.onerror = null; imgEl.onload = null; };
+      imgEl.onload  = () => { imgEl.onerror = null; imgEl.onload = null; };
       imgEl.src = url;
       imgEl.alt = `ID ${id}`;
     }
     tryNext();
   }
 
+  // Optional manifest
+  let manifest = null; // { "100000": { "children": ["110000","120000",...], "siblings": [...], "parents": [...] }, ... }
+  async function tryLoadManifest(){
+    try{
+      const url = `https://allofusbhere.github.io/family-tree-images/meta.json?v=${BUILD_VER}`;
+      const res = await fetch(url, {cache:'no-store'});
+      if(res.ok){
+        manifest = await res.json();
+      }
+    }catch(e){ /* ignore */ }
+  }
+  tryLoadManifest(); // fire and forget
+
   function loadLabel(id){ try{return(JSON.parse(localStorage.getItem('labels')||'{}')[id]||"");}catch(e){return"";} }
   function saveLabel(id,name){ try{const d=JSON.parse(localStorage.getItem('labels')||'{}');d[id]=name;localStorage.setItem('labels',JSON.stringify(d));}catch(e){} }
   function displayName(id){ const n=(loadLabel(id)||"").trim(); return n||id; }
-  function longPress(el,ms,onLong){ let t=null; el.addEventListener('pointerdown',ev=>{ev.preventDefault();t=setTimeout(onLong,ms);}); ['pointerup','pointerleave','pointercancel'].forEach(evt=>{el.addEventListener(evt,()=>{if(t){clearTimeout(t);t=null;}});}); }
 
-  // Generation-aware relationships
+  // Relationship derivation (locked)
   function deriveSiblings(idStr){
     const base=idStr.split('.')[0], len=digits(base), n=toInt(base);
     const place=genPlace(base), currentDigit=Math.floor(n/place)%10, floorToPlace=n-currentDigit*place;
@@ -80,43 +90,60 @@
     anchorId=id;
     anchorIdEl.textContent=id;
     anchorNameEl.textContent=displayName(id);
-    // Multi-extension loader for anchor
     attachMultiSrc(anchorImg, id);
     hideGrid();
   }
-
   function hideGrid(){ grid.innerHTML=''; grid.classList.add('hidden'); notice.classList.add('hidden'); notice.textContent=''; }
 
-  function showGrid(ids){
-    grid.innerHTML=''; grid.classList.remove('hidden'); let rendered=0;
-    ids.slice(0,9).forEach(id=>{
+  // Sequential render with early-stop (2 consecutive misses)
+  function sequentialRender(ids, maxTiles=9){
+    grid.innerHTML=''; grid.classList.remove('hidden');
+    let i=0, successCount=0, consecutiveMiss=0;
+
+    function step(){
+      if(successCount >= maxTiles || i >= ids.length || consecutiveMiss >= 2){
+        if(successCount===0){ grid.classList.add('hidden'); notice.textContent='No images found for this set.'; notice.classList.remove('hidden'); }
+        return;
+      }
+      const id = ids[i++];
       const tile=tileTemplate.content.firstElementChild.cloneNode(true);
-      const img=tile.querySelector('img');
-      const nameSpan=tile.querySelector('.name');
-      tile.querySelector('.id').textContent="";
-      nameSpan.textContent=displayName(id);
-
-      // Multi-extension with "allerror" handler
-      img.addEventListener('allerror', ()=>{
-        tile.remove();
-        if(grid.children.length===0){
-          grid.classList.add('hidden');
-          notice.textContent = 'No images found for this set.';
-          notice.classList.remove('hidden');
-        }
-      });
+      const img=tile.querySelector('img'); const nameSpan=tile.querySelector('.name');
+      tile.querySelector('.id').textContent=""; nameSpan.textContent=displayName(id);
+      img.addEventListener('allerror', ()=>{ tile.remove(); consecutiveMiss++; step(); });
+      img.addEventListener('load', ()=>{ consecutiveMiss=0; successCount++; });
       attachMultiSrc(img, id);
-
       tile.addEventListener('click',()=>setAnchor(id));
       grid.appendChild(tile);
-      rendered++;
-    });
+      // Continue after load/error
+      img.addEventListener('load', step, {once:true});
+      img.addEventListener('allerror', step, {once:true});
+    }
+    step();
+  }
+
+  function showSiblings(){
+    if(!anchorId) return;
+    const idsFromManifest = manifest?.[anchorId]?.siblings;
+    if(Array.isArray(idsFromManifest) && idsFromManifest.length){ sequentialRender(idsFromManifest); }
+    else { sequentialRender(deriveSiblings(anchorId)); }
+  }
+  function showChildren(){
+    if(!anchorId) return;
+    const idsFromManifest = manifest?.[anchorId]?.children;
+    if(Array.isArray(idsFromManifest) && idsFromManifest.length){ sequentialRender(idsFromManifest); }
+    else { sequentialRender(deriveChildren(anchorId)); }
+  }
+  function showParents(){
+    if(!anchorId) return;
+    const idsFromManifest = manifest?.[anchorId]?.parents;
+    if(Array.isArray(idsFromManifest) && idsFromManifest.length){ sequentialRender(idsFromManifest); }
+    else { sequentialRender(deriveParents(anchorId)); }
   }
 
   // Buttons
-  $('#btnSiblings').addEventListener('click',()=>{if(anchorId)showGrid(deriveSiblings(anchorId));});
-  $('#btnChildren').addEventListener('click',()=>{if(anchorId)showGrid(deriveChildren(anchorId));});
-  $('#btnParents').addEventListener('click',()=>{if(anchorId)showGrid(deriveParents(anchorId));});
+  $('#btnSiblings').addEventListener('click', showSiblings);
+  $('#btnChildren').addEventListener('click', showChildren);
+  $('#btnParents').addEventListener('click', showParents);
   $('#btnBack').addEventListener('click',()=>{if(historyStack.length)setAnchor(historyStack.pop());});
 
   // Swipe
@@ -127,15 +154,22 @@
       const t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0;
       if(Math.max(Math.abs(dx),Math.abs(dy))<THRESH) return;
       if(Math.abs(dx)>Math.abs(dy)){
-        if(dx<0){ if(anchorId)showGrid(deriveSiblings(anchorId)); }
+        if(dx<0){ showSiblings(); }
       } else {
-        if(dy<0){ if(anchorId)showGrid(deriveParents(anchorId)); }
-        else { if(anchorId)showGrid(deriveChildren(anchorId)); }
+        if(dy<0){ showParents(); }
+        else { showChildren(); }
       }
     }, {passive:true});
   })();
 
   // Long-press to edit
+  function longPress(el,ms,onLong){
+    let t=null;
+    el.addEventListener('pointerdown',ev=>{ev.preventDefault();t=setTimeout(onLong,ms);});
+    ['pointerup','pointerleave','pointercancel'].forEach(evt=>{
+      el.addEventListener(evt,()=>{if(t){clearTimeout(t);t=null;}});
+    });
+  }
   longPress(anchorImg,500,()=>{
     if(!anchorId) return;
     const current=(loadLabel(anchorId)||"").trim();
