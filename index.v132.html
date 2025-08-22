@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>SwipeTree — Unified (v1.3.2)</title>
+  <!-- Tiny data-URI favicon to avoid 404s -->
+  <link rel="icon" href="data:," />
+  <!-- Use the versioned files to hard-bust caches -->
+  <link rel="stylesheet" href="style.v132.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>SwipeTree — Unified</h1>
+      <div class="controls">
+        <button id="btnParents" title="Show parents">Parents</button>
+        <button id="btnSiblings" title="Show siblings">Siblings</button>
+        <button id="btnChildren" title="Show children">Children</button>
+        <button id="btnBack" title="Go back">Back</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="anchorCard" class="card" aria-label="Swipe area (Up=Parents, Left=Siblings, Down=Children)">
+        <img id="anchorImg" alt="anchor" draggable="false" />
+        <div class="hint" id="swipeHint">↑ Parents &nbsp;← Siblings &nbsp;↓ Children</div>
+        <div class="label">
+          <div id="anchorId" class="id"></div>
+          <div id="anchorName" class="name"></div>
+        </div>
+      </div>
+
+      <div id="grid" class="grid hidden" aria-live="polite"></div>
+      <div id="notice" class="notice hidden"></div>
+    </main>
+  </div>
+
+  <!-- Tile template -->
+  <template id="tileTemplate">
+    <div class="tile">
+      <img alt="person" draggable="false" />
+      <div class="tile-label">
+        <div class="id"></div>
+        <div class="name"></div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Placeholder template for 1st missing contiguous image -->
+  <template id="missingTemplate">
+    <div class="tile missing">
+      <div class="missing-box">Image not found</div>
+      <div class="tile-label">
+        <div class="id"></div>
+        <div class="name"></div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Versioned script for hard cache-bust -->
+  <script src="script.v132.js"></script>
+</body>
+</html>
