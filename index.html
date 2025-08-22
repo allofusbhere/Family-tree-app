@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — Unified (v1.3)</title>
+  <title>SwipeTree — Unified (v1.3.1)</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -36,6 +36,16 @@
   <template id="tileTemplate">
     <div class="tile">
       <img alt="person" draggable="false" />
+      <div class="tile-label">
+        <div class="id"></div>
+        <div class="name"></div>
+      </div>
+    </div>
+  </template>
+
+  <template id="missingTemplate">
+    <div class="tile missing">
+      <div class="missing-box">Image not found</div>
       <div class="tile-label">
         <div class="id"></div>
         <div class="name"></div>

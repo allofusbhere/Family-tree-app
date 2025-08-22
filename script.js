@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const BUILD_VER = 'v1.3-20250822';
+  const BUILD_VER = 'v1.3.1-20250822';
   const $ = sel => document.querySelector(sel);
   const $$ = sel => Array.from(document.querySelectorAll(sel));
   document.addEventListener('contextmenu', e => e.preventDefault());
@@ -11,7 +11,7 @@
   function padTo(len,n){ return n.toString().padStart(len,'0'); }
   function toInt(idStr){ return parseInt(idStr.split('.')[0],10); }
 
-  // Generation helpers (locked rules)
+  // Generation helpers (locked)
   function genPlace(idStr){
     const s=idStr.split('.')[0];
     for(let i=0;i<s.length;i++){ if(s[i]!=='0'){ return Math.pow(10, s.length-i-1); } }
@@ -19,17 +19,18 @@
   }
   function childPlace(idStr){ return genPlace(idStr)/10; }
 
-  // Multi-extension image loader + cache-busting
-  const EXT_LIST = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.webp'];
+  // Multi-extension (limited) + cache-busting
+  const EXT_LIST = ['.jpg', '.JPG'];
   function imgUrlCandidates(id){
     return EXT_LIST.map(ext => `https://allofusbhere.github.io/family-tree-images/${id}${ext}?v=${BUILD_VER}`);
   }
-  function attachMultiSrc(imgEl, id){
+  function attachMultiSrc(imgEl, id, onAllError){
     const candidates = imgUrlCandidates(id);
     let idx = 0;
     function tryNext(){
       if(idx >= candidates.length){
-        imgEl.dispatchEvent(new Event('allerror'));
+        imgEl.onerror = null; imgEl.onload = null;
+        if(onAllError) onAllError();
         return;
       }
       const url = candidates[idx++];
@@ -40,19 +41,6 @@
     }
     tryNext();
   }
-
-  // Optional manifest
-  let manifest = null; // { "100000": { "children": ["110000","120000",...], "siblings": [...], "parents": [...] }, ... }
-  async function tryLoadManifest(){
-    try{
-      const url = `https://allofusbhere.github.io/family-tree-images/meta.json?v=${BUILD_VER}`;
-      const res = await fetch(url, {cache:'no-store'});
-      if(res.ok){
-        manifest = await res.json();
-      }
-    }catch(e){ /* ignore */ }
-  }
-  tryLoadManifest(); // fire and forget
 
   function loadLabel(id){ try{return(JSON.parse(localStorage.getItem('labels')||'{}')[id]||"");}catch(e){return"";} }
   function saveLabel(id,name){ try{const d=JSON.parse(localStorage.getItem('labels')||'{}');d[id]=name;localStorage.setItem('labels',JSON.stringify(d));}catch(e){} }
@@ -84,6 +72,7 @@
   const anchorCard=$('#anchorCard'), anchorImg=$('#anchorImg');
   const anchorIdEl=$('#anchorId'), anchorNameEl=$('#anchorName');
   const grid=$('#grid'), tileTemplate=$('#tileTemplate'), notice=$('#notice');
+  const missingTemplate=$('#missingTemplate');
 
   function setAnchor(id){
     if(anchorId&&anchorId!==id)historyStack.push(anchorId);
@@ -95,50 +84,87 @@
   }
   function hideGrid(){ grid.innerHTML=''; grid.classList.add('hidden'); notice.classList.add('hidden'); notice.textContent=''; }
 
-  // Sequential render with early-stop (2 consecutive misses)
-  function sequentialRender(ids, maxTiles=9){
-    grid.innerHTML=''; grid.classList.remove('hidden');
-    let i=0, successCount=0, consecutiveMiss=0;
+  // Render helpers
+  function appendPersonTile(id){
+    const tile=tileTemplate.content.firstElementChild.cloneNode(true);
+    const img=tile.querySelector('img'); const nameSpan=tile.querySelector('.name');
+    tile.querySelector('.id').textContent="";
+    nameSpan.textContent=displayName(id);
+    attachMultiSrc(img, id, ()=>{
+      // turn into missing placeholder
+      const ph=missingTemplate.content.firstElementChild.cloneNode(true);
+      ph.querySelector('.id').textContent='';
+      ph.querySelector('.name').textContent=displayName(id);
+      tile.replaceWith(ph);
+    });
+    tile.addEventListener('click',()=>setAnchor(id));
+    grid.appendChild(tile);
+  }
 
-    function step(){
-      if(successCount >= maxTiles || i >= ids.length || consecutiveMiss >= 2){
-        if(successCount===0){ grid.classList.add('hidden'); notice.textContent='No images found for this set.'; notice.classList.remove('hidden'); }
-        return;
-      }
-      const id = ids[i++];
+  // Sequential render with two modes:
+  // - contiguousMode (Children): stop after first missing *after* at least one success.
+  // - earlyStopMode (Parents/Siblings): stop after 2 consecutive misses.
+  function renderSet(ids, {contiguousMode=false, earlyStopMode=false}={}){
+    grid.innerHTML=''; grid.classList.remove('hidden');
+    let successCount=0, consecutiveMiss=0, stopped=false;
+    let processed=0;
+    const maxTiles=9;
+
+    function next(){
+      if(stopped) return;
+      if(processed>=ids.length || successCount>=maxTiles) return;
+      const id=ids[processed++];
       const tile=tileTemplate.content.firstElementChild.cloneNode(true);
       const img=tile.querySelector('img'); const nameSpan=tile.querySelector('.name');
-      tile.querySelector('.id').textContent=""; nameSpan.textContent=displayName(id);
-      img.addEventListener('allerror', ()=>{ tile.remove(); consecutiveMiss++; step(); });
-      img.addEventListener('load', ()=>{ consecutiveMiss=0; successCount++; });
-      attachMultiSrc(img, id);
+      tile.querySelector('.id').textContent="";
+      nameSpan.textContent=displayName(id);
+
+      function onAllError(){
+        consecutiveMiss++;
+        if(contiguousMode && successCount>0){
+          // stop at first gap after at least one success
+          const missId = id;
+          // show a single placeholder + notice and stop
+          const ph=missingTemplate.content.firstElementChild.cloneNode(true);
+          ph.querySelector('.name').textContent=`Image not found (${missId})`;
+          grid.appendChild(ph);
+          notice.textContent=`Stopped after first missing ID (${missId}).`;
+          notice.classList.remove('hidden');
+          stopped=true;
+          return;
+        }
+        if(earlyStopMode && consecutiveMiss>=2){
+          notice.textContent='Stopping after repeated missing images.';
+          notice.classList.remove('hidden');
+          stopped=true;
+          return;
+        }
+        // otherwise skip this one and continue
+        tile.remove();
+        next();
+      }
+
+      function onLoad(){
+        consecutiveMiss=0; successCount++;
+        img.removeEventListener('load', onLoad);
+        img.removeEventListener('allerror', onAllError);
+        next();
+      }
+
+      img.addEventListener('load', onLoad);
+      img.addEventListener('allerror', onAllError);
+      attachMultiSrc(img, id, ()=>img.dispatchEvent(new Event('allerror')));
       tile.addEventListener('click',()=>setAnchor(id));
       grid.appendChild(tile);
-      // Continue after load/error
-      img.addEventListener('load', step, {once:true});
-      img.addEventListener('allerror', step, {once:true});
     }
-    step();
+
+    // pump initial
+    for(let k=0;k<Math.min(3, ids.length); k++) next();
   }
 
-  function showSiblings(){
-    if(!anchorId) return;
-    const idsFromManifest = manifest?.[anchorId]?.siblings;
-    if(Array.isArray(idsFromManifest) && idsFromManifest.length){ sequentialRender(idsFromManifest); }
-    else { sequentialRender(deriveSiblings(anchorId)); }
-  }
-  function showChildren(){
-    if(!anchorId) return;
-    const idsFromManifest = manifest?.[anchorId]?.children;
-    if(Array.isArray(idsFromManifest) && idsFromManifest.length){ sequentialRender(idsFromManifest); }
-    else { sequentialRender(deriveChildren(anchorId)); }
-  }
-  function showParents(){
-    if(!anchorId) return;
-    const idsFromManifest = manifest?.[anchorId]?.parents;
-    if(Array.isArray(idsFromManifest) && idsFromManifest.length){ sequentialRender(idsFromManifest); }
-    else { sequentialRender(deriveParents(anchorId)); }
-  }
+  function showSiblings(){ if(!anchorId) return; renderSet(deriveSiblings(anchorId), {earlyStopMode:true}); }
+  function showChildren(){ if(!anchorId) return; renderSet(deriveChildren(anchorId), {contiguousMode:true}); }
+  function showParents(){ if(!anchorId) return; renderSet(deriveParents(anchorId), {earlyStopMode:true}); }
 
   // Buttons
   $('#btnSiblings').addEventListener('click', showSiblings);
