@@ -1,38 +1,48 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0"/>
-  <meta http-equiv="Pragma" content="no-cache"/>
-  <meta http-equiv="Expires" content="0"/>
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css?v=v9b-fixed-1755816024"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SwipeTree — Buttons Only Base (v2)</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <button id="backBtn" class="btn">&larr; Back</button>
-    <h1>SwipeTree</h1>
-    <button id="startBtn" class="btn">Start</button>
-  </header>
-
-  <main id="app">
-    <div id="anchorCard" class="card anchor" tabindex="0" aria-label="Anchor">
-      <div class="id" id="anchorId"></div>
-      <img id="anchorImg" alt="person"/>
-      <div class="label" id="anchorLabel"></div>
-    </div>
-
-    <section id="gridOverlay" class="overlay hidden" role="dialog" aria-modal="true">
-      <div class="overlayHeader">
-        <h2 id="overlayTitle">Items</h2>
-        <button id="closeOverlay" class="btn" data-overlay-close>Close</button>
+  <div id="app">
+    <header>
+      <h1>SwipeTree (Buttons-Only Base)</h1>
+      <div class="controls">
+        <button id="btnParents" title="Show parents">Parents</button>
+        <button id="btnSiblings" title="Show siblings">Siblings</button>
+        <button id="btnChildren" title="Show children">Children</button>
+        <button id="btnBack" title="Go back">Back</button>
       </div>
-      <div id="grid" class="grid" data-grid></div>
-    </section>
-  </main>
+    </header>
 
-  <script>window.BUILD_TAG="v9b-fixed-1755816024";</script>
-  <script src="script.js?v=v9b-fixed-1755816024"></script>
+    <main>
+      <div id="anchorCard" class="card">
+        <img id="anchorImg" alt="anchor" draggable="false" />
+        <div class="label">
+          <!-- ID is retained in DOM for fallback but hidden by CSS -->
+          <div id="anchorId" class="id"></div>
+          <div id="anchorName" class="name"></div>
+        </div>
+      </div>
+
+      <div id="grid" class="grid hidden" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <template id="tileTemplate">
+    <div class="tile">
+      <img alt="person" draggable="false" />
+      <div class="tile-label">
+        <!-- Hide ID globally; name shows instead (falls back to ID when missing) -->
+        <div class="id"></div>
+        <div class="name"></div>
+      </div>
+    </div>
+  </template>
+
+  <script src="script.js"></script>
 </body>
 </html>
