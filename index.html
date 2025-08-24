@@ -1,25 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="./style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
+  <title>SwipeTree — ButtonsOff Build</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
-    <!-- Your existing app will replace/augment this area.
-         Keep #app present so scroll guard works. -->
-    <div class="anchor">
-      <img id="anchorImg" alt="anchor" src="" />
+  <div id="app" class="app">
+    <header class="topbar">
+      <button id="backBtn" class="btn">Back</button>
+      <div id="headerTitle" class="title">SwipeTree</div>
+      <div class="spacer"></div>
+    </header>
+
+    <main class="stage" id="stage">
+      <div id="anchorWrap" class="anchor-wrap">
+        <img id="anchorImg" class="anchor" alt="anchor" />
+        <div id="anchorLabel" class="anchor-label"></div>
+      </div>
+    </main>
+
+    <!-- Overlays -->
+    <div id="overlay" class="overlay hidden">
+      <div class="overlay-header">
+        <div id="overlayTitle"></div>
+        <button id="closeOverlay" class="btn small">Close</button>
+      </div>
+      <div id="grid" class="grid"></div>
     </div>
+
+    <footer class="hintbar">
+      <div>Swipe: ↑ parents • ← siblings • → spouse • ↓ children</div>
+    </footer>
   </div>
 
-  <!-- Load your existing app script if present (safe no-op if missing) -->
-  <script src="./script.js" defer></script>
-
-  <!-- Labels + bridge (order matters) -->
-  <script type="module" src="./labels.js"></script>
-  <script type="module" src="./app-hook.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
