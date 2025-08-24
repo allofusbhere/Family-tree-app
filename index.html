@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
   <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css?v=v5e"/>
+  <link rel="stylesheet" href="style.css?v=v5f"/>
 </head>
 <body>
   <header class="topbar">
@@ -12,16 +12,16 @@
     <h1>SwipeTree</h1>
   </header>
 
-  <div id="diag" class="diag">[v5e] script loaded | base=https://allofusbhere.github.io/family-tree-images/</div>
+  <div id="diag" class="diag">[v5f] script loaded | base=https://allofusbhere.github.io/family-tree-images/</div>
 
-  <main id="stage" class="stage">
+  <main id="stage" class="stage" aria-label="Swipe area">
     <div id="anchorWrap" class="anchor-wrap">
       <img id="anchorImg" class="anchor" alt="anchor"/>
       <div id="anchorLabel" class="label"></div>
     </div>
 
     <!-- Spouse overlay (appears on swipe-right) -->
-    <div id="spouseOverlay" class="overlay hidden">
+    <div id="spouseOverlay" class="overlay hidden" role="dialog">
       <div class="overlay-title">Spouse</div>
       <div id="spouseCard" class="card">
         <img id="spouseImg" class="thumb" alt="spouse"/>
@@ -31,6 +31,6 @@
   </main>
 
   <script>window.IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/";</script>
-  <script src="script.js?v=v5e"></script>
+  <script src="script.js?v=v5f"></script>
 </body>
 </html>

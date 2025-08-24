@@ -8,38 +8,30 @@
   const spouseImg = q('#spouseImg');
   const spouseLabel = q('#spouseLabel');
   const backBtn = q('#backBtn');
+  const stage = q('#stage');
 
   // History
   const historyStack = [];
-  function pushHistory(id){ if(historyStack.length===0 || historyStack[historyStack.length-1]!==id) historyStack.push(id); }
-  function popHistory(){ if(historyStack.length>1){ historyStack.pop(); return historyStack[historyStack.length-1]; } return historyStack[0]; }
+  function pushHistory(id){ if(historyStack.at(-1)!==id) historyStack.push(id); }
+  function popHistory(){ if(historyStack.length>1){ historyStack.pop(); return historyStack.at(-1);} return historyStack[0]; }
 
-  // Simple labels cache (optional; can be replaced by Netlify function)
+  // Labels sample (replace with Netlify later)
   const labels = {
     "100000": "Fred (anchor)",
     "140000": "Aaron",
     "240000": "Damita"
   };
 
-  // Spouse map (both directions). In repo, place spouse_link.json at root to override.
+  // Spouse map
   let spouseMap = { "140000":"240000", "240000":"140000" };
-
   async function loadSpouseMap() {
     try{
       const res = await fetch('spouse_link.json', {cache:'no-store'});
-      if(res.ok){
-        const json = await res.json();
-        spouseMap = json;
-      }
-    }catch(e){
-      console.warn('[v5e] spouse_link.json not found, using inline defaults.');
-    }
+      if(res.ok){ spouseMap = await res.json(); }
+    }catch(e){ console.warn('[v5f] spouse_link.json not found, using inline defaults.'); }
   }
 
-  function imgUrlFor(id){
-    // Person photos are id.jpg; spouse-face variants (like .1) are separate files but not anchor ids.
-    return BASE + String(id) + '.jpg';
-  }
+  function imgUrlFor(id){ return BASE + String(id) + '.jpg'; }
 
   function setAnchor(id){
     window.location.hash = 'id=' + id;
@@ -47,81 +39,82 @@
     anchorImg.src = imgUrlFor(id);
     anchorImg.alt = id;
     anchorLabel.textContent = labels[id] || id;
-    // Hide overlays when anchoring
     hideSpouse();
   }
 
   function showSpouse(forId){
     const sp = spouseMap[forId];
     if(!sp){ hideSpouse(); return; }
-    spouseImg.src = imgUrlFor(sp); // display spouse's own image so user can confirm visually
+    spouseImg.src = imgUrlFor(sp);
     spouseImg.alt = sp;
     spouseLabel.textContent = labels[sp] || sp;
     spouseOverlay.classList.remove('hidden');
   }
   function hideSpouse(){ spouseOverlay.classList.add('hidden'); }
 
-  // --- Gestures ---
-  let touchStartX=0, touchStartY=0, touching=false;
-  const SWIPE_MIN = 40;
+  // --- Unified gesture system (pointer + touch fallback) ---
+  let startX=0, startY=0, tracking=false;
 
-  function onTouchStart(ev){
-    const t = ev.touches ? ev.touches[0] : ev;
-    touchStartX = t.clientX; touchStartY = t.clientY; touching=true;
+  function begin(x,y,ev){
+    tracking = true; startX = x; startY = y;
+    // Stop the page from scrolling/zooming during gestures
+    if(ev && ev.cancelable) ev.preventDefault();
   }
-  function onTouchEnd(ev){
-    if(!touching) return;
-    const t = ev.changedTouches ? ev.changedTouches[0] : ev;
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    touching=false;
-    const absX = Math.abs(dx), absY=Math.abs(dy);
+  function end(x,y,ev){
+    if(!tracking) return;
+    tracking=false;
+    const dx = x - startX, dy = y - startY;
+    const absX = Math.abs(dx), absY = Math.abs(dy);
+    const SWIPE_MIN = 40;
+    if(ev && ev.cancelable) ev.preventDefault();
 
     if(absX > absY && absX > SWIPE_MIN){
-      if(dx > 0){
-        // Right = show spouse
-        const id = currentId();
-        showSpouse(id);
+      if(dx > 0){  // right
+        showSpouse(currentId());
       } else {
-        // Left = siblings (not changed in this package)
+        // left = siblings (reserved)
       }
     } else if(absY > absX && absY > SWIPE_MIN){
       if(dy < 0){
-        // Up = parents (not changed)
+        // up = parents (reserved)
       } else {
-        // Down = children (not changed)
+        // down = children (reserved)
       }
     }
   }
 
-  // Tap inside spouse overlay -> ANCHOR THE SPOUSE (the fix)
-  spouseOverlay?.addEventListener('click', function(e){
-    // If user clicks anywhere on the spouse card, anchor to spouse ID
-    const spId = spouseImg?.alt;
-    if(spId){ setAnchor(spId); }
-  });
+  // Pointer events (iPad Safari 16+ supports these)
+  if(window.PointerEvent){
+    stage.addEventListener('pointerdown', (e)=>begin(e.clientX, e.clientY, e), {passive:false});
+    stage.addEventListener('pointerup',   (e)=>end(e.clientX, e.clientY, e),   {passive:false});
+  } else {
+    // Touch fallback
+    stage.addEventListener('touchstart', (e)=>{
+      const t = e.touches[0]; begin(t.clientX, t.clientY, e);
+    }, {passive:false});
+    stage.addEventListener('touchend', (e)=>{
+      const t = e.changedTouches[0]; end(t.clientX, t.clientY, e);
+    }, {passive:false});
+    // Mouse fallback
+    stage.addEventListener('mousedown', (e)=>begin(e.clientX, e.clientY, e), {passive:false});
+    stage.addEventListener('mouseup',   (e)=>end(e.clientX, e.clientY, e),   {passive:false});
+  }
 
-  // Back
-  backBtn?.addEventListener('click', ()=>{
-    const prev = popHistory();
-    setAnchor(prev);
-  });
+  // Tap spouse overlay to anchor spouse
+  spouseOverlay?.addEventListener('click', function(){
+    const spId = spouseImg?.alt; if(spId) setAnchor(spId);
+  }, {passive:false});
+
+  backBtn?.addEventListener('click', ()=> setAnchor(popHistory()));
 
   function currentId(){
-    const h = window.location.hash || '';
-    const m = h.match(/id=([0-9.]+)/);
+    const m = (window.location.hash||'').match(/id=([0-9.]+)/);
     return m ? m[1] : '100000';
   }
 
   async function init(){
     await loadSpouseMap();
-    const startId = currentId();
-    pushHistory(startId);
-    setAnchor(startId);
-    // Bind gestures
-    const stage = q('#stage');
-    ['touchstart','mousedown'].forEach(ev=>stage.addEventListener(ev,onTouchStart, {passive:true}));
-    ['touchend','mouseup'].forEach(ev=>stage.addEventListener(ev,onTouchEnd, {passive:true}));
+    setAnchor(currentId());
   }
 
   document.addEventListener('DOMContentLoaded', init);
