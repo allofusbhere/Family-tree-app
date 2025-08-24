@@ -1,44 +1,36 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css" />
-  <script>
-    window.SWIPE_IMAGE_BASES = [
-      "https://allofusbhere.github.io/family-tree-images/"
-    ];
-  </script>
+  <link rel="stylesheet" href="style.css?v=v5e"/>
 </head>
 <body>
-  <header class="app-bar">
-    <button id="backBtn" aria-label="Back">Back</button>
+  <header class="topbar">
+    <button id="backBtn" class="back">Back</button>
     <h1>SwipeTree</h1>
-    <div class="spacer"></div>
   </header>
 
-  <div id="debug" class="debug"></div>
+  <div id="diag" class="diag">[v5e] script loaded | base=https://allofusbhere.github.io/family-tree-images/</div>
 
-  <main id="stage">
-    <div id="anchor" class="anchor">
-      <img id="anchor-img" data-role="anchor" alt="" draggable="false" />
-      <div id="anchor-name" data-role="anchor-name" class="anchor-name"></div>
-      <div id="anchor-url" class="anchor-url"></div>
-      <div id="anchor-status" class="anchor-status"></div>
+  <main id="stage" class="stage">
+    <div id="anchorWrap" class="anchor-wrap">
+      <img id="anchorImg" class="anchor" alt="anchor"/>
+      <div id="anchorLabel" class="label"></div>
     </div>
 
-    <section id="overlay" data-overlay="grid" class="overlay hidden">
-      <div class="overlay-content">
-        <div class="overlay-header">
-          <h2 id="overlay-title">Grid</h2>
-          <button id="overlay-close" aria-label="Close">×</button>
-        </div>
-        <div class="grid" id="grid-dynamic"></div>
+    <!-- Spouse overlay (appears on swipe-right) -->
+    <div id="spouseOverlay" class="overlay hidden">
+      <div class="overlay-title">Spouse</div>
+      <div id="spouseCard" class="card">
+        <img id="spouseImg" class="thumb" alt="spouse"/>
+        <div id="spouseLabel" class="label small"></div>
       </div>
-    </section>
+    </div>
   </main>
 
-  <script src="script.js?v=v5d"></script>
+  <script>window.IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/";</script>
+  <script src="script.js?v=v5e"></script>
 </body>
 </html>
