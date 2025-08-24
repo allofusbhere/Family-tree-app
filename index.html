@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SwipeTree</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+    // Authoritative image base (your stated location)
+    window.SWIPE_IMAGE_BASES = [
+      "https://allofusbhere.github.io/family-tree-images/"
+    ];
+  </script>
 </head>
 <body>
   <header class="app-bar">
@@ -15,11 +21,10 @@
 
   <main id="stage">
     <div id="anchor" class="anchor">
-      <img id="anchor-img" data-role="anchor" alt="anchor" draggable="false" />
+      <img id="anchor-img" data-role="anchor" alt="" draggable="false" />
       <div id="anchor-name" data-role="anchor-name" class="anchor-name"></div>
     </div>
 
-    <!-- Overlays (hidden by default) -->
     <section id="overlay" data-overlay="grid" class="overlay hidden">
       <div class="overlay-content">
         <div class="overlay-header">

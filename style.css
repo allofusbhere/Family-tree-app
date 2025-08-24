@@ -5,9 +5,8 @@ html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple
 .app-bar .spacer { flex: 1; }
 #stage { position: relative; width: 100%; height: calc(100vh - 50px); overflow: hidden; display: grid; place-items: center; background: #f6f7f9; }
 .anchor { display: grid; place-items: center; gap: 8px; }
-#anchor-img { width: min(70vw, 420px); height: auto; max-height: 65vh; object-fit: contain; user-select: none; touch-action: none; }
+#anchor-img { width: min(70vw, 420px); height: auto; max-height: 65vh; object-fit: contain; user-select: none; touch-action: none; background:#eee; border-radius:12px; }
 .anchor-name { font-size: 18px; font-weight: 600; text-align: center; min-height: 1.2em; }
-
 .overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.96); display: none; }
 .overlay.hidden { display: none; }
 .overlay:not(.hidden) { display: block; }
@@ -15,7 +14,6 @@ html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple
 .overlay-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #eee; }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 16px 0; }
 .tile { display: grid; gap: 6px; place-items: center; padding: 8px; border: 1px solid #eee; border-radius: 12px; background: #fff; overflow: hidden; }
-.tile img { width: 100%; height: auto; max-height: 24vh; object-fit: contain; pointer-events: none; }
+.tile img { width: 100%; height: auto; max-height: 24vh; object-fit: contain; pointer-events: none; background:#f2f2f2; border-radius:10px; }
 .tile .cap { font-size: 14px; text-align: center; min-height: 1em; }
-
 button { cursor: pointer; }
