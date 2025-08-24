@@ -2,38 +2,34 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
-  <title>SwipeTree — ButtonsOff Build</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SwipeTree</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app" class="app">
-    <header class="topbar">
-      <button id="backBtn" class="btn">Back</button>
-      <div id="headerTitle" class="title">SwipeTree</div>
-      <div class="spacer"></div>
-    </header>
+  <header class="app-bar">
+    <button id="backBtn" aria-label="Back">Back</button>
+    <h1>SwipeTree</h1>
+    <div class="spacer"></div>
+  </header>
 
-    <main class="stage" id="stage">
-      <div id="anchorWrap" class="anchor-wrap">
-        <img id="anchorImg" class="anchor" alt="anchor" />
-        <div id="anchorLabel" class="anchor-label"></div>
-      </div>
-    </main>
-
-    <!-- Overlays -->
-    <div id="overlay" class="overlay hidden">
-      <div class="overlay-header">
-        <div id="overlayTitle"></div>
-        <button id="closeOverlay" class="btn small">Close</button>
-      </div>
-      <div id="grid" class="grid"></div>
+  <main id="stage">
+    <div id="anchor" class="anchor">
+      <img id="anchor-img" data-role="anchor" alt="anchor" draggable="false" />
+      <div id="anchor-name" data-role="anchor-name" class="anchor-name"></div>
     </div>
 
-    <footer class="hintbar">
-      <div>Swipe: ↑ parents • ← siblings • → spouse • ↓ children</div>
-    </footer>
-  </div>
+    <!-- Overlays (hidden by default) -->
+    <section id="overlay" data-overlay="grid" class="overlay hidden">
+      <div class="overlay-content">
+        <div class="overlay-header">
+          <h2 id="overlay-title">Grid</h2>
+          <button id="overlay-close" aria-label="Close">×</button>
+        </div>
+        <div class="grid" id="grid-dynamic"></div>
+      </div>
+    </section>
+  </main>
 
   <script src="script.js"></script>
 </body>

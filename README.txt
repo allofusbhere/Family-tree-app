@@ -1,38 +1,30 @@
+SwipeTree — Primary Code Update (v5)
 
-SwipeTree — Editing & Two-Parents Centering (Drop‑in Fixes)
-===========================================================
+This package updates your **primary app files** (no hotfix layer). It bakes the
+anchor/label corrections directly into `script.js`, keeping your relationship
+logic hooks intact.
 
-What’s fixed
-------------
-1) **SoftEdit (long‑press to edit)** — Long‑press any person card/image to edit the name label inline. 
-   - Saves to localStorage under the person’s numeric ID (key: `swipetree:label:<ID>`).
-   - No hint text. Save with Enter; Esc or Cancel closes without saving.
+Included:
+- index.html
+- style.css
+- script.js
 
-2) **Parents overlay centered** — The parents grid is centered when 1–2 parents are shown 
-   (and stays nicely centered for more). Works for overlays with `data-type="parents"` 
-   or `#parentsGrid` and a `.grid` container.
+Highlights:
+- Tapping any grid tile anchors to THAT ID (fixes spouse re-appearing + name carryover).
+- Proper history/back behavior and URL hash updates (#id=...).
+- Single overlay with a generic 3×3 grid renderer (max 9 items).
+- Swipe gestures: Right=Spouse, Left=Siblings, Up=Parents, Down=Children.
+- Uses your existing relationship calculators when available:
+  fetchSpouseItems(currentId), fetchSiblingItems(currentId),
+  fetchParentItems(currentId), fetchChildItems(currentId).
+  (If not present, the grid just won't open for that direction.)
 
-3) **Overlay close helper** — Any element with the attribute `[data-overlay-close]` now 
-   closes the nearest `.overlay` defensively.
+Install:
+1) Download this ZIP.
+2) Replace your current index.html, style.css, and script.js.
+3) Ensure your calculators are exposed globally with those fetch* names
+   returning arrays like: [{ id: "141000", label: "Alex" }, ...]
+4) Image files should be flat in the same folder and named like: 140000.jpg
 
-How to install
---------------
-1) Upload both files to your app alongside your existing files:
-   - `edit_parents_fix.js`
-   - `parents_fix.css`
-
-2) Reference them **after** your main CSS/JS in your HTML (typically near the end of `<head>` and before `</body>`):
-
-   ```html
-   <link rel="stylesheet" href="parents_fix.css">
-   ...
-   <script src="edit_parents_fix.js"></script>
-   ```
-
-3) No other changes required. These are *drop‑in* and will attach to your existing DOM.
-
-Notes
------
-- This is intentionally light‑touch and won’t disturb your existing swipe/navigation logic.
-- Labels use localStorage for now so you can verify editing quickly; we can swap in a shared backend later.
-- If you use different classnames/IDs, ping me and I’ll tailor the selectors.
+You can keep your existing calculator code in a separate script file; this update
+doesn't overwrite that logic—only the core app shell and event handling.
