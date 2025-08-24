@@ -6,7 +6,6 @@
   <title>SwipeTree</title>
   <link rel="stylesheet" href="style.css" />
   <script>
-    // Authoritative image base (your stated location)
     window.SWIPE_IMAGE_BASES = [
       "https://allofusbhere.github.io/family-tree-images/"
     ];
@@ -19,10 +18,14 @@
     <div class="spacer"></div>
   </header>
 
+  <div id="debug" class="debug"></div>
+
   <main id="stage">
     <div id="anchor" class="anchor">
       <img id="anchor-img" data-role="anchor" alt="" draggable="false" />
       <div id="anchor-name" data-role="anchor-name" class="anchor-name"></div>
+      <div id="anchor-url" class="anchor-url"></div>
+      <div id="anchor-status" class="anchor-status"></div>
     </div>
 
     <section id="overlay" data-overlay="grid" class="overlay hidden">
@@ -36,6 +39,6 @@
     </section>
   </main>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=v5d"></script>
 </body>
 </html>
