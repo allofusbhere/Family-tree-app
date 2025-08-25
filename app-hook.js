@@ -1,125 +1,76 @@
-
-// app-hook.js — robust labels everywhere + iOS scroll guard (2025-08-22)
-import { getLabelsBatch, setLabel } from './labels.js';
-
-function extractIdFromSrc(src=''){
-  try{
-    const file = src.split('/').pop().split('?')[0].split('#')[0];
-    const base = file.replace(/\.(jpg|jpeg|png|webp|gif)$/i, '');
-    if (/^\d+(\.\d+)?$/.test(base)) return base;
-  }catch(e){}
-  return null;
-}
-const qsa = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-
-function collectVisibleIds(){
-  const ids = new Set();
-  qsa('.anchor img, .grid .tile img, .overlay .tile img').forEach(img => {
-    const id = img.dataset.id || extractIdFromSrc(img.currentSrc || img.src);
-    if (id) ids.add(id);
-  });
-  return Array.from(ids);
-}
-
-function ensureAnchorCaption(){
-  let cap = document.querySelector('.anchor-caption');
-  if (!cap){
-    cap = document.createElement('div');
-    cap.className = 'anchor-caption';
-    (document.querySelector('#app') || document.body).appendChild(cap);
+/*! app-hook.js — rc1b iPad swipe restoration + label cleanup
+ *  Drop-in replacement. No index.html edits required.
+ *  - Injects minimal CSS to stop iOS Safari from hijacking swipes
+ *  - Binds non-passive touch listeners on your main surface
+ *  - Calls your existing goLeft/goRight/goUp/goDown functions
+ *  - Cleans stray \u00A0 from the anchor name label
+ */
+(function(){
+  function injectCSS(css){
+    try{
+      var tag=document.createElement('style');
+      tag.type='text/css';
+      tag.appendChild(document.createTextNode(css));
+      document.head.appendChild(tag);
+    }catch(e){}
   }
-  return cap;
-}
-function setCaption(img, text){
-  if (img.closest('.anchor')){
-    ensureAnchorCaption().textContent = text || '';
-  }else{
-    let cap = img.closest('.tile')?.querySelector('.caption');
-    if (!cap && img.closest('.tile')){
-      cap = document.createElement('div');
-      cap.className = 'caption';
-      img.closest('.tile').appendChild(cap);
-    }
-    if (cap) cap.textContent = text || '';
-  }
-}
-function renderCaptions(map){
-  qsa('.anchor img, .grid .tile img, .overlay .tile img').forEach(img => {
-    const id = img.dataset.id || extractIdFromSrc(img.currentSrc || img.src);
-    const info = (id && map[id]) || {};
-    const text = [info.name, info.dob].filter(Boolean).join(' · ');
-    setCaption(img, text);
-  });
-}
-export async function refreshCaptions(){
-  const ids = collectVisibleIds();
-  if (!ids.length) return;
-  try{
-    const map = await getLabelsBatch(ids);
-    renderCaptions(map);
-  }catch(e){ console.error('Label fetch failed', e); }
-}
 
-// Hidden long-press editor
-function bindLongPress(){
-  let timer=null;
-  const start = (el) => {
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      const id = el.dataset.id || extractIdFromSrc(el.currentSrc || el.src);
-      if (!id) return;
-      const current = el.closest('.tile')?.querySelector('.caption')?.textContent
-        || document.querySelector('.anchor-caption')?.textContent || '';
-      const [currName, currDob] = current.split(' · ');
-      const name = prompt('Name:', currName || '');
-      if (name === null) return;
-      const dob = prompt('DOB:', currDob || '');
-      try{
-        await setLabel(id, { name, dob });
-        await refreshCaptions();
-        alert('Saved ✔');
-      }catch(e){
-        alert('Save failed — deploy Netlify function with @netlify/blobs');
+  // CSS to keep Safari from stealing gestures
+  var css = [
+    "html,body{height:100%;}",
+    "#stage,body{overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;}"
+  ].join("\n");
+  injectCSS(css);
+
+  function on(el,ev,fn,opts){ el && el.addEventListener(ev,fn,opts||false); }
+
+  function installSwipe(surface){
+    if(!surface) return;
+    var sx=0, sy=0, dx=0, dy=0, active=false;
+
+    on(surface,'touchstart',function(e){
+      var t=e.changedTouches && e.changedTouches[0]; if(!t) return;
+      sx=t.clientX; sy=t.clientY; dx=0; dy=0; active=true;
+    },{passive:false});
+
+    on(surface,'touchmove',function(e){
+      if(!active) return;
+      var t=e.changedTouches && e.changedTouches[0]; if(!t) return;
+      dx=t.clientX - sx; dy=t.clientY - sy;
+      e.preventDefault(); // block page scroll so swipe can be detected
+    },{passive:false});
+
+    on(surface,'touchend',function(){
+      if(!active) return; active=false;
+      var TH=30;
+      if(Math.abs(dx)>Math.abs(dy)){
+        if(dx>TH  && window.goRight) window.goRight();   // spouse
+        if(dx<-TH && window.goLeft)  window.goLeft();    // siblings
+      }else{
+        if(dy<-TH && window.goUp)    window.goUp();      // parents
+        if(dy>TH  && window.goDown)  window.goDown();    // children
       }
-    }, 550);
-  };
-  const cancel = () => clearTimeout(timer);
-  document.addEventListener('touchstart', e => {
-    const img = e.target.closest('.anchor img, .grid .tile img, .overlay .tile img');
-    if (img) start(img);
-  }, {passive:true});
-  ['touchend','touchcancel','touchmove','scroll'].forEach(ev => {
-    document.addEventListener(ev, cancel, {passive:true});
-  });
-  document.addEventListener('mousedown', e => {
-    const img = e.target.closest('.anchor img, .grid .tile img, .overlay .tile img');
-    if (img) start(img);
-  });
-  document.addEventListener('mouseup', cancel);
-  document.addEventListener('mouseleave', cancel);
-}
+    },{passive:false});
 
-// iOS page scroll prevention inside #app
-function lockPageScroll(){
-  const app = document.getElementById('app');
-  if (!app) return;
-  const prevent = (e) => e.preventDefault();
-  app.addEventListener('touchmove', prevent, { passive:false });
-  app.addEventListener('wheel', prevent, { passive:false });
-}
+    on(surface,'touchcancel',function(){ active=false; },{passive:false});
+  }
 
-// Observe DOM changes so captions refresh when grids open
-function observeDom(){
-  const mo = new MutationObserver(() => {
-    clearTimeout(observeDom._t);
-    observeDom._t = setTimeout(refreshCaptions, 80);
+  function cleanAnchorName(){
+    try{
+      var el = document.getElementById('displayName') ||
+               document.querySelector('[data-role="name"]') ||
+               document.querySelector('.anchor-name');
+      if(el){ el.textContent = (el.textContent||"").replace(/\u00A0/g,"").trim(); }
+    }catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    // Prefer your dedicated surface if present
+    var surface = document.getElementById('stage') ||
+                  document.querySelector('.stage') ||
+                  document.querySelector('#anchor') ||
+                  document.body;
+    installSwipe(surface);
+    cleanAnchorName();
   });
-  mo.observe(document.body, { subtree:true, childList:true, attributes:true });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  lockPageScroll();
-  bindLongPress();
-  observeDom();
-  refreshCaptions();
-});
+})();
