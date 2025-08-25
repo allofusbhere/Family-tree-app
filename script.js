@@ -1,12 +1,10 @@
-// SwipeTree rc1c glue: clean, primary integration (no hotfix layering)
+// SwipeTree rc1c glue: swipes/autostart/image fallback/NBSP cleanup
 (function(){
-  // Config
   var IMAGES_BASE = "https://allofusbhere.github.io/family-tree-images/";
   var EXT_ORDER = [".jpg",".JPG",".jpeg",".png"];
 
   function on(el, ev, fn, opts){ if(el) el.addEventListener(ev, fn, opts||false); }
 
-  // --- Swipe bindings (non‑passive) ---
   function bindSwipes(){
     var surface = document.getElementById('stage') || document.body;
     var sx=0, sy=0, dx=0, dy=0, active=false;
@@ -18,7 +16,7 @@
       if(!active) return;
       var t=e.changedTouches && e.changedTouches[0]; if(!t) return;
       dx=t.clientX - sx; dy=t.clientY - sy;
-      e.preventDefault(); // stop page scroll so gestures work
+      e.preventDefault();
     }, {passive:false});
     on(surface,'touchend',function(){
       if(!active) return; active=false;
@@ -34,21 +32,19 @@
     on(surface,'touchcancel',function(){ active=false; }, {passive:false});
   }
 
-  // --- NBSP cleanup ---
   function cleanName(){
     try{
       var el = document.getElementById('displayName') ||
                document.querySelector('[data-role=\"name\"]') ||
                document.querySelector('.anchor-name');
-      if(el){ el.textContent = (el.textContent||'').replace(/\u00A0/g,'').trim(); }
+      if(el){ el.textContent = (el.textContent||'').replace(/\\u00A0/g,'').trim(); }
     }catch(e){}
   }
 
-  // --- Auto-start from URL ---
   function getIdFromURL(){
     try{
       var h=(location.hash||'').replace(/^#/,'');  // id=100000
-      var q=(location.search||'').replace(/^\?/,''); // id=100000
+      var q=(location.search||'').replace(/^\\?/,''); // id=100000
       var params = new URLSearchParams(h.includes('=')?h:q);
       var id = params.get('id');
       return id && id.trim() ? id.trim() : null;
@@ -68,13 +64,12 @@
     }catch(e){ console.warn('AutoStart failed', e); }
   }
 
-  // --- Image path redirect + extension fallback ---
   function filenameFrom(src){
     try{ return src.split('/').pop().split('?')[0].split('#')[0]; }catch(e){ return src; }
   }
   function baseName(f){ var i=f.lastIndexOf('.'); return i>=0 ? f.slice(0,i) : f; }
   function nextExt(ext){ var i=EXT_ORDER.indexOf(ext); return (i>=0 && i<EXT_ORDER.length-1) ? EXT_ORDER[i+1] : null; }
-  function isFromAppRepo(src){ return /\/Family-tree-app\//i.test(src); }
+  function isFromAppRepo(src){ return /\\/Family-tree-app\\//i.test(src); }
 
   document.addEventListener('error', function(e){
     var t=e.target;
@@ -87,7 +82,6 @@
     if(next){ t.src = IMAGES_BASE + name + next; return; }
   }, true);
 
-  // --- Init after DOM is available (your core logic is already loaded) ---
   document.addEventListener('DOMContentLoaded', function(){
     bindSwipes();
     cleanName();
