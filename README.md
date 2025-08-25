@@ -1,14 +1,13 @@
-# SwipeTree rc1c-domguard — Primary build with DOM binding guard
+# SwipeTree rc1c-domguard+grid
 
-This build prevents the `$(...).addEventListener is null` crash by **deferring event bindings**
-until the target elements actually exist. It does this by temporarily intercepting
-`document.querySelector` and `getElementById` to return a deferrable object rather than null,
-then flushes those bindings on DOMContentLoaded.
+This update adds the missing **#grid** element your core expects (it calls `grid.classList.add/remove` in `script.v132.js`).
+Without it, you saw: `TypeError: grid.classList is undefined`.
 
-Included (replace these 3):
-- index.html — includes the DOM guard (before core), then loads `script.v132.js`, then `script.js`.
-- style.css — iOS touch guards.
-- script.js — swipes, autostart, image fallback (ignores favicon/index), NBSP cleanup.
+Included:
+- index.html — same DOM guard as rc1c_domguard, plus `<div id="grid" class="grid hidden"></div>` inside `#stage`.
+- style.css — adds `.grid` overlay + `.hidden` class; keeps iOS touch guards.
 
-Open after commit:
-https://allofusbhere.github.io/Family-tree-app/index.html?v=rc1cdom#id=100000
+Install:
+1) Replace **index.html** and **style.css** with these.
+2) Keep your existing **script.js** and **script.v132.js** as-is.
+3) Open: https://allofusbhere.github.io/Family-tree-app/index.html?v=rc1cdom#id=100000

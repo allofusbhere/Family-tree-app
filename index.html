@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwipeTree rc1c-domguard</title>
+  <title>SwipeTree rc1c-domguard+grid</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- DOM guard: prevent $(...).addEventListener null by deferring bindings until elements exist -->
+  <!-- DOM guard to defer bindings until elements exist -->
   <script>
     (function(){
       var origQS = Document.prototype.querySelector;
@@ -15,44 +15,41 @@
       function makeDeferred(sel){
         var handlers = [];
         var obj = {
-          __deferred__: true,
-          __sel__: sel,
           addEventListener: function(type, fn, opts){
-            handlers.push({type:type, fn:fn, opts:opts});
-            // try immediate bind if element is available now
-            var el = origQS.call(document, sel[0]==='#' ? sel : sel);
-            if (el) {
-              handlers.forEach(function(h){ el.addEventListener(h.type, h.fn, h.opts||false); });
-              handlers.length = 0;
+            function tryBind(tries){
+              var el = null;
+              try { el = origQS.call(document, sel[0]==='#' ? sel : sel); } catch(e){}
+              if (el) { el.addEventListener(type, fn, opts||false); return; }
+              if ((tries||0) > 120) return;
+              requestAnimationFrame(function(){ tryBind((tries||0)+1); });
             }
+            tryBind(0);
           },
-          setAttribute: function(){ /* no-op */ },
-          get style(){ return {}; }
+          setAttribute: function(){}, get style(){ return {}; }
         };
-        obj.__flush__ = function(){
-          var el = origQS.call(document, sel);
-          if(!el) return false;
-          handlers.forEach(function(h){ el.addEventListener(h.type, h.fn, h.opts||false); });
-          handlers.length = 0;
-          return true;
-        };
-        deferred.push(obj);
+        deferred.push({sel:sel, obj:obj});
         return obj;
       }
       Document.prototype.querySelector = function(sel){
         try{
           var el = origQS.call(this, sel);
           return el || makeDeferred(sel);
-        }catch(e){
-          return makeDeferred(sel);
-        }
+        }catch(e){ return makeDeferred(sel); }
       };
       Document.prototype.getElementById = function(id){
         var el = origGI.call(this, id);
         return el || makeDeferred("#"+id);
       };
       window.addEventListener('DOMContentLoaded', function(){
-        deferred.forEach(function(d){ try{ d.__flush__(); }catch(e){} });
+        deferred.forEach(function(d){
+          try {
+            var el = origQS.call(document, d.sel);
+            if (el && d.obj && d.obj.__handlers) {
+              d.obj.__handlers.forEach(function(h){ el.addEventListener(h.type,h.fn,h.opts||false); });
+              d.obj.__handlers = [];
+            }
+          } catch(e){}
+        });
       });
     })();
   </script>
@@ -64,11 +61,15 @@
     <input id="idInput" type="text" placeholder="Enter ID (e.g., 100000)" />
     <button id="startBtn">Start</button>
   </div>
+
   <div id="stage">
     <img id="anchorImg" src="" alt="Anchor" />
     <div id="displayName"></div>
     <div id="displayId"></div>
+    <!-- Added: grid overlay expected by core (script.v132.js) -->
+    <div id="grid" class="grid hidden"></div>
   </div>
+
   <p class="help">
     Swipe: ◀ siblings • ▶ spouse • ▲ parents • ▼ children<br />
     Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.
