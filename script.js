@@ -1,55 +1,31 @@
-// SwipeTree rc1c-domguard glue: swipes, autostart, image fallback, NBSP cleanup
+/*! script.js — rc1c CORE-ONLY (no swipe handlers)
+ *  Leaves swipe handling entirely to your core (script.v132.js).
+ *  Includes only quality-of-life helpers: autostart, NBSP cleanup, image fallback.
+ */
 (function(){
   var IMAGES_BASE = "https://allofusbhere.github.io/family-tree-images/";
   var EXT_ORDER = [".jpg",".JPG",".jpeg",".png"];
 
-  function on(el, ev, fn, opts){ if(el && el.addEventListener) el.addEventListener(ev, fn, opts||false); }
-
-  function bindSwipes(){
-    var surface = document.getElementById('stage') || document.body;
-    var sx=0, sy=0, dx=0, dy=0, active=false;
-    on(surface,'touchstart',function(e){
-      var t=e.changedTouches && e.changedTouches[0]; if(!t) return;
-      sx=t.clientX; sy=t.clientY; dx=0; dy=0; active=true;
-    }, {passive:false});
-    on(surface,'touchmove',function(e){
-      if(!active) return;
-      var t=e.changedTouches && e.changedTouches[0]; if(!t) return;
-      dx=t.clientX - sx; dy=t.clientY - sy;
-      e.preventDefault();
-    }, {passive:false});
-    on(surface,'touchend',function(){
-      if(!active) return; active=false;
-      var TH=30;
-      if(Math.abs(dx)>Math.abs(dy)){
-        if(dx>TH  && typeof window.goRight==='function') window.goRight();
-        if(dx<-TH && typeof window.goLeft ==='function') window.goLeft();
-      } else {
-        if(dy<-TH && typeof window.goUp   ==='function') window.goUp();
-        if(dy>TH  && typeof window.goDown ==='function') window.goDown();
-      }
-    }, {passive:false});
-    on(surface,'touchcancel',function(){ active=false; }, {passive:false});
-  }
-
+  // --- NBSP cleanup ---
   function cleanName(){
     try{
       var el = document.getElementById('displayName') ||
                document.querySelector('[data-role="name"]') ||
                document.querySelector('.anchor-name');
-      if(el){ el.textContent = (el.textContent||'').split('\u00A0').join('').trim(); }
+      if(el){ el.textContent = (el.textContent||'').split('\\u00A0').join('').trim(); }
     }catch(e){}
   }
 
+  // --- Autostart from URL ---
   function getIdFromURL(){
     try{
       var id = null;
-      var h = (location.hash||'').replace(/^#/,'');    // e.g., id=100000
+      var h = (location.hash||'').replace(/^#/,'');    // id=100000
       if (h.indexOf('=') !== -1){
         var hp = new URLSearchParams(h);
         id = hp.get('id');
       } else {
-        var q = (location.search||'').replace(/^\?/,''); // id=100000
+        var q = (location.search||'').replace(/^\\?/,''); // id=100000
         var qp = new URLSearchParams(q);
         id = qp.get('id');
       }
@@ -71,7 +47,7 @@
     }catch(e){ console.warn('AutoStart failed', e); }
   }
 
-  // Helpers for image fallback
+  // --- Image fallback (ignore non-ID filenames) ---
   function filenameFrom(src){
     try{
       var p = src.split('/'); var last = p[p.length-1];
@@ -81,22 +57,16 @@
   function baseName(f){ var i=f.lastIndexOf('.'); return i>=0 ? f.slice(0,i) : f; }
   function extOf(f){ var i=f.lastIndexOf('.'); return i>=0 ? f.slice(i) : ''; }
   function isFromAppRepo(src){ return src.indexOf('/Family-tree-app/') !== -1; }
-  function looksLikeId(name){
-    // accept 5+ digits, optional .suffix digits
-    if (!name) return false;
-    var main = name.split('.')[0];
-    return /^[0-9]{5,}$/.test(main);
-  }
+  function looksLikeId(name){ var main=(name||'').split('.')[0]; return /^[0-9]{5,}$/.test(main); }
 
   document.addEventListener('error', function(e){
     var t=e.target;
     if(!(t && t.tagName==='IMG')) return;
     var file = filenameFrom(t.src);
-    if (!looksLikeId(file)) return; // ignore favicon/index.html etc
+    if (!looksLikeId(file)) return;
     var name = baseName(file);
     var ext  = extOf(file) || ".jpg";
     var attempts = parseInt(t.getAttribute('data-ext-attempt')||'0',10);
-
     if(isFromAppRepo(t.src)){
       t.src = IMAGES_BASE + file;
       t.setAttribute('data-ext-attempt','1');
@@ -110,7 +80,6 @@
   }, true);
 
   document.addEventListener('DOMContentLoaded', function(){
-    bindSwipes();
     cleanName();
     autoStart();
   });
