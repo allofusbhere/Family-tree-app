@@ -3,14 +3,55 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwipeTree (v132 defer)</title>
+  <title>SwipeTree (v132 proto-guard)</title>
 
   <!-- Original working CSS -->
   <link rel="stylesheet" href="style.v132.css" />
-  <!-- Optional small header tweak if present -->
   <link rel="stylesheet" href="style.v132_override.css" />
-  <!-- Silence favicon 404 -->
   <link rel="icon" href="data:,">
+
+  <!-- PROTO-GUARD: patch querySelector/getElementById to return a safe proxy until the element exists -->
+  <script>
+    (function(){
+      var Q = Document.prototype.querySelector;
+      var G = Document.prototype.getElementById;
+
+      function safeBind(sel, type, fn, opts){
+        var tries = 0;
+        (function recheck(){
+          var el = null;
+          try {
+            el = sel.charAt && sel.charAt(0)==='#' ? Q.call(document, sel) : Q.call(document, sel);
+          } catch(e){}
+          if (!el) { el = G.call(document, sel.replace(/^#/,'')); }
+          if (el && el.addEventListener) { el.addEventListener(type, fn, opts||false); return; }
+          if (tries++ > 120) return; // ~2s max
+          requestAnimationFrame(recheck);
+        })();
+      }
+
+      function proxyFor(sel){
+        var empty = { add:function(){}, remove:function(){}, toggle:function(){}, contains:function(){ return false; } };
+        return {
+          addEventListener: function(type, fn, opts){ safeBind(sel, type, fn, opts); },
+          setAttribute: function(){}, get classList(){ return empty; }, get style(){ return {}; }
+        };
+      }
+
+      Document.prototype.querySelector = function(sel){
+        try {
+          var el = Q.call(this, sel);
+          return el || proxyFor(sel);
+        } catch(e){
+          return proxyFor(sel);
+        }
+      };
+      Document.prototype.getElementById = function(id){
+        var el = G.call(this, id);
+        return el || proxyFor("#"+id);
+      };
+    })();
+  </script>
 </head>
 <body>
   <button id="backBtn">← Back</button>
@@ -25,7 +66,6 @@
     <img id="anchorImg" src="" alt="Anchor" />
     <div id="displayName">Anchor</div>
     <div id="displayId"></div>
-    <!-- overlays the core toggles; harmless if unused -->
     <div id="grid" class="grid hidden"></div>
     <div id="notice" class="notice hidden"></div>
   </div>
@@ -35,8 +75,8 @@
     Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.
   </p>
 
-  <!-- Defer scripts so DOM is parsed before core attaches listeners -->
-  <script src="script.v132.js" defer></script>
-  <script src="script.js" defer></script>
+  <!-- Load core + helpers (helpers have no swipe logic) -->
+  <script src="script.v132.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
