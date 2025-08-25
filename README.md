@@ -1,36 +1,38 @@
-# SwipeTree Restore (v5s)
+# SwipeTree (iPad build) — Test Package
 
-This package restores **swipe gestures** and fixes **spouse anchoring** with a minimal, stable baseline.
+This build restores **swipe navigation**, fixes **spouse anchoring**, and keeps the **numeric relationship logic** strictly derived from the 6‑digit ID (with optional `.1` spouse portraits).
 
-## What works
-- **Right swipe = Spouse** overlay. Tap the spouse tile to **anchor** them.
-  - Uses `spouse_link.json` for true partner IDs (e.g., 140000 ↔ 240000).
-  - Falls back to showing `{id}.1.jpg` if no mapping is found.
-- **Back** button: closes an open overlay first, then returns to the previous anchor.
-- Prompts for **starting ID** on load (default `100000`). You can also use `#id=140000` in the URL hash.
+## Gestures
+- **Right** → Spouse (uses `spouse_link.json` if present; otherwise shows `.1` portrait)
+- **Up** ↑ Parents (shows computed Parent 1 and a placeholder tile for Parent 2)
+- **Left** ← Siblings (varies the highest non‑zero digit, zeroing the rest)
+- **Down** ↓ Children (varies the next lower digit after the highest non‑zero)
 
-## What is deferred (placeholders today)
-- Left = siblings (preview tiles only)
-- Up = parents (reserved)
-- Down = children (reserved)
+Tap any tile to **navigate and close** the grid. **Back** button closes an open grid first, then pops navigation history.
 
-## Image path
-Images are loaded from the **family-tree-images** repo (flat folder):
+## Image Hosting
+Set the base image path inside `script.js`:
+```js
+const BASE_IMAGE_URL = "https://allofusbhere.github.io/family-tree-images/";
 ```
-https://allofusbhere.github.io/family-tree-images/{ID}.jpg
+The app tries `ID.jpg` exactly as you name your files, including spouse portraits like `240000.1.jpg`. If a file is missing, it shows `placeholder.jpg` from the same folder.
+
+## Labels
+- Tries to read from Netlify at `/.netlify/functions/labels` (GET → JSON object `{ "140000": "Aaron", ... }`).
+- Falls back to `localStorage` (`swipetree_labels`). Long‑press (600ms) on the **anchor** to soft‑edit a name.
+
+A minimal stub for Netlify is provided in `netlify/functions/labels.js`. This build **does not write** back to Netlify (read‑only).
+
+## Spouse Linking
+Edit `spouse_link.json` to pair base IDs. The mapping is **symmetric** at load:
+```json
+{ "140000": "240000", "240000": "140000" }
 ```
+Only base IDs go here (no `.1`). The grid shows the partner's `.1` image when available, and **navigates to the partner's base ID** (so you can swipe up/left/down on them).
 
-## Files
-- `index.html` — app shell
-- `style.css` — dark UI
-- `script.js` — swipe + spouse anchoring
-- `spouse_link.json` — partner ID mapping (two-way)
-- `README.md` — this file
+## Start ID & URL Hash
+Enter an ID and press **Start**, or pass `#id=140000` in the URL. The query param `?v=<anything>` is preserved so you can version your links.
 
-## Deploy
-Drop these files into your **Family-tree-app** repo (root or a `swipe/` folder).
-Open `index.html` on iPad and test:
-- Swipe right → spouse appears
-- Tap spouse → they anchor (ID label updates)
-
-If you need additional mappings, edit `spouse_link.json` and commit. No code changes required.
+## Known & Intentional
+- Up shows only one computed parent plus a placeholder for Parent 2 (future enhancement).
+- Relationship math follows your documented rules and avoids any hard‑coding of specific people.

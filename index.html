@@ -1,29 +1,49 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-  <title>SwipeTree v5s4</title>
-  <link rel="stylesheet" href="style.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SwipeTree — iPad build</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app">
-    <div id="debug" class="note">[v5s4] script loaded | gestures active | Back+history enabled</div>
-    <div id="header">
-      <button id="backBtn">Back</button>
-      <h1>SwipeTree</h1>
-      <div id="idLabel"></div>
-    </div>
-    <div id="anchorWrap">
-      <img id="anchorImg" alt="anchor"/>
-    </div>
-    <div id="overlay" class="hidden">
-      <div id="overlayContent">
-        <div id="overlayTitle"></div>
-        <div id="overlayGrid"></div>
+    <header class="topbar">
+      <button id="backBtn" aria-label="Back">← Back</button>
+      <div id="title">SwipeTree</div>
+      <div id="idInputWrap">
+        <input id="idInput" type="text" inputmode="numeric" pattern="\d{6}(?:\.\d+)?" placeholder="Enter ID (e.g., 100000)" />
+        <button id="startBtn">Start</button>
       </div>
-    </div>
+    </header>
+
+    <main id="stage">
+      <div id="anchorWrap">
+        <img id="anchorImg" alt="Anchor" />
+        <div id="anchorLabel">
+          <div id="anchorName"></div>
+          <div id="anchorId"></div>
+        </div>
+      </div>
+
+      <!-- Overlays (one visible at a time) -->
+      <div id="overlay" class="hidden">
+        <div class="overlay-inner">
+          <div class="overlay-header">
+            <span id="overlayTitle">Overlay</span>
+            <button id="closeOverlayBtn" aria-label="Close">✕</button>
+          </div>
+          <div id="grid" class="grid"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="hint">
+      <div>Swipe: ◀︎ siblings • ▶︎ spouse • ▲ parents • ▼ children</div>
+      <div>Long‑press on anchor to edit name (SoftEdit). Tap tiles to navigate.</div>
+    </footer>
   </div>
+
   <script src="script.js"></script>
 </body>
 </html>

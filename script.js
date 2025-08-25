@@ -1,179 +1,393 @@
-// SwipeTree v5s4: generalized generation math + history + hide missing tiles
-(function(){
-  const IMAGES_BASE_URL = "https://allofusbhere.github.io/family-tree-images/"; // flat folder
-  const overlay = document.getElementById('overlay');
-  const grid = document.getElementById('overlayGrid');
-  const title = document.getElementById('overlayTitle');
-  const img = document.getElementById('anchorImg');
-  const idLabel = document.getElementById('idLabel');
-  const backBtn = document.getElementById('backBtn');
+/* SwipeTree — iPad build with swipes, spouse anchoring, and numeric logic.
+ * Navigation:
+ *   → (right)  : spouse
+ *   ↑ (up)     : parents (shows computed Parent1, placeholder Parent2)
+ *   ← (left)   : siblings
+ *   ↓ (down)   : children
+ *
+ * Data rules (6-digit IDs, optional ".1" for spouse image files):
+ *   - Children of 140000 are 141000..149000 (+1000 * n).
+ *   - Siblings of 140000 are 110000..160000 (vary the ten‑thousands digit).
+ *   - Parent of 140000 is 100000 (zero out ten‑thousands digit).
+ *   - For 100000, siblings are 200000..900000 (vary the hundred‑thousands digit).
+ * Images are loaded from BASE_IMAGE_URL + id + ".jpg".
+ * Spouse linkage: spouse_link.json provides symmetric A<->B mapping.
+ *   - Tapping spouse tile anchors on the partner base ID (e.g., 240000), not ".1".
+ * Labels: tries Netlify function / .netlify/functions/labels first; falls back to localStorage.
+ */
 
-  document.documentElement.style.overflow = 'hidden';
-  document.body.style.overflow = 'hidden';
+(function () {
+  // ===== Config =====
+  const BASE_IMAGE_URL =
+    "https://allofusbhere.github.io/family-tree-images/"; // ends with /
+  const PLACEHOLDER_IMAGE = BASE_IMAGE_URL + "placeholder.jpg";
+  const LABELS_ENDPOINT = "/.netlify/functions/labels";
 
-  let currentId = null;
-  const historyStack = [];
+  // ===== State =====
+  let anchorId = "100000";
+  let historyStack = [];
+  let isOverlayOpen = false;
+  let spouseMap = {}; // { "140000": "240000", "240000": "140000" }
+  let labelsCache = {}; // { "140000": "Aaron", ... }
 
-  const idToSrc = (idLike)=> IMAGES_BASE_URL + String(idLike) + ".jpg";
-  const core = (id)=> String(id).split('.')[0];
+  // ===== Elements =====
+  const el = {
+    anchorImg: document.getElementById("anchorImg"),
+    anchorName: document.getElementById("anchorName"),
+    anchorId: document.getElementById("anchorId"),
+    anchorWrap: document.getElementById("anchorWrap"),
+    overlay: document.getElementById("overlay"),
+    overlayTitle: document.getElementById("overlayTitle"),
+    grid: document.getElementById("grid"),
+    closeOverlayBtn: document.getElementById("closeOverlayBtn"),
+    backBtn: document.getElementById("backBtn"),
+    idInput: document.getElementById("idInput"),
+    startBtn: document.getElementById("startBtn"),
+    stage: document.getElementById("stage"),
+  };
 
-  function trailingZeros(idStr){
-    let s = core(idStr);
-    let c = 0;
-    for(let i=s.length-1; i>=0; i--){
-      if(s[i]==='0') c++; else break;
-    }
-    return c;
+  // ===== Utilities =====
+  function imgUrlFor(id) {
+    // strip .1 for image choice? No — actual files can exist as ".1.jpg" too.
+    return BASE_IMAGE_URL + id + ".jpg";
   }
-
-  function stepForLevel(z){ return Math.pow(10, Math.max(0, z-1)); } // children step
-  function placeValue(z){ return Math.pow(10, z); } // current digit place value
-
-  function showAnchor(id){
-    if(!id) return;
-    currentId = String(id);
-    idLabel.textContent = "#" + currentId;
-    img.src = idToSrc(currentId);
-  }
-  function pushHistory(id){
-    if(id && (historyStack.length===0 || historyStack[historyStack.length-1]!==id)){ historyStack.push(id); }
-  }
-  function go(id){
-    pushHistory(currentId);
+  function setAnchor(id, pushHistory = true) {
+    if (!id || typeof id !== "string") return;
+    if (pushHistory && anchorId && anchorId !== id) historyStack.push(anchorId);
+    anchorId = normalizeId(id);
+    updateAnchorView();
     closeOverlay();
-    showAnchor(id);
+    updateHash();
   }
-  function closeOverlay(){ overlay.classList.add('hidden'); grid.innerHTML=''; title.textContent=''; }
+  function updateHash() {
+    try {
+      const v = new URLSearchParams(window.location.search).get("v") || "v";
+      const url = `${location.origin}${location.pathname}?v=${encodeURIComponent(
+        v
+      )}#id=${anchorId}`;
+      history.replaceState(null, "", url);
+    } catch {}
+  }
+  function normalizeId(id) {
+    return String(id).trim();
+  }
+  function loadImage(imgEl, id) {
+    return new Promise((resolve) => {
+      const src = imgUrlFor(id);
+      imgEl.onerror = () => {
+        imgEl.src = PLACEHOLDER_IMAGE;
+        resolve(false);
+      };
+      imgEl.onload = () => resolve(true);
+      imgEl.src = src;
+    });
+  }
 
-  backBtn.addEventListener('click', ()=>{
-    if(!overlay.classList.contains('hidden')){ closeOverlay(); return; }
+  // ===== Labels (Netlify first, then localStorage) =====
+  async function fetchLabels() {
+    try {
+      const res = await fetch(LABELS_ENDPOINT, { method: "GET" });
+      if (!res.ok) throw new Error("labels fetch failed");
+      const data = await res.json();
+      if (data && typeof data === "object") labelsCache = data;
+    } catch {
+      // local fallback
+      const local = localStorage.getItem("swipetree_labels");
+      if (local) {
+        try {
+          labelsCache = JSON.parse(local) || {};
+        } catch {}
+      }
+    }
+  }
+  function getName(id) {
+    return labelsCache[id] || "";
+  }
+  function setName(id, name) {
+    if (!id) return;
+    labelsCache[id] = name;
+    try {
+      localStorage.setItem("swipetree_labels", JSON.stringify(labelsCache));
+    } catch {}
+    // (No write‑back to Netlify in this build; read‑only hook)
+  }
+
+  // ===== Spouse map =====
+  async function fetchSpouseMap() {
+    try {
+      const res = await fetch("spouse_link.json", { cache: "no-store" });
+      if (res.ok) {
+        const map = await res.json();
+        if (map && typeof map === "object") spouseMap = map;
+        // ensure symmetry
+        Object.entries({ ...spouseMap }).forEach(([a, b]) => {
+          spouseMap[a] = b;
+          spouseMap[b] = a;
+        });
+      }
+    } catch {}
+  }
+
+  // ===== Relationship math =====
+  function digits(id) {
+    // returns array of 6 digits ignoring any ".1" suffix
+    const base = String(id).split(".")[0];
+    const s = base.padStart(6, "0").slice(-6);
+    return s.split("").map((d) => parseInt(d, 10));
+  }
+  function toId(digs) {
+    return digs.join("");
+  }
+  function isSixDigitBase(id) {
+    const base = String(id).split(".")[0];
+    return /^\d{6}$/.test(base);
+  }
+  function computedParent(id) {
+    const base = String(id).split(".")[0];
+    if (!/^\d{6}$/.test(base)) return null;
+    const d = digits(base);
+    // Rule:
+    // - If only d0 is non‑zero (e.g., 100000), there's no higher parent in this scheme.
+    // - Else, zero out the next non‑zero position after the first.
+    // For 140000 (1 4 0 0 0 0) -> parent 100000.
+    if (d[1] === 0 && d[2] === 0 && d[3] === 0 && d[4] === 0 && d[5] === 0) {
+      // Form X00000; cannot go higher
+      if (d[0] !== 0) return null;
+    }
+    const out = d.slice();
+    if (d[1] !== 0) {
+      out[1] = 0;
+    } else if (d[2] !== 0) {
+      out[2] = 0;
+    } else if (d[3] !== 0) {
+      out[3] = 0;
+    } else if (d[4] !== 0) {
+      out[4] = 0;
+    } else if (d[5] !== 0) {
+      out[5] = 0;
+    } else {
+      return null;
+    }
+    return toId(out);
+  }
+  function computeSiblings(id) {
+    const base = String(id).split(".")[0];
+    if (!/^\d{6}$/.test(base)) return [];
+    const d = digits(base);
+    // Determine the highest non‑zero position (index 0..5). Vary that digit 1..9 (or 0..9?) sensibly.
+    let pos = d.findIndex((x) => x !== 0);
+    if (pos === -1) return [];
+    // Vary this digit 1..9 except current; zero everything after pos.
+    const sibs = [];
+    for (let v = 1; v <= 9; v++) {
+      if (v === d[pos]) continue;
+      const out = d.slice();
+      out[pos] = v;
+      for (let i = pos + 1; i < 6; i++) out[i] = 0;
+      sibs.push(toId(out));
+    }
+    return dedupe(sibs);
+  }
+  function computeChildren(id) {
+    const base = String(id).split(".")[0];
+    if (!/^\d{6}$/.test(base)) return [];
+    const d = digits(base);
+    // Children: modify thousands place (index 2) for 6‑digit scheme like 140000 -> 141000..149000
+    // But if the highest non‑zero is earlier (e.g., 100000), children become 110000..190000
+    // General rule: children vary the next lower place after the highest non‑zero digit.
+    const highest = d.findIndex((x) => x !== 0);
+    let childPos = highest + 1;
+    if (childPos > 5) return [];
+    const out = [];
+    for (let v = 1; v <= 9; v++) {
+      const dd = d.slice();
+      dd[childPos] = v;
+      for (let i = childPos + 1; i < 6; i++) dd[i] = 0;
+      out.push(toId(dd));
+    }
+    return dedupe(out);
+  }
+  function dedupe(arr) {
+    return Array.from(new Set(arr));
+  }
+
+  // ===== Rendering =====
+  async function updateAnchorView() {
+    el.anchorId.textContent = anchorId;
+    el.anchorName.textContent = getName(anchorId) || "\u00A0";
+    await loadImage(el.anchorImg, anchorId) /* fallbacks inside */;
+  }
+
+  function openOverlay(title, tiles) {
+    isOverlayOpen = true;
+    el.overlayTitle.textContent = title;
+    el.grid.innerHTML = "";
+    tiles.forEach((t) => {
+      const div = document.createElement("div");
+      div.className = "tile" + (t.placeholder ? " placeholder" : "");
+      div.dataset.id = t.id || "";
+      const imgwrap = document.createElement("div");
+      imgwrap.className = "imgwrap";
+      const img = document.createElement("img");
+      img.loading = "lazy";
+      img.src = imgUrlFor(t.imgId || t.id);
+      img.onerror = () => (img.src = PLACEHOLDER_IMAGE);
+      imgwrap.appendChild(img);
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = t.name || "";
+      const id = document.createElement("div");
+      id.className = "id";
+      id.textContent = t.id || "";
+      meta.appendChild(name);
+      meta.appendChild(id);
+      div.appendChild(imgwrap);
+      div.appendChild(meta);
+      if (!t.placeholder) {
+        div.addEventListener("click", () => {
+          setAnchor(t.navigateTo || t.id);
+        });
+      }
+      el.grid.appendChild(div);
+    });
+    el.overlay.classList.remove("hidden");
+  }
+  function closeOverlay() {
+    isOverlayOpen = false;
+    el.overlay.classList.add("hidden");
+  }
+
+  // ===== Gesture handling =====
+  let touchStartX = 0, touchStartY = 0, touchTime = 0;
+  const SWIPE_THRESHOLD = 40;
+
+  function onTouchStart(e) {
+    if (!e.changedTouches || !e.changedTouches[0]) return;
+    const t = e.changedTouches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchTime = Date.now();
+  }
+  function onTouchEnd(e) {
+    if (!e.changedTouches || !e.changedTouches[0]) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
+    const absX = Math.abs(dx), absY = Math.abs(dy);
+    if (absX > absY) {
+      if (dx > 0) handleSwipe("right"); else handleSwipe("left");
+    } else {
+      if (dy < 0) handleSwipe("up"); else handleSwipe("down");
+    }
+  }
+
+  async function handleSwipe(dir) {
+    if (dir === "right") {
+      // SPOUSE
+      const spouseTiles = await buildSpouseTiles(anchorId);
+      if (spouseTiles.length === 0) {
+        openOverlay("Spouse", [{ id: "No spouse linked", placeholder: true, imgId: "placeholder" }]);
+      } else {
+        openOverlay("Spouse", spouseTiles);
+      }
+    } else if (dir === "left") {
+      // SIBLINGS
+      const sibs = computeSiblings(anchorId);
+      const tiles = sibs.map((id) => ({
+        id,
+        imgId: id,
+        name: getName(id),
+      }));
+      openOverlay("Siblings", tiles);
+    } else if (dir === "up") {
+      // PARENTS (Parent1 + placeholder Parent2)
+      const p1 = computedParent(anchorId);
+      const tiles = [];
+      if (p1) tiles.push({ id: p1, imgId: p1, name: getName(p1) });
+      tiles.push({ id: "Parent2 (placeholder)", placeholder: true, imgId: "placeholder" });
+      openOverlay("Parents", tiles);
+    } else if (dir === "down") {
+      // CHILDREN
+      const kids = computeChildren(anchorId);
+      const tiles = kids.map((id) => ({
+        id,
+        imgId: id,
+        name: getName(id),
+      }));
+      openOverlay("Children", tiles);
+    }
+  }
+
+  async function buildSpouseTiles(id) {
+    const base = String(id).split(".")[0];
+    const tiles = [];
+    // Mapped partner via spouse_link.json (preferred)
+    const partner = spouseMap[base];
+    if (partner) {
+      tiles.push({
+        id: partner,
+        imgId: partner + ".1", // show the partner's ".1" portrait file if present
+        name: getName(partner) || "Spouse",
+        navigateTo: partner,
+      });
+    } else {
+      // Fallback: show ".1" of the current base; navigate stays on base (no tracing)
+      tiles.push({
+        id: base + ".1",
+        imgId: base + ".1",
+        name: "Spouse (.1)",
+        navigateTo: base, // cannot trace without link
+      });
+    }
+    return tiles;
+  }
+
+  // ===== SoftEdit (long‑press) on anchor =====
+  let pressTimer = null;
+  el.anchorWrap.addEventListener("touchstart", () => {
+    pressTimer = setTimeout(() => {
+      const current = getName(anchorId) || "";
+      const next = prompt("Edit name", current);
+      if (typeof next === "string") {
+        setName(anchorId, next.trim());
+        updateAnchorView();
+      }
+    }, 600);
+  });
+  el.anchorWrap.addEventListener("touchend", () => clearTimeout(pressTimer));
+  el.anchorWrap.addEventListener("touchmove", () => clearTimeout(pressTimer));
+
+  // ===== Buttons & overlay =====
+  el.closeOverlayBtn.addEventListener("click", closeOverlay);
+  el.backBtn.addEventListener("click", () => {
+    if (isOverlayOpen) {
+      closeOverlay();
+      return;
+    }
     const prev = historyStack.pop();
-    if(prev){ showAnchor(prev); }
+    if (prev) setAnchor(prev, false);
+  });
+  el.startBtn.addEventListener("click", () => {
+    const v = String(el.idInput.value || "").trim();
+    if (/^\d{6}(?:\.\d+)?$/.test(v)) setAnchor(v);
   });
 
-  // Gestures
-  let sx=0, sy=0, st=0;
-  const THRESH = 28, MAX_TIME = 900;
-  function start(pt){ sx=pt.clientX; sy=pt.clientY; st=Date.now(); }
-  function end(pt){
-    const dx = pt.clientX - sx, dy = pt.clientY - sy, dt = Date.now() - st;
-    if(dt>MAX_TIME) return;
-    if(Math.abs(dx)<THRESH && Math.abs(dy)<THRESH) return;
-    if(Math.abs(dx)>Math.abs(dy)){ dx>0 ? onRight() : onLeft(); } else { dy<0 ? onUp() : onDown(); }
-  }
-  document.body.addEventListener('touchstart', e=> start(e.changedTouches[0]), {passive:true});
-  document.body.addEventListener('touchmove', e=> e.preventDefault(), {passive:false});
-  document.body.addEventListener('touchend', e=> end(e.changedTouches[0]), {passive:true});
-  let md=false; document.body.addEventListener('mousedown', e=>{ md=true; start(e); });
-  document.body.addEventListener('mouseup', e=>{ if(md){ md=false; end(e); } });
+  // ===== Stage gestures =====
+  el.stage.addEventListener("touchstart", onTouchStart, { passive: true });
+  el.stage.addEventListener("touchend", onTouchEnd, { passive: true });
 
-  // spouse map
-  let spouseMap = {};
-  fetch('spouse_link.json', {cache:'no-store'}).then(r=>r.json()).then(data=>{
-    data.forEach(p=>{
-      spouseMap[String(p.a)] = String(p.b);
-      spouseMap[String(p.b)] = String(p.a);
-    });
-  }).catch(()=>{});
-
-  // Math helpers
-  function siblingsOf(idStr){
-    const s = core(idStr);
-    if(!/^\d{5,8}$/.test(s)) return [];
-    const n = Number(s);
-    const z = trailingZeros(s);
-    const curPlace = placeValue(z);      // e.g., 10000 for 140000, 1000 for 142000
-    const nextHigher = curPlace*10;      // span for this digit
-    const base = Math.floor(n/nextHigher)*nextHigher;
-    const currentDigit = Math.floor((n % nextHigher)/curPlace);
-    const out = [];
-    for(let d=1; d<=9; d++){
-      if(d===currentDigit) continue;
-      out.push(base + d*curPlace);
-    }
-    return out;
+  // ===== Init =====
+  async function init() {
+    await Promise.all([fetchLabels(), fetchSpouseMap()]);
+    // Start from hash if present
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const idFromHash = hash.get("id");
+    if (idFromHash) anchorId = normalizeId(idFromHash);
+    updateAnchorView();
   }
 
-  function childrenOf(idStr){
-    const s = core(idStr);
-    if(!/^\d{5,8}$/.test(s)) return [];
-    const n = Number(s);
-    const z = trailingZeros(s);
-    if(z<=0) return [];
-    const childStep = stepForLevel(z);   // e.g., 1000 for 140000, 100 for 141000, 10 for 141100
-    const out = [];
-    for(let d=1; d<=9; d++){ out.push(n + d*childStep); }
-    return out;
-  }
-
-  function parentOf(idStr){
-    const s = core(idStr);
-    if(!/^\d{5,8}$/.test(s)) return null;
-    const n = Number(s);
-    const z = trailingZeros(s);
-    const curPlace = placeValue(z);
-    const parent = Math.floor(n/curPlace)*curPlace; // zero current digit
-    // If already at top (e.g., 100000) parent would be itself; return null instead
-    if(parent===n) {
-      // try zeroing next higher place once
-      const higher = curPlace*10;
-      const top = Math.floor(n/higher)*higher;
-      return top===n ? null : top;
-    }
-    return parent;
-  }
-
-  function tile(id){
-    const d = document.createElement('div'); d.className='tile';
-    const im = document.createElement('img'); im.alt=String(id); im.src=idToSrc(id);
-    const cap = document.createElement('div'); cap.className='caption'; cap.textContent = "#" + id;
-    d.appendChild(im); d.appendChild(cap);
-    d.addEventListener('click',()=> go(id));
-    // Hide tile if image missing
-    im.addEventListener('error', ()=>{
-      d.remove();
-      // If grid empties out, show a note
-      if(!grid.children.length){ title.textContent += " (no images found)"; }
-    });
-    return d;
-  }
-
-  function onRight(){
-    const root = core(currentId);
-    const partner = spouseMap[root];
-    const spouseCandidate = partner || (root + ".1");
-    grid.innerHTML=''; title.textContent='Spouse';
-    grid.appendChild(tile(spouseCandidate));
-    overlay.classList.remove('hidden');
-  }
-  function onLeft(){
-    const list = siblingsOf(currentId);
-    grid.innerHTML=''; title.textContent='Siblings';
-    list.forEach(id=> grid.appendChild(tile(id)));
-    if(!list.length) title.textContent='Siblings (none at this level)';
-    overlay.classList.remove('hidden');
-  }
-  function onDown(){
-    const list = childrenOf(currentId);
-    grid.innerHTML=''; title.textContent='Children';
-    list.forEach(id=> grid.appendChild(tile(id)));
-    if(!list.length) title.textContent='Children (none at this level)';
-    overlay.classList.remove('hidden');
-  }
-  function onUp(){
-    const p = parentOf(currentId);
-    grid.innerHTML=''; title.textContent='Parents';
-    if(p){ grid.appendChild(tile(p)); } else { title.textContent='Parents (none)'; }
-    overlay.classList.remove('hidden');
-  }
-
-  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeOverlay(); });
-
-  function startApp(){
-    const saved = new URLSearchParams(location.hash.replace('#','')).get('id');
-    let startId = saved || (typeof window.prompt==="function" ? window.prompt("Enter starting ID", "100000") : "100000");
-    if(!startId || !/^\d{5,8}(\.\d+)?$/.test(String(startId))) startId = "100000";
-    showAnchor(startId);
-  }
-  window.addEventListener('load', startApp);
+  document.addEventListener("DOMContentLoaded", init);
 })();
