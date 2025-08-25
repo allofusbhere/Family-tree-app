@@ -1,2 +1,17 @@
-/* Tiny visual tweak only — keeps all original v132 touch behavior */
-h1 { font-size: clamp(24px, 5vw, 40px); line-height: 1.1; margin: 16px 0; }
+/* v132 swipe guard override (safe, CSS only)
+   - Stop the whole page from scrolling while swiping
+   - Ensure the swipe surface (#stage) delivers raw touch to the core
+*/
+
+/* Prevent browser panning/overscroll */
+html, body {
+  height: 100%;
+  overflow: hidden;            /* lock the page so it doesn't move */
+  overscroll-behavior: none;   /* no bounce-back on iOS */
+}
+
+/* Give core raw touch events on the main surface */
+#stage {
+  touch-action: none;          /* disable UA gesture handling on the surface */
+  overscroll-behavior: contain;
+}
