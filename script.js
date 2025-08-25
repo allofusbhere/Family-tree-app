@@ -1,12 +1,8 @@
-/*! script.js — rc1c CORE-ONLY (no swipe handlers)
- *  Leaves swipe handling entirely to your core (script.v132.js).
- *  Includes only quality-of-life helpers: autostart, NBSP cleanup, image fallback.
- */
+/*! script.js — rc1c CORE-ONLY (no swipe handlers) */
 (function(){
   var IMAGES_BASE = "https://allofusbhere.github.io/family-tree-images/";
   var EXT_ORDER = [".jpg",".JPG",".jpeg",".png"];
 
-  // --- NBSP cleanup ---
   function cleanName(){
     try{
       var el = document.getElementById('displayName') ||
@@ -16,7 +12,6 @@
     }catch(e){}
   }
 
-  // --- Autostart from URL ---
   function getIdFromURL(){
     try{
       var id = null;
@@ -47,7 +42,6 @@
     }catch(e){ console.warn('AutoStart failed', e); }
   }
 
-  // --- Image fallback (ignore non-ID filenames) ---
   function filenameFrom(src){
     try{
       var p = src.split('/'); var last = p[p.length-1];

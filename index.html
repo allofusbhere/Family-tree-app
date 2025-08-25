@@ -3,64 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwipeTree rc1c-domguard+grid+notice</title>
-  <link rel="stylesheet" href="style.css" />
-  <!-- Prevent favicon 404 -->
-  <link rel="icon" href="data:,">
+  <title>SwipeTree (v132 promote)</title>
 
-  <!-- DOM guard to defer bindings until elements exist -->
-  <script>
-    (function(){
-      var origQS = Document.prototype.querySelector;
-      var origGI = Document.prototype.getElementById;
-      var deferred = [];
-      function makeDeferred(sel){
-        var handlers = [];
-        var proxy = {
-          addEventListener: function(type, fn, opts){
-            function tryBind(tries){
-              var el = null;
-              try { el = origQS.call(document, sel[0]==='#' ? sel : sel); } catch(e){}
-              if (el && el.addEventListener) { el.addEventListener(type, fn, opts||false); return; }
-              if ((tries||0) > 120) return;
-              requestAnimationFrame(function(){ tryBind((tries||0)+1); });
-            }
-            tryBind(0);
-          },
-          setAttribute: function(){}, get style(){ return {}; }
-        };
-        deferred.push({sel:sel, proxy:proxy});
-        return proxy;
-      }
-      Document.prototype.querySelector = function(sel){
-        try{
-          var el = origQS.call(this, sel);
-          return el || makeDeferred(sel);
-        }catch(e){ return makeDeferred(sel); }
-      };
-      Document.prototype.getElementById = function(id){
-        var el = origGI.call(this, id);
-        return el || makeDeferred("#"+id);
-      };
-      window.addEventListener('DOMContentLoaded', function(){
-        deferred.forEach(function(d){
-          try {
-            var el = origQS.call(document, d.sel);
-            // best-effort flush: nothing to do because listeners were bound when element appeared
-          } catch(e){}
-        });
-      });
-    })();
-  </script>
+  <!-- Use the exact older CSS that worked -->
+  <link rel="stylesheet" href="style.v132.css" />
+
+  <!-- Optional: tiny header tweak only (safe) -->
+  <link rel="stylesheet" href="style.v132_override.css" />
+
+  <!-- Silence favicon 404s -->
+  <link rel="icon" href="data:,">
 </head>
 <body>
   <button id="backBtn">← Back</button>
   <h1>SwipeTree</h1>
+
   <div>
     <input id="idInput" type="text" placeholder="Enter ID (e.g., 100000)" />
     <button id="startBtn">Start</button>
   </div>
 
+  <!-- The same container your core uses -->
   <div id="stage">
     <img id="anchorImg" src="" alt="Anchor" />
     <div id="displayName"></div>
@@ -75,9 +38,9 @@
     Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.
   </p>
 
-  <!-- Load your full app logic -->
+  <!-- Load your original core first -->
   <script src="script.v132.js"></script>
-  <!-- Glue enhancements -->
+  <!-- Then small helpers (no swipe listeners) -->
   <script src="script.js"></script>
 </body>
 </html>

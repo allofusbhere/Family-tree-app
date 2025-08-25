@@ -1,0 +1,2 @@
+/* Tiny visual tweak only — keeps all original v132 touch behavior */
+h1 { font-size: clamp(24px, 5vw, 40px); line-height: 1.1; margin: 16px 0; }
