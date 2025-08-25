@@ -3,15 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwipeTree rc1c (domproxy)</title>
+  <title>SwipeTree rc1c2</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Robust selector helper injected BEFORE core so older code won't crash -->
+  <!-- Robust selector helper BEFORE core to prevent $(...).addEventListener null -->
   <script>
     (function(){
       function resolve(sel){
         if(!sel) return null;
-        // If no #/. given, assume it's an ID
         if (/^[A-Za-z0-9_-]+$/.test(sel)) {
           return document.getElementById(sel) || document.querySelector("#"+sel);
         }
@@ -20,17 +19,14 @@
       function makeProxy(sel){
         return {
           addEventListener: function(type, handler, opts){
-            function tryBind(attempts){
+            function tryBind(tries){
               var el = resolve(sel);
               if (el) { el.addEventListener(type, handler, opts||false); return; }
-              if ((attempts||0) > 60) return; // ~1s max (60*16ms)
-              requestAnimationFrame(function(){ tryBind((attempts||0)+1); });
+              if ((tries||0) > 120) return; // ~2s
+              requestAnimationFrame(function(){ tryBind((tries||0)+1); });
             }
             tryBind(0);
-          },
-          // minimal surface to avoid crashes if accessed
-          setAttribute: function(){ /* no-op until element exists */ },
-          get style(){ var el=resolve(sel); return el ? el.style : {}; }
+          }
         };
       }
       window.$ = function(sel){
@@ -57,9 +53,9 @@
     Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.
   </p>
 
-  <!-- Load your full app logic -->
+  <!-- Load your full app logic first -->
   <script src="script.v132.js"></script>
-  <!-- Glue enhancements (swipes/autostart/image fallback/NBSP cleanup) -->
+  <!-- Then load the glue script -->
   <script src="script.js"></script>
 </body>
 </html>

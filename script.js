@@ -1,4 +1,4 @@
-// SwipeTree rc1c glue: swipes/autostart/image fallback/NBSP cleanup
+// SwipeTree rc1c2 glue (no regex flags): swipes / autostart / image fallback / NBSP cleanup
 (function(){
   var IMAGES_BASE = "https://allofusbhere.github.io/family-tree-images/";
   var EXT_ORDER = [".jpg",".JPG",".jpeg",".png"];
@@ -35,19 +35,29 @@
   function cleanName(){
     try{
       var el = document.getElementById('displayName') ||
-               document.querySelector('[data-role=\"name\"]') ||
+               document.querySelector('[data-role="name"]') ||
                document.querySelector('.anchor-name');
-      if(el){ el.textContent = (el.textContent||'').replace(/\\u00A0/g,'').trim(); }
+      if(el){
+        // no regex: split-join for NBSP removal
+        el.textContent = (el.textContent||'').split('\u00A0').join('').trim();
+      }
     }catch(e){}
   }
 
   function getIdFromURL(){
     try{
-      var h=(location.hash||'').replace(/^#/,'');  // id=100000
-      var q=(location.search||'').replace(/^\\?/,''); // id=100000
-      var params = new URLSearchParams(h.includes('=')?h:q);
-      var id = params.get('id');
-      return id && id.trim() ? id.trim() : null;
+      var id = null;
+      var h = (location.hash||'').replace(/^#/,'');    // e.g., id=100000
+      if (h.indexOf('=') !== -1){
+        var hp = new URLSearchParams(h);
+        id = hp.get('id');
+      } else {
+        var q = (location.search||'').replace(/^\?/,''); // id=100000
+        var qp = new URLSearchParams(q);
+        id = qp.get('id');
+      }
+      if(id) id = id.trim();
+      return id || null;
     }catch(e){ return null; }
   }
   function autoStart(){
@@ -64,22 +74,42 @@
     }catch(e){ console.warn('AutoStart failed', e); }
   }
 
+  // IMG fallback without regex
   function filenameFrom(src){
-    try{ return src.split('/').pop().split('?')[0].split('#')[0]; }catch(e){ return src; }
+    try{
+      var p = src.split('/'); var last = p[p.length-1];
+      return last.split('?')[0].split('#')[0];
+    }catch(e){ return src; }
   }
-  function baseName(f){ var i=f.lastIndexOf('.'); return i>=0 ? f.slice(0,i) : f; }
-  function nextExt(ext){ var i=EXT_ORDER.indexOf(ext); return (i>=0 && i<EXT_ORDER.length-1) ? EXT_ORDER[i+1] : null; }
-  function isFromAppRepo(src){ return /\\/Family-tree-app\\//i.test(src); }
+  function baseName(f){
+    var i=f.lastIndexOf('.'); return i>=0 ? f.slice(0,i) : f;
+  }
+  function extOf(f){
+    var i=f.lastIndexOf('.'); return i>=0 ? f.slice(i) : '';
+  }
+  function isFromAppRepo(src){
+    return src.indexOf('/Family-tree-app/') !== -1;
+  }
 
   document.addEventListener('error', function(e){
     var t=e.target;
     if(!(t && t.tagName==='IMG')) return;
-    var file = filenameFrom(t.src); var name = baseName(file); var ext = file.slice(name.length) || ".jpg";
-    var next = nextExt(ext);
+    var file = filenameFrom(t.src);
+    var name = baseName(file);
+    var ext  = extOf(file) || ".jpg";
+    var attempts = parseInt(t.getAttribute('data-ext-attempt')||'0',10);
+
     if(isFromAppRepo(t.src)){
-      t.src = IMAGES_BASE + file; return;
+      t.src = IMAGES_BASE + file;
+      t.setAttribute('data-ext-attempt','1');
+      return;
     }
-    if(next){ t.src = IMAGES_BASE + name + next; return; }
+    if(attempts > 0 && attempts < EXT_ORDER.length){
+      t.src = IMAGES_BASE + name + EXT_ORDER[attempts];
+      t.setAttribute('data-ext-attempt', String(attempts+1));
+      return;
+    }
+    // exhausted
   }, true);
 
   document.addEventListener('DOMContentLoaded', function(){
