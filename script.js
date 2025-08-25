@@ -1,4 +1,4 @@
-// SwipeTree v5s3 (as index): correct swipe math for branch level (xxxxx0,000 pattern)
+// SwipeTree v5s4: generalized generation math + history + hide missing tiles
 (function(){
   const IMAGES_BASE_URL = "https://allofusbhere.github.io/family-tree-images/"; // flat folder
   const overlay = document.getElementById('overlay');
@@ -14,9 +14,21 @@
   let currentId = null;
   const historyStack = [];
 
-  // --- helpers ---
   const idToSrc = (idLike)=> IMAGES_BASE_URL + String(idLike) + ".jpg";
-  const stripSpouse = (id)=> String(id).split('.')[0];
+  const core = (id)=> String(id).split('.')[0];
+
+  function trailingZeros(idStr){
+    let s = core(idStr);
+    let c = 0;
+    for(let i=s.length-1; i>=0; i--){
+      if(s[i]==='0') c++; else break;
+    }
+    return c;
+  }
+
+  function stepForLevel(z){ return Math.pow(10, Math.max(0, z-1)); } // children step
+  function placeValue(z){ return Math.pow(10, z); } // current digit place value
+
   function showAnchor(id){
     if(!id) return;
     currentId = String(id);
@@ -39,7 +51,7 @@
     if(prev){ showAnchor(prev); }
   });
 
-  // --- gestures ---
+  // Gestures
   let sx=0, sy=0, st=0;
   const THRESH = 28, MAX_TIME = 900;
   function start(pt){ sx=pt.clientX; sy=pt.clientY; st=Date.now(); }
@@ -55,7 +67,7 @@
   let md=false; document.body.addEventListener('mousedown', e=>{ md=true; start(e); });
   document.body.addEventListener('mouseup', e=>{ if(md){ md=false; end(e); } });
 
-  // --- spouse map ---
+  // spouse map
   let spouseMap = {};
   fetch('spouse_link.json', {cache:'no-store'}).then(r=>r.json()).then(data=>{
     data.forEach(p=>{
@@ -64,53 +76,51 @@
     });
   }).catch(()=>{});
 
-  // --- ID math for branch level ---
+  // Math helpers
   function siblingsOf(idStr){
-    const root = stripSpouse(idStr);
-    if(!/^\d{6,7}$/.test(root)) return [];
-    const n = Number(root);
-    const hundredK = Math.floor(n/100000);               // e.g., 1 for 140000
-    const selfTenK = Math.floor((n%100000)/10000);       // e.g., 4 for 140000
-    const thousandsAndLow = n % 10000;                   // should be 0 at this level
-    // Only treat as branch-level if thousands and below are zeros
-    if(thousandsAndLow !== 0) return []; // we only implement precise branch case now
-    const base = hundredK * 100000;
+    const s = core(idStr);
+    if(!/^\d{5,8}$/.test(s)) return [];
+    const n = Number(s);
+    const z = trailingZeros(s);
+    const curPlace = placeValue(z);      // e.g., 10000 for 140000, 1000 for 142000
+    const nextHigher = curPlace*10;      // span for this digit
+    const base = Math.floor(n/nextHigher)*nextHigher;
+    const currentDigit = Math.floor((n % nextHigher)/curPlace);
     const out = [];
-    for(let k=1;k<=9;k++){
-      const candidate = base + k*10000;
-      if(k !== selfTenK) out.push(candidate);
+    for(let d=1; d<=9; d++){
+      if(d===currentDigit) continue;
+      out.push(base + d*curPlace);
     }
     return out;
   }
 
   function childrenOf(idStr){
-    const root = stripSpouse(idStr);
-    if(!/^\d{6,7}$/.test(root)) return [];
-    const n = Number(root);
-    // children at this level are +1000..+9000
-    if(n % 10000 !== 0) return []; // only for branch anchors like 140000
-    const base = n;
+    const s = core(idStr);
+    if(!/^\d{5,8}$/.test(s)) return [];
+    const n = Number(s);
+    const z = trailingZeros(s);
+    if(z<=0) return [];
+    const childStep = stepForLevel(z);   // e.g., 1000 for 140000, 100 for 141000, 10 for 141100
     const out = [];
-    for(let k=1;k<=9;k++){ out.push(base + k*1000); }
+    for(let d=1; d<=9; d++){ out.push(n + d*childStep); }
     return out;
   }
 
   function parentOf(idStr){
-    const root = stripSpouse(idStr);
-    if(!/^\d{6,7}$/.test(root)) return null;
-    const n = Number(root);
-    // if it's the main branch base (e.g., 100000), no parent
-    if(n % 100000 === 0) return null;
-    // For 140000 -> 100000 (zero the ten-thousands digit)
-    if(n % 10000 === 0){
-      const hundredK = Math.floor(n/100000);
-      return hundredK * 100000;
+    const s = core(idStr);
+    if(!/^\d{5,8}$/.test(s)) return null;
+    const n = Number(s);
+    const z = trailingZeros(s);
+    const curPlace = placeValue(z);
+    const parent = Math.floor(n/curPlace)*curPlace; // zero current digit
+    // If already at top (e.g., 100000) parent would be itself; return null instead
+    if(parent===n) {
+      // try zeroing next higher place once
+      const higher = curPlace*10;
+      const top = Math.floor(n/higher)*higher;
+      return top===n ? null : top;
     }
-    // For 141000 -> 140000 (zero the thousands digit)
-    if(n % 1000 === 0){
-      return Math.floor(n/10000)*10000;
-    }
-    return null; // deeper levels not implemented in this slice
+    return parent;
   }
 
   function tile(id){
@@ -119,11 +129,17 @@
     const cap = document.createElement('div'); cap.className='caption'; cap.textContent = "#" + id;
     d.appendChild(im); d.appendChild(cap);
     d.addEventListener('click',()=> go(id));
+    // Hide tile if image missing
+    im.addEventListener('error', ()=>{
+      d.remove();
+      // If grid empties out, show a note
+      if(!grid.children.length){ title.textContent += " (no images found)"; }
+    });
     return d;
   }
 
   function onRight(){
-    const root = stripSpouse(currentId);
+    const root = core(currentId);
     const partner = spouseMap[root];
     const spouseCandidate = partner || (root + ".1");
     grid.innerHTML=''; title.textContent='Spouse';
@@ -133,15 +149,15 @@
   function onLeft(){
     const list = siblingsOf(currentId);
     grid.innerHTML=''; title.textContent='Siblings';
-    if(list.length===0){ title.textContent='Siblings (n/a at this level)'; }
     list.forEach(id=> grid.appendChild(tile(id)));
+    if(!list.length) title.textContent='Siblings (none at this level)';
     overlay.classList.remove('hidden');
   }
   function onDown(){
     const list = childrenOf(currentId);
     grid.innerHTML=''; title.textContent='Children';
-    if(list.length===0){ title.textContent='Children (n/a at this level)'; }
     list.forEach(id=> grid.appendChild(tile(id)));
+    if(!list.length) title.textContent='Children (none at this level)';
     overlay.classList.remove('hidden');
   }
   function onUp(){
