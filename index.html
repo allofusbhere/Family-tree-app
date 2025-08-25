@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwipeTree rc1c-domguard+grid</title>
+  <title>SwipeTree rc1c-domguard+grid+notice</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Prevent favicon 404 -->
+  <link rel="icon" href="data:,">
 
   <!-- DOM guard to defer bindings until elements exist -->
   <script>
@@ -14,12 +16,12 @@
       var deferred = [];
       function makeDeferred(sel){
         var handlers = [];
-        var obj = {
+        var proxy = {
           addEventListener: function(type, fn, opts){
             function tryBind(tries){
               var el = null;
               try { el = origQS.call(document, sel[0]==='#' ? sel : sel); } catch(e){}
-              if (el) { el.addEventListener(type, fn, opts||false); return; }
+              if (el && el.addEventListener) { el.addEventListener(type, fn, opts||false); return; }
               if ((tries||0) > 120) return;
               requestAnimationFrame(function(){ tryBind((tries||0)+1); });
             }
@@ -27,8 +29,8 @@
           },
           setAttribute: function(){}, get style(){ return {}; }
         };
-        deferred.push({sel:sel, obj:obj});
-        return obj;
+        deferred.push({sel:sel, proxy:proxy});
+        return proxy;
       }
       Document.prototype.querySelector = function(sel){
         try{
@@ -44,10 +46,7 @@
         deferred.forEach(function(d){
           try {
             var el = origQS.call(document, d.sel);
-            if (el && d.obj && d.obj.__handlers) {
-              d.obj.__handlers.forEach(function(h){ el.addEventListener(h.type,h.fn,h.opts||false); });
-              d.obj.__handlers = [];
-            }
+            // best-effort flush: nothing to do because listeners were bound when element appeared
           } catch(e){}
         });
       });
@@ -66,8 +65,9 @@
     <img id="anchorImg" src="" alt="Anchor" />
     <div id="displayName"></div>
     <div id="displayId"></div>
-    <!-- Added: grid overlay expected by core (script.v132.js) -->
+    <!-- Elements expected by core -->
     <div id="grid" class="grid hidden"></div>
+    <div id="notice" class="notice hidden"></div>
   </div>
 
   <p class="help">
