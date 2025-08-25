@@ -1,29 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SwipeTree rc1b-touchfix</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwipeTree rc1c</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
-    <button id="backBtn">← Back</button>
-    <h1>SwipeTree</h1>
-    <div>
-      <input id="idInput" type="text" placeholder="Enter ID (e.g., 100000)">
-      <button id="startBtn">Start</button>
-    </div>
-    <div id="stage">
-      <img id="anchorImg" src="100000.jpg" alt="Anchor">
-      <div id="displayName">100000</div>
-      <div id="displayId">100000</div>
-    </div>
-    <p class="help">
-      Swipe: ◀ siblings • ▶ spouse • ▲ parents • ▼ children<br>
-      Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.
-    </p>
+  <button id="backBtn">← Back</button>
+  <h1>SwipeTree</h1>
+  <div>
+    <input id="idInput" type="text" placeholder="Enter ID (e.g., 100000)" />
+    <button id="startBtn">Start</button>
   </div>
+  <div id="stage">
+    <img id="anchorImg" src="" alt="Anchor" />
+    <div id="displayName"></div>
+    <div id="displayId"></div>
+  </div>
+  <p class="help">
+    Swipe: ◀ siblings • ▶ spouse • ▲ parents • ▼ children<br />
+    Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.
+  </p>
+
+  <!-- Load your full app logic first -->
+  <script src="script.v132.js"></script>
+  <!-- Then load the glue script that adds iOS touch fixes, autostart, and image fallback -->
   <script src="script.js"></script>
 </body>
 </html>
