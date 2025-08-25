@@ -1,17 +1,11 @@
-# SwipeTree rc1b-touchfix full package
+UPLOAD **script.js** ONLY (replace existing). No other files.
 
-This build replaces your files (index.html, style.css, script.js) so you don't need to edit code manually.
+This preserves your actual app logic (script.v132.js) and fixes iPad swipes.
+- Non-passive touch listeners so Safari doesn't steal gestures
+- Calls your real goLeft/goRight/goUp/goDown
+- Cleans stray NBSP in labels
 
-- Swipe works on iPad (prevents Safari from hijacking gestures).
-- Calls `goLeft`, `goRight`, `goUp`, `goDown` (currently placeholders).
-- Cleans up stray `\u00A0` labels so blanks don't display weird codes.
-
-## Files
-- index.html — base layout, already linked to style.css + script.js
-- style.css — includes dark theme and touchfix
-- script.js — swipe logic and NBSP cleanup
-
-## Install
-1. Upload all 3 files to your Family-tree-app repo (replace existing).
-2. Commit and push.
-3. Test at your GitHub Pages URL.
+Steps:
+1) Add file → Upload files → script.js (replace)
+2) Commit to rc-1b
+3) Hard refresh on iPad
