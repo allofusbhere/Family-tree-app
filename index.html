@@ -1,49 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree — iPad build rc1b</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwipeTree rc1b-touchfix</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
-    <header class="topbar">
-      <button id="backBtn" aria-label="Back">← Back</button>
-      <div id="title">SwipeTree</div>
-      <div id="idInputWrap">
-        <input id="idInput" type="text" inputmode="numeric" pattern="\d{6}(?:\.\d+)?" placeholder="Enter ID (e.g., 100000)" />
-        <button id="startBtn">Start</button>
-      </div>
-    </header>
-
-    <main id="stage">
-      <div id="anchorWrap">
-        <img id="anchorImg" alt="Anchor" />
-        <div id="anchorLabel">
-          <div id="anchorName"></div>
-          <div id="anchorId"></div>
-        </div>
-      </div>
-
-      <!-- Force hidden on load via inline style -->
-      <div id="overlay" class="hidden" style="display:none;">
-        <div class="overlay-inner">
-          <div class="overlay-header">
-            <span id="overlayTitle">Overlay</span>
-            <button id="closeOverlayBtn" aria-label="Close">✕</button>
-          </div>
-          <div id="grid" class="grid"></div>
-        </div>
-      </div>
-    </main>
-
-    <footer class="hint">
-      <div>Swipe: ◀︎ siblings • ▶︎ spouse • ▲ parents • ▼ children</div>
-      <div>Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.</div>
-    </footer>
+    <button id="backBtn">← Back</button>
+    <h1>SwipeTree</h1>
+    <div>
+      <input id="idInput" type="text" placeholder="Enter ID (e.g., 100000)">
+      <button id="startBtn">Start</button>
+    </div>
+    <div id="stage">
+      <img id="anchorImg" src="100000.jpg" alt="Anchor">
+      <div id="displayName">100000</div>
+      <div id="displayId">100000</div>
+    </div>
+    <p class="help">
+      Swipe: ◀ siblings • ▶ spouse • ▲ parents • ▼ children<br>
+      Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.
+    </p>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>
