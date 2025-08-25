@@ -3,16 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwipeTree (v132 promote)</title>
+  <title>SwipeTree (v132 with DOM guard)</title>
 
-  <!-- Use the exact older CSS that worked -->
+  <!-- Use the older, working CSS -->
   <link rel="stylesheet" href="style.v132.css" />
-
-  <!-- Optional: tiny header tweak only (safe) -->
   <link rel="stylesheet" href="style.v132_override.css" />
 
   <!-- Silence favicon 404s -->
   <link rel="icon" href="data:,">
+
+  <!-- Tiny DOM guard: prevents $(...).addEventListener null by deferring binds -->
+  <script>
+    (function(){
+      function resolve(sel){
+        if(!sel) return null;
+        if (/^[A-Za-z0-9_-]+$/.test(sel)) {
+          return document.getElementById(sel) || document.querySelector("#"+sel);
+        }
+        try { return document.querySelector(sel); } catch(e){ return null; }
+      }
+      function makeProxy(sel){
+        var emptyClassList = { add:function(){}, remove:function(){}, toggle:function(){}, contains:function(){ return false; } };
+        return {
+          addEventListener: function(type, handler, opts){
+            function tryBind(tries){
+              var el = resolve(sel);
+              if (el) { el.addEventListener(type, handler, opts||false); return; }
+              if ((tries||0) > 120) return; // ~2s
+              requestAnimationFrame(function(){ tryBind((tries||0)+1); });
+            }
+            tryBind(0);
+          },
+          setAttribute: function(){}, get classList(){ return emptyClassList; }, get style(){ return {};}
+        };
+      }
+      window.$ = function(sel){
+        var el = resolve(sel);
+        return el || makeProxy(sel);
+      };
+    })();
+  </script>
 </head>
 <body>
   <button id="backBtn">← Back</button>
@@ -23,12 +53,11 @@
     <button id="startBtn">Start</button>
   </div>
 
-  <!-- The same container your core uses -->
+  <!-- Same container as v132, with the overlay elements core expects -->
   <div id="stage">
     <img id="anchorImg" src="" alt="Anchor" />
-    <div id="displayName"></div>
+    <div id="displayName">Anchor</div>
     <div id="displayId"></div>
-    <!-- Elements expected by core -->
     <div id="grid" class="grid hidden"></div>
     <div id="notice" class="notice hidden"></div>
   </div>
@@ -38,9 +67,8 @@
     Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.
   </p>
 
-  <!-- Load your original core first -->
+  <!-- Load core first, then helpers (helpers have NO swipe code) -->
   <script src="script.v132.js"></script>
-  <!-- Then small helpers (no swipe listeners) -->
   <script src="script.js"></script>
 </body>
 </html>
