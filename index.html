@@ -3,36 +3,57 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwipeTree rc1c2</title>
+  <title>SwipeTree rc1c-domguard</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Robust selector helper BEFORE core to prevent $(...).addEventListener null -->
+  <!-- DOM guard: prevent $(...).addEventListener null by deferring bindings until elements exist -->
   <script>
     (function(){
-      function resolve(sel){
-        if(!sel) return null;
-        if (/^[A-Za-z0-9_-]+$/.test(sel)) {
-          return document.getElementById(sel) || document.querySelector("#"+sel);
-        }
-        try { return document.querySelector(sel); } catch(e){ return null; }
-      }
-      function makeProxy(sel){
-        return {
-          addEventListener: function(type, handler, opts){
-            function tryBind(tries){
-              var el = resolve(sel);
-              if (el) { el.addEventListener(type, handler, opts||false); return; }
-              if ((tries||0) > 120) return; // ~2s
-              requestAnimationFrame(function(){ tryBind((tries||0)+1); });
+      var origQS = Document.prototype.querySelector;
+      var origGI = Document.prototype.getElementById;
+      var deferred = [];
+      function makeDeferred(sel){
+        var handlers = [];
+        var obj = {
+          __deferred__: true,
+          __sel__: sel,
+          addEventListener: function(type, fn, opts){
+            handlers.push({type:type, fn:fn, opts:opts});
+            // try immediate bind if element is available now
+            var el = origQS.call(document, sel[0]==='#' ? sel : sel);
+            if (el) {
+              handlers.forEach(function(h){ el.addEventListener(h.type, h.fn, h.opts||false); });
+              handlers.length = 0;
             }
-            tryBind(0);
-          }
+          },
+          setAttribute: function(){ /* no-op */ },
+          get style(){ return {}; }
         };
+        obj.__flush__ = function(){
+          var el = origQS.call(document, sel);
+          if(!el) return false;
+          handlers.forEach(function(h){ el.addEventListener(h.type, h.fn, h.opts||false); });
+          handlers.length = 0;
+          return true;
+        };
+        deferred.push(obj);
+        return obj;
       }
-      window.$ = function(sel){
-        var el = resolve(sel);
-        return el || makeProxy(sel);
+      Document.prototype.querySelector = function(sel){
+        try{
+          var el = origQS.call(this, sel);
+          return el || makeDeferred(sel);
+        }catch(e){
+          return makeDeferred(sel);
+        }
       };
+      Document.prototype.getElementById = function(id){
+        var el = origGI.call(this, id);
+        return el || makeDeferred("#"+id);
+      };
+      window.addEventListener('DOMContentLoaded', function(){
+        deferred.forEach(function(d){ try{ d.__flush__(); }catch(e){} });
+      });
     })();
   </script>
 </head>
@@ -53,9 +74,9 @@
     Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.
   </p>
 
-  <!-- Load your full app logic first -->
+  <!-- Load your full app logic -->
   <script src="script.v132.js"></script>
-  <!-- Then load the glue script -->
+  <!-- Glue enhancements -->
   <script src="script.js"></script>
 </body>
 </html>
