@@ -1,11 +1,47 @@
 
-/* script.v132.js — rc2h (Back + Start integration)
-   Implements:
-   - Smart Back button: only visible if useful (grid open or historyStack > 1)
-   - Start button now pushes IDs to historyStack and updates visibility
+/* script.v132.js — rc2i (Back + Start solid wiring)
+   Goals:
+   - Show Back ONLY when useful (grid open OR historyStack > 1)
+   - Make Start actually navigate + populate historyStack
+   - Initialize historyStack with current anchor (from #id hash or input)
+   - Never duplicate consecutive IDs in the stack
+   - Keep all logic self-contained; do NOT touch relationship math
 */
 
 (function(){
+  // ---------- Utilities ----------
+  function getIdFromHash(){
+    const m = (location.hash||'').match(/#id=([0-9]+(?:\.1)?)/);
+    return m ? m[1] : null;
+  }
+  function isValidId(v){ return /^[0-9]+(?:\.1)?$/.test(String(v||'')); }
+
+  function safeGo(id){
+    // Prefer app's go(id) if present
+    if (typeof window.go === 'function'){
+      try { window.go(id); return true; } catch(e){ /* fallthrough */ }
+    }
+    // Fallback: update hash so app can react
+    try { location.hash = '#id=' + id; return true; } catch(e){}
+    return false;
+  }
+
+  function ensureHistory(){
+    if (!Array.isArray(window.historyStack)) window.historyStack = [];
+    return window.historyStack;
+  }
+
+  function top(stack){ return stack.length ? stack[stack.length-1] : null; }
+
+  function pushId(id){
+    const hs = ensureHistory();
+    if (!isValidId(id)) return;
+    if (top(hs) === id) return; // no dupes
+    hs.push(id);
+    updateBackVisibility();
+  }
+
+  // ---------- Back button ----------
   function ensureBack(){
     let btn = document.getElementById('st-back-btn');
     if (!btn){
@@ -13,19 +49,14 @@
       btn.id = 'st-back-btn';
       btn.type = 'button';
       btn.textContent = 'Back';
-      btn.style.position = 'fixed';
-      btn.style.top = '14px';
-      btn.style.left = '14px';
-      btn.style.zIndex = '1200';
-      btn.style.padding = '10px 14px';
-      btn.style.borderRadius = '999px';
-      btn.style.border = '1px solid rgba(255,255,255,0.25)';
-      btn.style.background = 'rgba(0,0,0,0.55)';
-      btn.style.color = '#fff';
-      btn.style.font = '600 14px system-ui, sans-serif';
-      btn.style.backdropFilter = 'blur(6px)';
-      btn.style.cursor = 'pointer';
-      btn.style.display = 'none'; // hidden by default
+      Object.assign(btn.style, {
+        position:'fixed', top:'14px', left:'14px', zIndex:'1200',
+        padding:'10px 14px', borderRadius:'999px',
+        border:'1px solid rgba(255,255,255,0.25)',
+        background:'rgba(0,0,0,0.55)', color:'#fff',
+        font:'600 14px system-ui, sans-serif',
+        backdropFilter:'blur(6px)', cursor:'pointer', display:'none'
+      });
       btn.addEventListener('click', backAction);
       document.body.appendChild(btn);
     }
@@ -41,15 +72,13 @@
       return;
     }
 
-    // 2) Use historyStack if available
-    const hs = window.historyStack;
-    if (Array.isArray(hs) && hs.length > 1){
+    // 2) Pop historyStack if available
+    const hs = ensureHistory();
+    if (hs.length > 1){
       hs.pop(); // remove current
-      const prev = hs[hs.length-1];
-      const id = (prev && typeof prev === 'object') ? (prev.id || prev.anchor || prev.value) : prev;
-      if (id){
-        try { location.hash = '#id=' + id; } catch(e){}
-        if (typeof window.go === 'function'){ try{ window.go(id); }catch(e){} }
+      const prev = top(hs);
+      if (prev){
+        safeGo(prev);
       }
       updateBackVisibility();
       return;
@@ -60,52 +89,71 @@
     const btn = document.getElementById('st-back-btn') || ensureBack();
     let visible = false;
 
-    // Grid open?
     if (document.querySelector('.overlay.parents.open, .overlay.siblings.open, .overlay.children.open, .overlay.spouse.open')){
       visible = true;
+    } else {
+      const hs = ensureHistory();
+      if (hs.length > 1) visible = true;
     }
-    // History stack available?
-    else if (Array.isArray(window.historyStack) && window.historyStack.length > 1){
-      visible = true;
-    }
-
     btn.style.display = visible ? 'block' : 'none';
   }
 
+  // Hook native pushes into visibility updates
   function hookHistoryStack(){
-    if (!window.historyStack) window.historyStack = [];
-    const origPush = window.historyStack.push;
-    window.historyStack.push = function(){
+    const hs = ensureHistory();
+    const origPush = hs.push;
+    hs.push = function(){
       const result = origPush.apply(this, arguments);
       updateBackVisibility();
       return result;
     };
   }
 
-  function hookStartButton(){
-    const startBtn = document.querySelector('button') || document.getElementById('start-btn');
-    const input = document.querySelector('input[type="text"]');
-    if (!startBtn || !input) return;
+  // ---------- Start wiring ----------
+  function wireStart(){
+    // Find the input + any button labeled "Start"
+    const input = document.querySelector('input[type="text"], input#startId, input[name="startId"]');
+    let startBtn = Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"]'))
+      .find(b => (b.textContent||b.value||'').trim().toLowerCase() === 'start');
+    if (!startBtn){
+      // fallback: first button after the input
+      const nextBtn = input && input.closest('label, div, form, body').querySelector('button');
+      if (nextBtn) startBtn = nextBtn;
+    }
+    if (!input || !startBtn) return;
 
-    startBtn.addEventListener('click', ()=>{
-      const id = input.value.trim();
-      if (!id) return;
-      if (typeof window.go === 'function'){ try{ window.go(id); } catch(e){} }
-      if (Array.isArray(window.historyStack)) window.historyStack.push(id);
-      updateBackVisibility();
+    function startNav(){
+      const raw = (input.value||'').trim();
+      if (!isValidId(raw)) return;
+      if (safeGo(raw)) pushId(raw);
+    }
+    startBtn.addEventListener('click', startNav);
+
+    // Also allow Enter in the input
+    input.addEventListener('keypress', (e)=>{
+      if (e.key === 'Enter'){ e.preventDefault(); startNav(); }
     });
   }
 
+  // ---------- Initial boot ----------
   function init(){
     ensureBack();
     hookHistoryStack();
-    hookStartButton();
+    wireStart();
+
+    // Bootstrap the initial anchor into the stack once
+    const fromHash = getIdFromHash();
+    const input = document.querySelector('input[type="text"], input#startId, input[name="startId"]');
+    const seed = isValidId(fromHash) ? fromHash : (isValidId(input && input.value) ? input.value.trim() : '100000');
+    const hs = ensureHistory();
+    if (hs.length === 0) hs.push(seed);
+
     updateBackVisibility();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  // Expose update for external calls
-  window.updateBackVisibility = updateBackVisibility;
+  // Expose for debugging
+  window.__st_rc2i = { pushId, updateBackVisibility };
 })();
