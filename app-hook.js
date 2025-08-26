@@ -1,10 +1,9 @@
 
-/* app-hook.js — rc2d (Items 1–3, non-invasive)
-   Safe add-on loaded by index.html. No changes to relationship logic.
-   - Back button (closes overlay else history.back)
+/* app-hook.js — rc2d (stable add-on)
+   - Back button (closes overlay else history)
    - Parents overlay centered (2-up)
-   - Anchor highlight (soft background + glow)
-   - Minimal swipe-up handler (UI-only demo; placeholders if no image URLs provided)
+   - Anchor highlight
+   - Minimal upward swipe gate (UI-only)
 */
 (function(){
   const CSS = `
@@ -74,4 +73,25 @@
     if (wrap) wrap.classList.add('highlight');
   }
 
-  // Minimal upward swipe (distance+angle gate)\n  function attachSwipeUp(){\n    let sx=0, sy=0, st=0, on=false;\n    const ang = Math.tan(22.5*Math.PI/180); const minD=24; const minV=0.25;\n    document.addEventListener('touchstart', e=>{ const t=e.touches[0]; sx=t.clientX; sy=t.clientY; st=Date.now(); on=true; }, {passive:true});\n    document.addEventListener('touchend', e=>{\n      if(!on) return; on=false; const t=e.changedTouches[0];\n      const dx=t.clientX-sx, dy=t.clientY-sy, dt=Math.max(1, Date.now()-st); const dist=Math.hypot(dx,dy), vel=dist/dt; if(dist<minD && vel<minV) return;\n      if(Math.abs(dx) > Math.abs(dy)*ang) return; if(dy>=0) return; renderParents(null,null);\n    }, {passive:true});\n  }\n\n  // Hook: if core dispatches swipetree:showParents with srcs, render them\n  function hookCore(){\n    document.addEventListener('swipetree:showParents', (e)=>{\n      const d=(e&&e.detail)||{}; renderParents(d.parent1Src||null, d.parent2Src||null);\n    });\n  }\n\n  function init(){ injectCSS(); ensureBack(); ensureParentsOverlay(); highlightAnchor(); attachSwipeUp(); hookCore(); }\n  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();\n})();\n
+  function attachSwipeUp(){
+    let sx=0, sy=0, st=0, on=false;
+    const ang = Math.tan(22.5*Math.PI/180); const minD=24; const minV=0.25;
+    document.addEventListener('touchstart', e=>{ const t=e.touches[0]; sx=t.clientX; sy=t.clientY; st=Date.now(); on=true; }, {passive:true});
+    document.addEventListener('touchend', e=>{
+      if(!on) return; on=false; const t=e.changedTouches[0];
+      const dx=t.clientX-sx, dy=t.clientY-sy, dt=Math.max(1, Date.now()-st);
+      const dist=Math.hypot(dx,dy), vel=dist/dt; if(dist<minD && vel<minV) return;
+      if(Math.abs(dx) > Math.abs(dy)*ang) return; if(dy>=0) return;
+      renderParents(null,null);
+    }, {passive:true});
+  }
+
+  function hookCore(){
+    document.addEventListener('swipetree:showParents', (e)=>{
+      const d=(e&&e.detail)||{}; renderParents(d.parent1Src||null, d.parent2Src||null);
+    });
+  }
+
+  function init(){ injectCSS(); ensureBack(); ensureParentsOverlay(); highlightAnchor(); attachSwipeUp(); hookCore(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
