@@ -1,184 +1,108 @@
+
+/* script.v132.js — rc2g (Back-only integration)
+   Implements:
+   - Smart Back button: only visible if useful (grid open or historyStack > 1)
+   - Behavior priority:
+       1) If a grid is open → close it
+       2) Else if historyStack available → go back to last anchor
+       3) Else fallback to browser history.back()
+   - Guardrail: Back button never dead; hidden when not usable
+*/
+
 (function(){
-  'use strict';
-  const BUILD_VER = 'v1.3.2-20250822';
-  const $ = sel => document.querySelector(sel);
-  const $$ = sel => Array.from(document.querySelectorAll(sel));
-  document.addEventListener('contextmenu', e => e.preventDefault());
-
-  function getHashId(){ const m=location.hash.match(/id=(\d+(?:\.\d+)?)/); return m?m[1]:null; }
-  function setHashId(id){ const url=new URL(location.href); url.hash=`id=${id}`; history.pushState({id},"",url); }
-  function digits(nStr){ return nStr.split('.')[0].length; }
-  function padTo(len,n){ return n.toString().padStart(len,'0'); }
-  function toInt(idStr){ return parseInt(idStr.split('.')[0],10); }
-
-  // Generation helpers (locked rules)
-  function genPlace(idStr){
-    const s=idStr.split('.')[0];
-    for(let i=0;i<s.length;i++){ if(s[i]!=='0'){ return Math.pow(10, s.length-i-1); } }
-    return Math.pow(10, s.length-1);
-  }
-  function childPlace(idStr){ return genPlace(idStr)/10; }
-
-  // Multi-extension (reduced) + cache-busting
-  const EXT_LIST = ['.jpg', '.JPG'];
-  function imgUrlCandidates(id){
-    return EXT_LIST.map(ext => `https://allofusbhere.github.io/family-tree-images/${id}${ext}?v=${BUILD_VER}`);
-  }
-  function attachMultiSrc(imgEl, id, onAllError){
-    const candidates = imgUrlCandidates(id);
-    let idx = 0;
-    function tryNext(){
-      if(idx >= candidates.length){
-        imgEl.onerror = null; imgEl.onload = null;
-        if(onAllError) onAllError();
-        return;
-      }
-      const url = candidates[idx++];
-      imgEl.onerror = tryNext;
-      imgEl.onload  = () => { imgEl.onerror = null; imgEl.onload = null; };
-      imgEl.src = url;
-      imgEl.alt = `ID ${id}`;
+  function ensureBack(){
+    let btn = document.getElementById('st-back-btn');
+    if (!btn){
+      btn = document.createElement('button');
+      btn.id = 'st-back-btn';
+      btn.type = 'button';
+      btn.textContent = 'Back';
+      btn.style.position = 'fixed';
+      btn.style.top = '14px';
+      btn.style.left = '14px';
+      btn.style.zIndex = '1200';
+      btn.style.padding = '10px 14px';
+      btn.style.borderRadius = '999px';
+      btn.style.border = '1px solid rgba(255,255,255,0.25)';
+      btn.style.background = 'rgba(0,0,0,0.55)';
+      btn.style.color = '#fff';
+      btn.style.font = '600 14px system-ui, sans-serif';
+      btn.style.backdropFilter = 'blur(6px)';
+      btn.style.cursor = 'pointer';
+      btn.style.display = 'none'; // hidden by default
+      btn.addEventListener('click', backAction);
+      document.body.appendChild(btn);
     }
-    tryNext();
+    return btn;
   }
 
-  function loadLabel(id){ try{return(JSON.parse(localStorage.getItem('labels')||'{}')[id]||"");}catch(e){return"";} }
-  function saveLabel(id,name){ try{const d=JSON.parse(localStorage.getItem('labels')||'{}');d[id]=name;localStorage.setItem('labels',JSON.stringify(d));}catch(e){} }
-  function displayName(id){ const n=(loadLabel(id)||"").trim(); return n||id; }
-
-  // Relationship derivation (locked)
-  function deriveSiblings(idStr){
-    const base=idStr.split('.')[0], len=digits(base), n=toInt(base);
-    const place=genPlace(base), currentDigit=Math.floor(n/place)%10, floorToPlace=n-currentDigit*place;
-    const out=[]; for(let k=1;k<=9;k++){const sib=floorToPlace+k*place; if(sib!==n) out.push(padTo(len,sib));}
-    return out;
-  }
-  function deriveChildren(idStr){
-    const base=idStr.split('.')[0], len=digits(base), n=toInt(base);
-    const place=childPlace(base), currentDigit=Math.floor(n/place)%10, floorToPlace=n-currentDigit*place;
-    const out=[]; for(let k=1;k<=9;k++){ out.push(padTo(len, floorToPlace + k*place)); }
-    return out;
-  }
-  function deriveParents(idStr){
-    const base=idStr.split('.')[0], len=digits(base), n=toInt(base);
-    const cPlace=childPlace(base), cDigit=Math.floor(n/cPlace)%10;
-    const set=new Set();
-    if(cDigit>0){ set.add(padTo(len, n - cDigit*cPlace)); }
-    else { const gPlace=genPlace(base), gDigit=Math.floor(n/gPlace)%10; if(gDigit>0) set.add(padTo(len, n - gDigit*gPlace)); }
-    return Array.from(set);
-  }
-
-  const historyStack=[]; let anchorId=null;
-  const anchorCard=$('#anchorCard'), anchorImg=$('#anchorImg');
-  const anchorIdEl=$('#anchorId'), anchorNameEl=$('#anchorName');
-  const grid=$('#grid'), tileTemplate=$('#tileTemplate'), notice=$('#notice');
-  const missingTemplate=$('#missingTemplate');
-
-  function setAnchor(id){
-    if(anchorId&&anchorId!==id)historyStack.push(anchorId);
-    anchorId=id;
-    anchorIdEl.textContent=id;
-    anchorNameEl.textContent=displayName(id);
-    attachMultiSrc(anchorImg, id);
-    hideGrid();
-  }
-  function hideGrid(){ grid.innerHTML=''; grid.classList.add('hidden'); notice.classList.add('hidden'); notice.textContent=''; }
-
-  function addPlaceholder(missId){
-    const ph=missingTemplate.content.firstElementChild.cloneNode(true);
-    ph.querySelector('.name').textContent=`Image not found (${missId})`;
-    grid.appendChild(ph);
-  }
-
-  // Render with modes
-  function renderSet(ids, {contiguous=false, earlyStop=false}={}){
-    grid.innerHTML=''; grid.classList.remove('hidden');
-    let successCount=0, consecutiveMiss=0, stopped=false, processed=0;
-    const maxTiles=9;
-    function next(){
-      if(stopped) return;
-      if(processed>=ids.length || successCount>=maxTiles) return;
-      const id = ids[processed++];
-      const tile=tileTemplate.content.firstElementChild.cloneNode(true);
-      const img=tile.querySelector('img'); const nameSpan=tile.querySelector('.name');
-      tile.querySelector('.id').textContent="";
-      nameSpan.textContent=displayName(id);
-
-      function onAllError(){
-        consecutiveMiss++;
-        if(contiguous && successCount>0){
-          addPlaceholder(id);
-          notice.textContent=`Stopped after first missing ID (${id}).`;
-          notice.classList.remove('hidden');
-          stopped=true; return;
-        }
-        if(earlyStop && consecutiveMiss>=2){
-          notice.textContent='Stopping after repeated missing images.';
-          notice.classList.remove('hidden');
-          stopped=true; return;
-        }
-        tile.remove(); next();
-      }
-
-      function onLoad(){
-        consecutiveMiss=0; successCount++;
-        img.removeEventListener('load', onLoad);
-        img.removeEventListener('allerror', onAllError);
-        next();
-      }
-
-      img.addEventListener('load', onLoad);
-      img.addEventListener('allerror', onAllError);
-      attachMultiSrc(img, id, ()=>img.dispatchEvent(new Event('allerror')));
-      tile.addEventListener('click',()=>setAnchor(id));
-      grid.appendChild(tile);
+  function backAction(){
+    // 1) Close open grids first
+    const openGrid = document.querySelector('.overlay.parents.open, .overlay.siblings.open, .overlay.children.open, .overlay.spouse.open');
+    if (openGrid){
+      openGrid.classList.remove('open');
+      updateBackVisibility();
+      return;
     }
-    // pump first few
-    for(let k=0;k<Math.min(3, ids.length); k++) next();
-  }
 
-  function showSiblings(){ if(!anchorId) return; renderSet(deriveSiblings(anchorId), {contiguous:true}); }
-  function showChildren(){ if(!anchorId) return; renderSet(deriveChildren(anchorId), {contiguous:true}); }
-  function showParents(){ if(!anchorId) return; renderSet(deriveParents(anchorId), {earlyStop:true}); }
-
-  // Buttons
-  $('#btnSiblings').addEventListener('click', showSiblings);
-  $('#btnChildren').addEventListener('click', showChildren);
-  $('#btnParents').addEventListener('click', showParents);
-  $('#btnBack').addEventListener('click',()=>{if(historyStack.length)setAnchor(historyStack.pop());});
-
-  // Swipe
-  (function enableSwipe(){
-    let x0=0,y0=0; const THRESH=30;
-    anchorCard.addEventListener('touchstart',e=>{const t=e.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
-    anchorCard.addEventListener('touchend',e=>{
-      const t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0;
-      if(Math.max(Math.abs(dx),Math.abs(dy))<THRESH) return;
-      if(Math.abs(dx)>Math.abs(dy)){
-        if(dx<0){ showSiblings(); }
-      } else {
-        if(dy<0){ showParents(); }
-        else { showChildren(); }
+    // 2) Use historyStack if available
+    const hs = window.historyStack;
+    if (Array.isArray(hs) && hs.length > 1){
+      hs.pop(); // remove current
+      const prev = hs[hs.length-1];
+      const id = (prev && typeof prev === 'object') ? (prev.id || prev.anchor || prev.value) : prev;
+      if (id){
+        try { location.hash = '#id=' + id; } catch(e){}
+        if (typeof window.go === 'function'){ try{ window.go(id); }catch(e){} }
       }
-    }, {passive:true});
-  })();
+      updateBackVisibility();
+      return;
+    }
 
-  // Long-press to edit
-  function longPress(el,ms,onLong){
-    let t=null;
-    el.addEventListener('pointerdown',ev=>{ev.preventDefault();t=setTimeout(onLong,ms);});
-    ['pointerup','pointerleave','pointercancel'].forEach(evt=>{
-      el.addEventListener(evt,()=>{if(t){clearTimeout(t);t=null;}});
-    });
+    // 3) Fallback to browser history
+    if (history.length > 1) history.back();
+    updateBackVisibility();
   }
-  longPress(anchorImg,500,()=>{
-    if(!anchorId) return;
-    const current=(loadLabel(anchorId)||"").trim();
-    const name=prompt(`Edit display name for ${anchorId}`, current);
-    if(name!==null){ const v=name.trim(); saveLabel(anchorId,v); anchorNameEl.textContent=displayName(anchorId); }
-  });
 
-  function boot(){ let id=getHashId()||"100000"; setHashId(id); setAnchor(id); }
-  window.addEventListener('popstate',e=>{const id=(e.state&&e.state.id)||getHashId()||anchorId;if(id)setAnchor(id);});
-  document.addEventListener('DOMContentLoaded',boot);
+  function updateBackVisibility(){
+    const btn = document.getElementById('st-back-btn') || ensureBack();
+    let visible = false;
+
+    // Grid open?
+    if (document.querySelector('.overlay.parents.open, .overlay.siblings.open, .overlay.children.open, .overlay.spouse.open')){
+      visible = true;
+    }
+    // History stack available?
+    else if (Array.isArray(window.historyStack) && window.historyStack.length > 1){
+      visible = true;
+    }
+    // Browser history fallback
+    else if (history.length > 1){
+      visible = true;
+    }
+
+    btn.style.display = visible ? 'block' : 'none';
+  }
+
+  function hookHistoryStack(){
+    if (!window.historyStack) window.historyStack = [];
+    const origPush = window.historyStack.push;
+    window.historyStack.push = function(){
+      const result = origPush.apply(this, arguments);
+      updateBackVisibility();
+      return result;
+    };
+  }
+
+  function init(){
+    ensureBack();
+    hookHistoryStack();
+    updateBackVisibility();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+  // Expose update for external calls
+  window.updateBackVisibility = updateBackVisibility;
 })();
