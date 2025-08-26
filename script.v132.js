@@ -1,12 +1,8 @@
 
-/* script.v132.js — rc2g (Back-only integration)
+/* script.v132.js — rc2h (Back + Start integration)
    Implements:
    - Smart Back button: only visible if useful (grid open or historyStack > 1)
-   - Behavior priority:
-       1) If a grid is open → close it
-       2) Else if historyStack available → go back to last anchor
-       3) Else fallback to browser history.back()
-   - Guardrail: Back button never dead; hidden when not usable
+   - Start button now pushes IDs to historyStack and updates visibility
 */
 
 (function(){
@@ -58,10 +54,6 @@
       updateBackVisibility();
       return;
     }
-
-    // 3) Fallback to browser history
-    if (history.length > 1) history.back();
-    updateBackVisibility();
   }
 
   function updateBackVisibility(){
@@ -74,10 +66,6 @@
     }
     // History stack available?
     else if (Array.isArray(window.historyStack) && window.historyStack.length > 1){
-      visible = true;
-    }
-    // Browser history fallback
-    else if (history.length > 1){
       visible = true;
     }
 
@@ -94,9 +82,24 @@
     };
   }
 
+  function hookStartButton(){
+    const startBtn = document.querySelector('button') || document.getElementById('start-btn');
+    const input = document.querySelector('input[type="text"]');
+    if (!startBtn || !input) return;
+
+    startBtn.addEventListener('click', ()=>{
+      const id = input.value.trim();
+      if (!id) return;
+      if (typeof window.go === 'function'){ try{ window.go(id); } catch(e){} }
+      if (Array.isArray(window.historyStack)) window.historyStack.push(id);
+      updateBackVisibility();
+    });
+  }
+
   function init(){
     ensureBack();
     hookHistoryStack();
+    hookStartButton();
     updateBackVisibility();
   }
 
