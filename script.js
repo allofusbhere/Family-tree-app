@@ -1,9 +1,8 @@
 
-/* SwipeTree script.js — rc2b (Items 1–3)
-   - Back button enabled (closes open grid else history.back)
-   - Parents overlay centered (two-up), placeholder-safe
-   - Anchor highlight (soft background + glow)
-   - Minimal swipe-up handler to open Parents overlay (UI-only)
+/* SwipeTree script.js — rc2c (Items 1–3 hotfix)
+   - Fix: JS syntax error (used "and" instead of "&&")
+   - Back button enabled; Parents overlay centered; Anchor highlight
+   - Minimal swipe-up handler (UI-only)
 */
 (function(){
   const CSS = `
@@ -25,8 +24,8 @@
   `;
 
   function injectCSS(){
-    if (document.getElementById('st-rc2b-css')) return;
-    const s = document.createElement('style'); s.id = 'st-rc2b-css'; s.textContent = CSS; document.head.appendChild(s);
+    if (document.getElementById('st-rc2c-css')) return;
+    const s = document.createElement('style'); s.id = 'st-rc2c-css'; s.textContent = CSS; document.head.appendChild(s);
   }
 
   function ensureParentsOverlay(){
@@ -110,7 +109,7 @@
       if (!active) return; active=false;
       const t = (e.changedTouches ? e.changedTouches[0] : e);
       const dx = (t.clientX||0) - startX; const dy = (t.clientY||0) - startY; const dt = Math.max(1, Date.now()-startT);
-      const dist = Math.hypot(dx, dy); const vel = dist/dt; if (dist < minDist and vel < minVel) return;
+      const dist = Math.hypot(dx, dy); const vel = dist/dt; if (dist < minDist && vel < minVel) return;
       if (Math.abs(dx) > Math.abs(dy) * tolAngle) return; // too horizontal
       if (dy >= 0) return; // not upward
       renderParents(null, null);
