@@ -1,80 +1,140 @@
-/*! script.js — rc1c CORE-ONLY (no swipe handlers) */
+
+/* SwipeTree script.js — rc2b (Items 1–3)
+   - Back button enabled (closes open grid else history.back)
+   - Parents overlay centered (two-up), placeholder-safe
+   - Anchor highlight (soft background + glow)
+   - Minimal swipe-up handler to open Parents overlay (UI-only)
+*/
 (function(){
-  var IMAGES_BASE = "https://allofusbhere.github.io/family-tree-images/";
-  var EXT_ORDER = [".jpg",".JPG",".jpeg",".png"];
+  const CSS = `
+  :root { --anchor-bg: rgba(255, 255, 200, 0.35); --anchor-glow: 0 0 24px rgba(255, 220, 100, 0.6); }
 
-  function cleanName(){
-    try{
-      var el = document.getElementById('displayName') ||
-               document.querySelector('[data-role="name"]') ||
-               document.querySelector('.anchor-name');
-      if(el){ el.textContent = (el.textContent||'').split('\\u00A0').join('').trim(); }
-    }catch(e){}
+  .st-layer { position: fixed; inset: 0; pointer-events: none; z-index: 1000; }
+
+  .anchor-wrap.highlight { background: var(--anchor-bg); box-shadow: var(--anchor-glow); border-radius: 16px; transition: box-shadow 120ms ease, background 120ms ease; }
+
+  .overlay.parents { position: fixed; inset: 0; display: none; background: rgba(0,0,0,0.6); z-index: 1100; pointer-events: auto; }
+  .overlay.parents.open { display: grid; place-items: center; }
+  .overlay.parents .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; justify-items: center; padding: 2rem; }
+  .overlay.parents .parent-slot { width: min(38vw, 38vh); height: min(38vw, 38vh); display: grid; place-items: center; background: #111; border-radius: 18px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2); }
+  .overlay.parents .parent-slot img { width: 100%; height: 100%; object-fit: contain; }
+  .overlay.parents .placeholder { opacity: 0.35; font: 600 1rem system-ui, sans-serif; color: #fff; }
+
+  #st-back-btn { position: fixed; top: 14px; left: 14px; z-index: 1200; padding: 10px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.55); color: #fff; font: 600 14px system-ui, sans-serif; backdrop-filter: blur(6px); cursor: pointer; pointer-events: auto; }
+  #st-back-btn:active { transform: translateY(1px); }
+  `;
+
+  function injectCSS(){
+    if (document.getElementById('st-rc2b-css')) return;
+    const s = document.createElement('style'); s.id = 'st-rc2b-css'; s.textContent = CSS; document.head.appendChild(s);
   }
 
-  function getIdFromURL(){
-    try{
-      var id = null;
-      var h = (location.hash||'').replace(/^#/,'');    // id=100000
-      if (h.indexOf('=') !== -1){
-        var hp = new URLSearchParams(h);
-        id = hp.get('id');
+  function ensureParentsOverlay(){
+    let overlay = document.querySelector('.overlay.parents');
+    if (!overlay){
+      overlay = document.createElement('div');
+      overlay.className = 'overlay parents';
+      overlay.innerHTML = `<div class="grid">
+        <div class="parent-slot" data-slot="p1"><div class="placeholder">No Image</div></div>
+        <div class="parent-slot" data-slot="p2"><div class="placeholder">No Image</div></div>
+      </div>`;
+      overlay.addEventListener('click', (e)=>{ if (e.target===overlay) overlay.classList.remove('open'); });
+      document.body.appendChild(overlay);
+    }
+    return overlay;
+  }
+
+  function renderParents(p1Src, p2Src){
+    const overlay = ensureParentsOverlay();
+    const s1 = overlay.querySelector('[data-slot="p1"]');
+    const s2 = overlay.querySelector('[data-slot="p2"]');
+    function fill(slot, src){
+      slot.innerHTML = '';
+      if (src){
+        const img = document.createElement('img');
+        img.alt = 'Parent';
+        img.decoding = 'async';
+        img.loading = 'eager';
+        img.src = src;
+        slot.appendChild(img);
       } else {
-        var q = (location.search||'').replace(/^\\?/,''); // id=100000
-        var qp = new URLSearchParams(q);
-        id = qp.get('id');
+        const ph = document.createElement('div');
+        ph.className = 'placeholder';
+        ph.textContent = 'Missing';
+        slot.appendChild(ph);
       }
-      if(id) id = id.trim();
-      return id || null;
-    }catch(e){ return null; }
-  }
-  function autoStart(){
-    var id = getIdFromURL();
-    if(!id) return;
-    try{
-      var input = document.getElementById('idInput');
-      if(input) input.value = id;
-      if (typeof window.start === 'function') window.start();
-      else {
-        var btn=document.getElementById('startBtn');
-        if(btn && btn.click) btn.click();
-      }
-    }catch(e){ console.warn('AutoStart failed', e); }
-  }
-
-  function filenameFrom(src){
-    try{
-      var p = src.split('/'); var last = p[p.length-1];
-      return last.split('?')[0].split('#')[0];
-    }catch(e){ return src; }
-  }
-  function baseName(f){ var i=f.lastIndexOf('.'); return i>=0 ? f.slice(0,i) : f; }
-  function extOf(f){ var i=f.lastIndexOf('.'); return i>=0 ? f.slice(i) : ''; }
-  function isFromAppRepo(src){ return src.indexOf('/Family-tree-app/') !== -1; }
-  function looksLikeId(name){ var main=(name||'').split('.')[0]; return /^[0-9]{5,}$/.test(main); }
-
-  document.addEventListener('error', function(e){
-    var t=e.target;
-    if(!(t && t.tagName==='IMG')) return;
-    var file = filenameFrom(t.src);
-    if (!looksLikeId(file)) return;
-    var name = baseName(file);
-    var ext  = extOf(file) || ".jpg";
-    var attempts = parseInt(t.getAttribute('data-ext-attempt')||'0',10);
-    if(isFromAppRepo(t.src)){
-      t.src = IMAGES_BASE + file;
-      t.setAttribute('data-ext-attempt','1');
-      return;
     }
-    if(attempts > 0 && attempts < EXT_ORDER.length){
-      t.src = IMAGES_BASE + name + EXT_ORDER[attempts];
-      t.setAttribute('data-ext-attempt', String(attempts+1));
-      return;
-    }
-  }, true);
+    fill(s1, p1Src);
+    fill(s2, p2Src);
+    overlay.classList.add('open');
+  }
 
-  document.addEventListener('DOMContentLoaded', function(){
-    cleanName();
-    autoStart();
-  });
+  function ensureBack(){
+    if (document.getElementById('st-back-btn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'st-back-btn';
+    btn.type = 'button';
+    btn.textContent = 'Back';
+    btn.addEventListener('click', ()=>{
+      const anyOpen = document.querySelector('.overlay.parents.open, .overlay.siblings.open, .overlay.children.open, .overlay.spouse.open');
+      if (anyOpen){ anyOpen.classList.remove('open'); return; }
+      if (history.length > 1) history.back();
+    });
+    document.body.appendChild(btn);
+  }
+
+  function highlightAnchor(){
+    let wrap = document.querySelector('.anchor-wrap');
+    const anchor = document.getElementById('anchor') || document.querySelector('[data-role="anchor"]') || document.querySelector('.anchor');
+    if (!wrap && anchor && anchor.parentNode){
+      wrap = document.createElement('div');
+      wrap.className = 'anchor-wrap';
+      anchor.parentNode.insertBefore(wrap, anchor);
+      wrap.appendChild(anchor);
+    }
+    if (wrap) wrap.classList.add('highlight');
+  }
+
+  // Minimal swipe-up gesture (UI demo)
+  function attachSwipeUp(){
+    let startX=0, startY=0, startT=0, active=false;
+    const tolAngle = Math.tan(22.5 * Math.PI/180); // ~0.414
+    const minDist = 24; // px
+    const minVel = 0.25; // px/ms
+
+    function onStart(e){
+      const t = e.touches ? e.touches[0] : e;
+      startX = t.clientX; startY = t.clientY; startT = Date.now(); active=true;
+    }
+    function onEnd(e){
+      if (!active) return; active=false;
+      const t = (e.changedTouches ? e.changedTouches[0] : e);
+      const dx = (t.clientX||0) - startX; const dy = (t.clientY||0) - startY; const dt = Math.max(1, Date.now()-startT);
+      const dist = Math.hypot(dx, dy); const vel = dist/dt; if (dist < minDist and vel < minVel) return;
+      if (Math.abs(dx) > Math.abs(dy) * tolAngle) return; // too horizontal
+      if (dy >= 0) return; // not upward
+      renderParents(null, null);
+    }
+    document.addEventListener('touchstart', onStart, {passive:true});
+    document.addEventListener('touchend', onEnd, {passive:true});
+  }
+
+  // Core integration: show real parents if app dispatches event
+  function hookCoreEvents(){
+    document.addEventListener('swipetree:showParents', (e)=>{
+      const { parent1Src, parent2Src } = (e && e.detail) || {};
+      renderParents(parent1Src || null, parent2Src || null);
+    });
+  }
+
+  function init(){
+    injectCSS();
+    ensureBack();
+    highlightAnchor();
+    attachSwipeUp();
+    hookCoreEvents();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
