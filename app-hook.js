@@ -1,76 +1,77 @@
-/*! app-hook.js — rc1b iPad swipe restoration + label cleanup
- *  Drop-in replacement. No index.html edits required.
- *  - Injects minimal CSS to stop iOS Safari from hijacking swipes
- *  - Binds non-passive touch listeners on your main surface
- *  - Calls your existing goLeft/goRight/goUp/goDown functions
- *  - Cleans stray \u00A0 from the anchor name label
- */
+
+/* app-hook.js — rc2d (Items 1–3, non-invasive)
+   Safe add-on loaded by index.html. No changes to relationship logic.
+   - Back button (closes overlay else history.back)
+   - Parents overlay centered (2-up)
+   - Anchor highlight (soft background + glow)
+   - Minimal swipe-up handler (UI-only demo; placeholders if no image URLs provided)
+*/
 (function(){
-  function injectCSS(css){
-    try{
-      var tag=document.createElement('style');
-      tag.type='text/css';
-      tag.appendChild(document.createTextNode(css));
-      document.head.appendChild(tag);
-    }catch(e){}
+  const CSS = `
+  :root { --anchor-bg: rgba(255, 255, 200, 0.35); --anchor-glow: 0 0 24px rgba(255, 220, 100, 0.6); }
+  .anchor-wrap.highlight { background: var(--anchor-bg); box-shadow: var(--anchor-glow); border-radius: 16px; transition: box-shadow 120ms ease, background 120ms ease; }
+  .overlay.parents { position: fixed; inset: 0; display: none; background: rgba(0,0,0,0.6); z-index: 1100; }
+  .overlay.parents.open { display: grid; place-items: center; }
+  .overlay.parents .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; justify-items: center; padding: 2rem; }
+  .overlay.parents .parent-slot { width: min(38vw, 38vh); height: min(38vw, 38vh); display: grid; place-items: center; background: #111; border-radius: 18px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2); }
+  .overlay.parents .parent-slot img { width: 100%; height: 100%; object-fit: contain; }
+  .overlay.parents .placeholder { opacity: 0.35; font: 600 1rem system-ui, sans-serif; color: #fff; }
+  #st-back-btn { position: fixed; top: 14px; left: 14px; z-index: 1200; padding: 10px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.55); color: #fff; font: 600 14px system-ui, sans-serif; backdrop-filter: blur(6px); cursor: pointer; }
+  #st-back-btn:active { transform: translateY(1px); }
+  `;
+
+  function injectCSS(){
+    if (document.getElementById('st-rc2d-css')) return;
+    const s=document.createElement('style'); s.id='st-rc2d-css'; s.textContent=CSS; document.head.appendChild(s);
   }
 
-  // CSS to keep Safari from stealing gestures
-  var css = [
-    "html,body{height:100%;}",
-    "#stage,body{overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;}"
-  ].join("\n");
-  injectCSS(css);
+  function ensureBack(){
+    if (document.getElementById('st-back-btn')) return;
+    const btn = document.createElement('button');
+    btn.id='st-back-btn'; btn.type='button'; btn.textContent='Back';
+    btn.addEventListener('click', ()=>{
+      const anyOpen = document.querySelector('.overlay.parents.open, .overlay.siblings.open, .overlay.children.open, .overlay.spouse.open');
+      if (anyOpen){ anyOpen.classList.remove('open'); return; }
+      if (history.length>1) history.back();
+    });
+    document.body.appendChild(btn);
+  }
 
-  function on(el,ev,fn,opts){ el && el.addEventListener(ev,fn,opts||false); }
+  function ensureParentsOverlay(){
+    let overlay = document.querySelector('.overlay.parents');
+    if (!overlay){
+      overlay = document.createElement('div');
+      overlay.className = 'overlay parents';
+      overlay.innerHTML = `<div class="grid">
+        <div class="parent-slot" data-slot="p1"><div class="placeholder">No Image</div></div>
+        <div class="parent-slot" data-slot="p2"><div class="placeholder">No Image</div></div>
+      </div>`;
+      overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.classList.remove('open'); });
+      document.body.appendChild(overlay);
+    }
+    return overlay;
+  }
 
-  function installSwipe(surface){
-    if(!surface) return;
-    var sx=0, sy=0, dx=0, dy=0, active=false;
-
-    on(surface,'touchstart',function(e){
-      var t=e.changedTouches && e.changedTouches[0]; if(!t) return;
-      sx=t.clientX; sy=t.clientY; dx=0; dy=0; active=true;
-    },{passive:false});
-
-    on(surface,'touchmove',function(e){
-      if(!active) return;
-      var t=e.changedTouches && e.changedTouches[0]; if(!t) return;
-      dx=t.clientX - sx; dy=t.clientY - sy;
-      e.preventDefault(); // block page scroll so swipe can be detected
-    },{passive:false});
-
-    on(surface,'touchend',function(){
-      if(!active) return; active=false;
-      var TH=30;
-      if(Math.abs(dx)>Math.abs(dy)){
-        if(dx>TH  && window.goRight) window.goRight();   // spouse
-        if(dx<-TH && window.goLeft)  window.goLeft();    // siblings
-      }else{
-        if(dy<-TH && window.goUp)    window.goUp();      // parents
-        if(dy>TH  && window.goDown)  window.goDown();    // children
+  function renderParents(p1Src, p2Src){
+    const overlay = ensureParentsOverlay();
+    const s1 = overlay.querySelector('[data-slot="p1"]');
+    const s2 = overlay.querySelector('[data-slot="p2"]');
+    function fill(slot, src){
+      slot.innerHTML='';
+      if (src){
+        const img=document.createElement('img'); img.alt='Parent'; img.decoding='async'; img.loading='eager'; img.src=src; slot.appendChild(img);
+      } else {
+        const ph=document.createElement('div'); ph.className='placeholder'; ph.textContent='Missing'; slot.appendChild(ph);
       }
-    },{passive:false});
-
-    on(surface,'touchcancel',function(){ active=false; },{passive:false});
+    }
+    fill(s1, p1Src); fill(s2, p2Src); overlay.classList.add('open');
   }
 
-  function cleanAnchorName(){
-    try{
-      var el = document.getElementById('displayName') ||
-               document.querySelector('[data-role="name"]') ||
-               document.querySelector('.anchor-name');
-      if(el){ el.textContent = (el.textContent||"").replace(/\u00A0/g,"").trim(); }
-    }catch(e){}
+  function highlightAnchor(){
+    let wrap=document.querySelector('.anchor-wrap');
+    const anchor=document.getElementById('anchor') || document.querySelector('[data-role="anchor"]') || document.querySelector('.anchor');
+    if (!wrap && anchor && anchor.parentNode){ wrap=document.createElement('div'); wrap.className='anchor-wrap'; anchor.parentNode.insertBefore(wrap, anchor); wrap.appendChild(anchor); }
+    if (wrap) wrap.classList.add('highlight');
   }
 
-  document.addEventListener('DOMContentLoaded', function(){
-    // Prefer your dedicated surface if present
-    var surface = document.getElementById('stage') ||
-                  document.querySelector('.stage') ||
-                  document.querySelector('#anchor') ||
-                  document.body;
-    installSwipe(surface);
-    cleanAnchorName();
-  });
-})();
+  // Minimal upward swipe (distance+angle gate)\n  function attachSwipeUp(){\n    let sx=0, sy=0, st=0, on=false;\n    const ang = Math.tan(22.5*Math.PI/180); const minD=24; const minV=0.25;\n    document.addEventListener('touchstart', e=>{ const t=e.touches[0]; sx=t.clientX; sy=t.clientY; st=Date.now(); on=true; }, {passive:true});\n    document.addEventListener('touchend', e=>{\n      if(!on) return; on=false; const t=e.changedTouches[0];\n      const dx=t.clientX-sx, dy=t.clientY-sy, dt=Math.max(1, Date.now()-st); const dist=Math.hypot(dx,dy), vel=dist/dt; if(dist<minD && vel<minV) return;\n      if(Math.abs(dx) > Math.abs(dy)*ang) return; if(dy>=0) return; renderParents(null,null);\n    }, {passive:true});\n  }\n\n  // Hook: if core dispatches swipetree:showParents with srcs, render them\n  function hookCore(){\n    document.addEventListener('swipetree:showParents', (e)=>{\n      const d=(e&&e.detail)||{}; renderParents(d.parent1Src||null, d.parent2Src||null);\n    });\n  }\n\n  function init(){ injectCSS(); ensureBack(); ensureParentsOverlay(); highlightAnchor(); attachSwipeUp(); hookCore(); }\n  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();\n})();\n
