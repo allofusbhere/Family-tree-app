@@ -1,23 +1,54 @@
-/* Conservative style: no touch-action override (let core handle gestures) */
-body { font-family: Arial, sans-serif; margin: 0; background: #111; color: #eee; text-align: center; }
-h1 { margin-top: 24px; }
-#stage {
-  margin: 20px auto; width: 280px; height: 460px; border: 2px solid #444;
-  border-radius: 20px; background: #000; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; overflow: hidden; position: relative;
+:root {
+  --gap: 16px;
+  --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
-#stage img { max-width: 92%; max-height: 72%; border-radius: 16px; object-fit: cover; }
 
-.help { font-size: 0.9em; color: #bbb; margin: 18px 0 24px; }
-
-/* Elements the core toggles */
-.grid { position: absolute; inset: 0; pointer-events: none; }
-.notice {
-  position: absolute; left: 8px; right: 8px; bottom: 8px;
-  background: rgba(0,0,0,0.7); color: #fff; padding: 8px 12px;
-  border-radius: 10px; font-size: 14px; pointer-events: none;
-}
-.hidden { display: none !important; }
-
-/* Remove touch-action and user-select guards so core gets raw touch events */
+* { box-sizing: border-box; }
 html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  line-height: 1.4;
+  padding: 12px 16px 48px;
+}
+
+.topbar { display: flex; align-items: center; gap: var(--gap); }
+.topbar h1 { font-weight: 700; font-size: clamp(24px, 4vw, 48px); margin: 8px 0; }
+
+.btn {
+  border: 1px solid #888; border-radius: 10px; padding: 8px 14px; background: #f7f7f7;
+  cursor: pointer; font-size: 16px;
+}
+.btn.back { font-size: 18px; }
+.btn.primary { border-color: #333; }
+
+.controls { display:flex; gap: 12px; align-items: center; margin: 8px 0 12px; }
+.controls input {
+  font-size: 18px; padding: 10px 12px; width: min(360px, 70vw);
+  border: 1px solid #999; border-radius: 8px;
+}
+
+.anchor-area {
+  margin-top: 12px;
+  display: grid;
+  place-items: center;
+  min-height: 40vh;
+  border-radius: 16px;
+}
+
+.anchor-img {
+  max-width: min(85vw, 780px);
+  max-height: 65vh;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+}
+
+.missing {
+  padding: 16px;
+  color: #a00;
+  background: #fee;
+  border: 1px solid #fbb;
+  border-radius: 12px;
+}
+
+.help { margin-top: 10px; color: #333; }
