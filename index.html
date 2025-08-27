@@ -1,33 +1,41 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css">
+  <title>SwipeTree – Stable Baseline (v132b)</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <button id="backBtn" aria-label="Back" class="btn back" hidden>← Back</button>
-    <h1>SwipeTree</h1>
-  </header>
+  <div id="app">
+    <header>
+      <h1>SwipeTree</h1>
+      <div id="controls">
+        <input id="startId" type="text" inputmode="numeric" placeholder="Enter starting ID (e.g., 100000)" />
+        <button id="startBtn">Start</button>
+        <button id="backBtn" disabled>Back</button>
+      </div>
+    </header>
 
-  <main id="app">
-    <section class="controls">
-      <input id="idInput" type="text" inputmode="numeric" pattern="\d*" placeholder="Enter ID (e.g., 100000)" />
-      <button id="startBtn" class="btn primary">Start</button>
-    </section>
+    <main>
+      <div id="anchorWrap">
+        <img id="anchorImg" alt="anchor" />
+        <div id="anchorLabel"></div>
+      </div>
 
-    <section id="status" class="status" aria-live="polite">Ready. Enter an ID.</section>
+      <div id="overlay" class="hidden">
+        <div class="overlay-header">
+          <span id="overlayTitle"></span>
+          <button id="closeOverlay">✕</button>
+        </div>
+        <div id="grid"></div>
+      </div>
+    </main>
 
-    <!-- Anchor area (single visible image on load) -->
-    <section id="anchor" class="anchor-area" aria-live="polite"></section>
-
-    <section class="help">
-      <p>Swipe: ◀ siblings • ▶ spouse • ▲ parents • ▼ children</p>
-      <p>Long-press on anchor to edit name (SoftEdit). Tap tiles to navigate.</p>
-    </section>
-  </main>
+    <footer>
+      <div class="hint">Swipe ⬆ parents • ⬅ siblings • ➡ spouse • ⬇ children</div>
+    </footer>
+  </div>
 
   <script src="script.js"></script>
 </body>
