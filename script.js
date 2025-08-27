@@ -1,16 +1,14 @@
-/* SwipeTree – stable baseline (v132b)
-   - Numeric relationship logic derived from filename ID only (no hardcoding)
-   - Swipe gestures: Right=Spouse, Up=Parents, Left=Siblings, Down=Children
-   - Back button uses history stack; closes grid first, then navigates back
-   - Images loaded from GitHub Pages images repo (configurable)
+/* SwipeTree – v132b2
+   Changes:
+   1) Filter overlays to only show items whose images actually exist.
+   2) Parents overlay shows up to two parents (base parent and its spouse .1), centered.
 */
 
 const CONFIG = {
-  // Update if you keep images elsewhere; trailing slash required.
   IMG_BASE: "https://allofusbhere.github.io/family-tree-images/",
   IMG_EXT: ".jpg",
   PLACEHOLDER: "placeholder.png",
-  SWIPE_THRESHOLD: 45, // px
+  SWIPE_THRESHOLD: 45,
 };
 
 const els = {
@@ -26,46 +24,35 @@ const els = {
   closeOverlay: document.getElementById("closeOverlay"),
 };
 
-let anchorId = null;           // string, may contain ".1"
-let historyStack = [];         // array of ids (strings)
+let anchorId = null;
+let historyStack = [];
 let touchStart = null;
 let overlayOpen = false;
 
 function imgUrlFor(id) {
   return CONFIG.IMG_BASE + id + CONFIG.IMG_EXT;
 }
+
 function setImg(el, id) {
   const url = imgUrlFor(id);
   el.src = url;
   el.onerror = () => { el.src = CONFIG.PLACEHOLDER; };
 }
 
+function checkImgExists(id) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = imgUrlFor(id);
+  });
+}
+
 function isSpouse(id) { return String(id).includes(".1"); }
 function baseIdOf(id) { return String(id).split(".")[0]; }
 function spouseOf(id) {
   const base = baseIdOf(id);
-  // If current is spouse (xxx.1), anchor should be its partner base (no .1)
-  // Otherwise spouse is base + ".1"
   return isSpouse(id) ? base : `${base}.1`;
-}
-
-function countTrailingZeros(numStr) {
-  let i = numStr.length - 1;
-  let count = 0;
-  while (i >= 0 && numStr[i] === "0") {
-    count++; i--;
-  }
-  return count;
-}
-
-function digitAtPlace(numStr, placeValue) {
-  // placeValue = 10^k, return digit at that place (0..9)
-  const len = numStr.length;
-  const k = Math.log10(placeValue);
-  const idxFromRight = k; // 0 => ones, 1 => tens ...
-  const i = len - 1 - idxFromRight;
-  if (i < 0) return 0;
-  return parseInt(numStr[i], 10);
 }
 
 function setDigitAtPlace(numStr, placeValue, digit) {
@@ -79,28 +66,15 @@ function setDigitAtPlace(numStr, placeValue, digit) {
   return arr.join("");
 }
 
-function normalizeId(id) {
-  // Ensure it's a 6+ digit string (no commas), preserve existing length
-  const s = String(id).split(".")[0];
-  return s;
-}
-
 function getParent(baseStr) {
-  // Parent: zero out the CURRENT varying digit (rightmost non-zero)
-  // Example: 140000 -> current varying is '4' at 10^4 => parent 100000
-  //          141000 -> varying '1' at 10^3 => parent 140000
   const len = baseStr.length;
-  // Find index of rightmost non-zero digit
   let i = len - 1;
   while (i >= 0 && baseStr[i] === "0") i--;
-  if (i < 0) return null; // all zeros? invalid
-  const place = len - 1 - i; // 0 => ones, 1=>tens ...
+  if (i < 0) return null;
+  const place = len - 1 - i;
   const placeValue = Math.pow(10, place);
-  // If this is the leftmost digit (i==0), parent would be leading 0s -> stop
   if (i === 0) return null;
-  // Set that digit to 0
   let parentStr = setDigitAtPlace(baseStr, placeValue, 0);
-  // Also zero all lower places (to the right) if any non-zero exist
   for (let p = place - 1; p >= 0; p--) {
     parentStr = setDigitAtPlace(parentStr, Math.pow(10, p), 0);
   }
@@ -108,22 +82,17 @@ function getParent(baseStr) {
 }
 
 function getChildren(baseStr) {
-  // Children: advance the NEXT lower digit (one place to the RIGHT of current varying digit)
-  // Example: 140000 -> children vary 10^3: 141000..149000
-  //          141000 -> children vary 10^2: 141100..141900
   const len = baseStr.length;
-  // Locate current varying digit (rightmost non-zero)
   let i = len - 1;
   while (i >= 0 && baseStr[i] === "0") i--;
   if (i < 0) return [];
   const currentPlace = len - 1 - i;
-  const childPlace = currentPlace - 1; // one to the right
-  if (childPlace < 0) return []; // cannot go deeper
+  const childPlace = currentPlace - 1;
+  if (childPlace < 0) return [];
   const placeValue = Math.pow(10, childPlace);
   const children = [];
   for (let d = 1; d <= 9; d++) {
     let s = setDigitAtPlace(baseStr, placeValue, d);
-    // Zero out any lower places (to the right of childPlace)
     for (let p = childPlace - 1; p >= 0; p--) s = setDigitAtPlace(s, Math.pow(10, p), 0);
     children.push(s);
   }
@@ -131,8 +100,6 @@ function getChildren(baseStr) {
 }
 
 function getSiblings(baseStr) {
-  // Siblings: vary the CURRENT varying digit 1..9 (same last N zeros)
-  // Example: 140000 -> siblings 110000..190000 (excluding 140000)
   const len = baseStr.length;
   let i = len - 1;
   while (i >= 0 && baseStr[i] === "0") i--;
@@ -144,56 +111,67 @@ function getSiblings(baseStr) {
   for (let d = 1; d <= 9; d++) {
     if (d === currentDigit) continue;
     let s = setDigitAtPlace(baseStr, placeValue, d);
-    // zero out digits to the right of this place
     for (let p = place - 1; p >= 0; p--) s = setDigitAtPlace(s, Math.pow(10, p), 0);
     sibs.push(s);
   }
   return sibs;
 }
 
-function idTitle(id) {
-  return String(id);
-}
+function idTitle(id) { return String(id); }
 
 function renderAnchor(id) {
   anchorId = id;
-  const base = baseIdOf(id);
   setImg(els.anchorImg, id);
   els.anchorLabel.textContent = idTitle(id);
   els.backBtn.disabled = historyStack.length === 0;
-  // Update URL hash
   try {
     const hash = `#id=${encodeURIComponent(id)}`;
     if (location.hash !== hash) history.replaceState(null, "", hash);
   } catch {}
 }
 
-function openOverlay(title, ids) {
+function buildCard(id, roleText) {
+  const card = document.createElement("div");
+  card.className = "card";
+  const img = document.createElement("img");
+  setImg(img, id);
+  const titleEl = document.createElement("div");
+  titleEl.className = "title";
+  titleEl.textContent = id;
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  meta.textContent = roleText;
+  card.appendChild(img);
+  card.appendChild(titleEl);
+  card.appendChild(meta);
+  card.addEventListener("click", () => {
+    historyStack.push(anchorId);
+    closeOverlay();
+    renderAnchor(id);
+  });
+  return card;
+}
+
+async function openOverlayFiltered(title, ids, opts = {}) {
+  const results = await Promise.all(ids.map(id => checkImgExists(id)));
+  const filtered = ids.filter((_, i) => results[i]);
+  if (filtered.length === 0) return;
+
   overlayOpen = true;
   els.overlayTitle.textContent = title;
   els.grid.innerHTML = "";
-  ids.forEach((id) => {
-    const card = document.createElement("div");
-    card.className = "card";
-    const img = document.createElement("img");
-    setImg(img, id);
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = id.includes(".1") ? "Spouse" : (title.includes("Parent") ? "Parent" : (title.includes("Sibling") ? "Sibling" : "Child"));
-    const titleEl = document.createElement("div");
-    titleEl.className = "title";
-    titleEl.textContent = id;
-    card.appendChild(img);
-    card.appendChild(titleEl);
-    card.appendChild(meta);
-    card.addEventListener("click", () => {
-      // navigate to the selected id (strip spouse .1 for anchor unless user tapped spouse explicitly)
-      historyStack.push(anchorId);
-      closeOverlay();
-      renderAnchor(id);
-    });
-    els.grid.appendChild(card);
+
+  if (opts.parentsLayout) els.grid.classList.add("parents");
+  else els.grid.classList.remove("parents");
+
+  filtered.forEach((id) => {
+    const role =
+      title.includes("Parent") ? "Parent" :
+      title.includes("Sibling") ? "Sibling" :
+      title.includes("Spouse")  ? "Spouse"  : "Child";
+    els.grid.appendChild(buildCard(id, role));
   });
+
   els.overlay.classList.remove("hidden");
 }
 
@@ -201,28 +179,35 @@ function closeOverlay() {
   overlayOpen = false;
   els.overlay.classList.add("hidden");
   els.grid.innerHTML = "";
+  els.grid.classList.remove("parents");
 }
 
-function showParents() {
+async function showParents() {
   const base = baseIdOf(anchorId);
   const parent = getParent(base);
   const ids = [];
-  if (parent) ids.push(parent);
-  openOverlay("Parents", ids);
+  if (parent) {
+    ids.push(parent);
+    ids.push(parent + ".1");
+  }
+  await openOverlayFiltered("Parents", ids, { parentsLayout: true });
 }
-function showChildren() {
+
+async function showChildren() {
   const base = baseIdOf(anchorId);
   const kids = getChildren(base);
-  openOverlay("Children", kids);
+  await openOverlayFiltered("Children", kids);
 }
-function showSiblings() {
+
+async function showSiblings() {
   const base = baseIdOf(anchorId);
   const sibs = getSiblings(base);
-  openOverlay("Siblings", sibs);
+  await openOverlayFiltered("Siblings", sibs);
 }
-function showSpouse() {
+
+async function showSpouse() {
   const sid = spouseOf(anchorId);
-  openOverlay("Spouse", [sid]);
+  await openOverlayFiltered("Spouse", [sid]);
 }
 
 function startWith(idInput) {
@@ -245,7 +230,6 @@ function parseHash() {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-// Touch swipe detection
 function setupSwipes() {
   els.anchorWrap.addEventListener("touchstart", (e) => {
     const t = e.changedTouches[0];
@@ -264,28 +248,25 @@ function setupSwipes() {
     if (ax < CONFIG.SWIPE_THRESHOLD && ay < CONFIG.SWIPE_THRESHOLD) return;
 
     if (ax > ay) {
-      if (dx > 0) showSpouse();     // right
-      else showSiblings();          // left
+      if (dx > 0) showSpouse();
+      else showSiblings();
     } else {
-      if (dy < 0) showParents();    // up
-      else showChildren();          // down
+      if (dy < 0) showParents();
+      else showChildren();
     }
   }, { passive: true });
 }
 
 function boot() {
-  // Wire controls
   els.startBtn.addEventListener("click", () => startWith(els.startId.value));
   els.backBtn.addEventListener("click", onBack);
   els.closeOverlay.addEventListener("click", closeOverlay);
 
-  // Hash start
   const hid = parseHash();
   if (hid) {
     els.startId.value = hid;
     startWith(hid);
   } else {
-    // Default anchor but no auto navigation; just show empty until Start
     els.anchorImg.src = CONFIG.PLACEHOLDER;
     els.anchorLabel.textContent = "Enter an ID and press Start";
   }

@@ -1,4 +1,4 @@
-/* Minimal, clean baseline. Tailwind-like spacing but no framework. */
+/* v132b2 styles (adds centered 2-up layout for parents overlay) */
 :root {
   --bg: #0b0c10;
   --fg: #e5e7eb;
@@ -114,6 +114,7 @@ main { position: relative; margin-top: 16px; }
   cursor: pointer;
 }
 
+/* Default grid = 3 columns */
 #grid {
   max-width: 920px;
   width: 100%;
@@ -123,6 +124,14 @@ main { position: relative; margin-top: 16px; }
   grid-template-columns: repeat(3, 1fr);
   align-content: start;
 }
+
+/* Parents grid: centered 1–2 cards */
+#grid.parents {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  place-content: start center;
+  justify-items: center;
+}
+
 .card {
   background: var(--card);
   border: 1px solid #22252d;
@@ -133,6 +142,7 @@ main { position: relative; margin-top: 16px; }
   gap: 8px;
   cursor: pointer;
   transition: transform .08s ease;
+  width: 100%;
 }
 .card:active { transform: translateY(1px); }
 .card img {
