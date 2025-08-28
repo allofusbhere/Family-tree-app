@@ -1,34 +1,30 @@
 
 /*
-  SwipeTree spouse tracing patch (array-of-two JSON format)
-  - Expects ./spouse_link.json to be an array of pairs: [ [root, partner], ... ]
-  - First entry in each pair is the ROOT for shared children.
-  - `.1` partners have no lineage unless they appear in spouse_link.json.
-  - This file is designed to be DROP-IN and NON-BREAKING:
-      * It defines a global `SwipeSpouse` namespace with helpers.
-      * Your existing code can call these functions, or continue as-is.
-      * If your code already had helpers, these won't override unless undefined.
+  SwipeTree spouse tracing patch + image base config
+  - Reads ./spouse_link.json as [ [root, partner], ... ]
+  - First in pair is ROOT for shared children
+  - Adds IMAGE_BASE so images load from your images repo (flat files)
 */
 
 (function () {
+  // >>>>>>> EDIT THIS IF NEEDED <<<<<<<<
+  // Default to your GitHub Pages images repo (flat files, no subfolders)
+  const IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/"; // ends with /
+  // Alternative (jsDelivr): "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/"
+  // >>>>>>> ---------------------- <<<<<<<<
+
   const STATE = {
     loaded: false,
-    pairs: [],               // raw pairs: [ [a,b], ... ]
-    spouseOf: new Map(),     // id -> spouse
-    rootOf: new Map(),       // id -> root (a)
+    pairs: [],
+    spouseOf: new Map(),
+    rootOf: new Map(),
   };
 
-  // --- Utilities ---
-  function isDotOne(id) {
-    return typeof id === 'string' && id.endsWith('.1');
-  }
-  function baseOf(id) {
-    return isDotOne(id) ? id.slice(0, -2) : id;
-  }
+  function isDotOne(id) { return typeof id === 'string' && id.endsWith('.1'); }
+  function baseOf(id) { return isDotOne(id) ? id.slice(0, -2) : id; }
+
   function imageUrl(id) {
-    // If your app rewrites image paths, keep using that. This util only builds file name.
-    // Many builds use a flat folder of images: `${id}.jpg`
-    return `${id}.jpg`;
+    return IMAGE_BASE + `${id}.jpg`;
   }
   function imageExists(id) {
     return new Promise((resolve) => {
@@ -40,7 +36,6 @@
     });
   }
 
-  // Build maps from pairs
   function indexPairs(pairs) {
     STATE.spouseOf.clear();
     STATE.rootOf.clear();
@@ -51,12 +46,11 @@
       if (!a || !b) continue;
       STATE.spouseOf.set(a, b);
       STATE.spouseOf.set(b, a);
-      STATE.rootOf.set(a, a);  // root is itself
-      STATE.rootOf.set(b, a);  // partner's root is a
+      STATE.rootOf.set(a, a);
+      STATE.rootOf.set(b, a);
     }
   }
 
-  // Load JSON (same-origin)
   async function loadSpouseLink() {
     try {
       const res = await fetch('./spouse_link.json', { cache: 'no-cache' });
@@ -69,24 +63,16 @@
       document.dispatchEvent(new CustomEvent('spouseLinkReady', { detail: { pairs: STATE.pairs } }));
     } catch (err) {
       console.warn('[SwipeSpouse] Failed to load spouse_link.json:', err);
-      STATE.loaded = true; // still mark loaded so app proceeds
-      document.dispatchEvent(new CustomEvent('spouseLinkReady', { detail: { pairs: [] , error: String(err)} }));
+      STATE.loaded = true;
+      document.dispatchEvent(new CustomEvent('spouseLinkReady', { detail: { pairs: [], error: String(err) } }));
     }
   }
 
-  // --- Public API ---
   const API = {
+    IMAGE_BASE,
     isDotOne,
     baseOf,
-    getSpouse(id) {
-      return STATE.spouseOf.get(String(id)) || null;
-    },
-    getChildrenRoot(id) {
-      const s = String(id);
-      if (STATE.rootOf.has(s)) return STATE.rootOf.get(s);
-      if (isDotOne(s)) return null; // display-only (no lineage) when not in JSON
-      return s;
-    },
+    imageUrl,
     async rightSwipeTarget(id) {
       const s = String(id);
       if (isDotOne(s)) return baseOf(s);
@@ -96,13 +82,20 @@
       if (await imageExists(dotOneId)) return dotOneId;
       return null;
     },
+    getSpouse(id) { return STATE.spouseOf.get(String(id)) || null; },
+    getChildrenRoot(id) {
+      const s = String(id);
+      if (STATE.rootOf.has(s)) return STATE.rootOf.get(s);
+      if (isDotOne(s)) return null;
+      return s;
+    },
     async filterToExistingImages(ids) {
       const checks = await Promise.all(ids.map(id => imageExists(id)));
       return ids.filter((id, i) => checks[i]);
     },
     debug() {
       return {
-        loaded: STATE.loaded,
+        IMAGE_BASE,
         pairs: STATE.pairs.slice(),
         spouseOf: Array.from(STATE.spouseOf.entries()),
         rootOf: Array.from(STATE.rootOf.entries()),
@@ -110,19 +103,9 @@
     }
   };
 
-  if (!window.SwipeSpouse) {
-    window.SwipeSpouse = API;
-  } else {
-    for (const k of Object.keys(API)) {
-      if (!(k in window.SwipeSpouse)) {
-        window.SwipeSpouse[k] = API[k];
-      }
-    }
-  }
+  if (!window.SwipeSpouse) window.SwipeSpouse = API;
+  else for (const k of Object.keys(API)) if (!(k in window.SwipeSpouse)) window.SwipeSpouse[k] = API[k];
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadSpouseLink);
-  } else {
-    loadSpouseLink();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadSpouseLink);
+  else loadSpouseLink();
 })();
