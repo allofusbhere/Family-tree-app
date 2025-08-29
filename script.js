@@ -1,17 +1,15 @@
 
 /*
-  SwipeTree spouse tracing patch + image base config
+  SwipeTree spouse tracing + IMAGE_BASE + IMG SRC SHIM
   - Reads ./spouse_link.json as [ [root, partner], ... ]
-  - First in pair is ROOT for shared children
-  - Adds IMAGE_BASE so images load from your images repo (flat files)
+  - First in pair is ROOT (child root for both spouses)
+  - IMAGE_BASE points to your family-tree-images repo
+  - Shim: any img.setAttribute('src', '123456.jpg') is auto-rewritten to IMAGE_BASE+'123456.jpg'
 */
 
 (function () {
-  // >>>>>>> EDIT THIS IF NEEDED <<<<<<<<
-  // Default to your GitHub Pages images repo (flat files, no subfolders)
-  const IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/"; // ends with /
-  // Alternative (jsDelivr): "https://cdn.jsdelivr.net/gh/allofusbhere/family-tree-images@main/"
-  // >>>>>>> ---------------------- <<<<<<<<
+  const IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/"; // trailing slash required
+  const ID_FILENAME_RE = /^(\d+(?:\.\d+)?)\.(jpg|JPG|jpeg|JPEG)$/;
 
   const STATE = {
     loaded: false,
@@ -20,12 +18,49 @@
     rootOf: new Map(),
   };
 
+  // ---- SHIM: rewrite <img src="123456.jpg"> to images repo automatically ----
+  (function installImgSrcShim(){
+    const origSetAttribute = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function(name, value) {
+      if (this instanceof HTMLImageElement && name === 'src' && typeof value === 'string') {
+        // if value looks like a plain filename id.jpg, rewrite to IMAGE_BASE
+        const m = value.match(ID_FILENAME_RE);
+        if (m && !value.startsWith('http') && !value.startsWith('data:')) {
+          value = IMAGE_BASE + value;
+        }
+      }
+      return origSetAttribute.call(this, name, value);
+    };
+
+    // also patch direct property assignment: img.src = "123456.jpg"
+    const imgProto = HTMLImageElement.prototype;
+    const origSrcDescriptor = Object.getOwnPropertyDescriptor(imgProto, 'src');
+    if (origSrcDescriptor && origSrcDescriptor.set) {
+      Object.defineProperty(imgProto, 'src', {
+        configurable: true,
+        enumerable: true,
+        get: origSrcDescriptor.get,
+        set: function(v){
+          if (typeof v === 'string') {
+            const m = v.match(ID_FILENAME_RE);
+            if (m && !v.startsWith('http') && !v.startsWith('data:')) {
+              v = IMAGE_BASE + v;
+            }
+          }
+          return origSrcDescriptor.set.call(this, v);
+        }
+      });
+    }
+
+    // expose for debugging
+    window.__SwipeTreeImgShim = { IMAGE_BASE, ID_FILENAME_RE };
+  })();
+  // -------------------------------------------------------------------------
+
   function isDotOne(id) { return typeof id === 'string' && id.endsWith('.1'); }
   function baseOf(id) { return isDotOne(id) ? id.slice(0, -2) : id; }
 
-  function imageUrl(id) {
-    return IMAGE_BASE + `${id}.jpg`;
-  }
+  function imageUrl(id) { return IMAGE_BASE + `${id}.jpg`; }
   function imageExists(id) {
     return new Promise((resolve) => {
       const url = imageUrl(id);
@@ -99,6 +134,7 @@
         pairs: STATE.pairs.slice(),
         spouseOf: Array.from(STATE.spouseOf.entries()),
         rootOf: Array.from(STATE.rootOf.entries()),
+        shim: window.__SwipeTreeImgShim
       };
     }
   };
