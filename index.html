@@ -2,26 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree (v132 rollback)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>SwipeTree</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app">
+  <div id="app" class="app">
     <header class="topbar">
-      <button id="backBtn" class="btn">← Back</button>
-      <form id="startForm"><input id="startId" placeholder="Enter ID (e.g., 100000)" /><button class="btn" type="submit">Start</button></form>
-      <span id="labelName" class="label"></span>
+      <div class="left"><button id="backBtn" class="btn" aria-label="Back" title="Back">← Back</button></div>
+      <div class="center">
+        <form id="startForm">
+          <label for="startId" class="sr-only">Start ID</label>
+          <input id="startId" name="startId" inputmode="numeric" placeholder="Enter ID (e.g., 100000)" />
+          <button class="btn" type="submit">Start</button>
+        </form>
+      </div>
+      <div class="right"><span id="labelName" class="label"></span></div>
     </header>
+
     <main id="stage" class="stage" tabindex="0">
       <img id="anchor" alt="Anchor" />
       <div id="overlay" class="overlay hidden" aria-hidden="true"></div>
     </main>
-    <footer class="hint">Swipe: ◀ siblings • ▶ spouse • ▲ parents • ▼ children</footer>
+
+    <footer class="hint">
+      <div>Swipe: ◀ siblings • ▶ spouse • ▲ parents • ▼ children</div>
+      <div>Tap a tile to anchor it • Long-press anchor to edit label</div>
+    </footer>
   </div>
-  <!-- IMPORTANT: rely on your known-good swipe engine -->
-  <script src="script.v132.js"></script>
-  <!-- Minimal helpers only; no swipe listeners here -->
+
   <script src="script.js"></script>
 </body>
 </html>
