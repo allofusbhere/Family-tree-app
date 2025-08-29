@@ -1,28 +1,70 @@
 
 /*
-  SwipeTree drop-in v2:
-   - Spouse tracing (array-of-two JSON; first is root)
-   - IMAGE_BASE (images repo)
-   - Shims for <img src>, inline style background, setProperty('background*'), backgroundImage property
-   - Anchor auto-loader; smarter detection (by id/class/data-attr OR by innerText === 'anchor')
-   - Exposes window.forceAnchor(id) to manually test from console
+  SwipeTree — iOS Hotfix script.js (single drop-in)
+  - Spouse tracing (pairs [root, partner], first is root)
+  - IMAGE_BASE points to images repo
+  - Rewrites <img src="ID.jpg"> and background-image: url(ID.jpg)
+  - iOS cache-busting via ?v=ios1 on image URLs
+  - Injects viewport meta + --vh CSS variable fix for Safari/iPad
+  - Auto-detects "anchor" box; exposes SwipeSpouse.forceAnchor(id)
 */
 
 (function () {
   const IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/";
+  const CACHE_BUSTER = "v=ios1"; // bump to invalidate Safari caches
   const ID_RE = /^\d+(?:\.\d+)?$/;
   const FILE_RE = /(\b\d+(?:\.\d+)?\.(?:jpg|jpeg|JPG|JPEG)\b)/;
   const URL_FN_RE = /url\(([^)]+)\)/gi;
 
-  const STATE = { loaded:false, pairs:[], spouseOf:new Map(), rootOf:new Map() };
+  // ---------- iOS viewport & CSS fixes ----------
+  (function iosViewportFix(){
+    // viewport tag (helps Safari rendering)
+    const hasViewport = document.querySelector('meta[name="viewport"]');
+    if (!hasViewport) {
+      const meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
+      document.head.appendChild(meta);
+    }
+    // --vh variable to handle Safari 100vh bug
+    function setVh() {
+      document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+    }
+    setVh();
+    window.addEventListener('resize', setVh, { passive: true });
+    window.addEventListener('orientationchange', setVh, { passive: true });
 
-  // ---------- helpers
+    // Ensure anchor container has sane min-height
+    const style = document.createElement('style');
+    style.textContent = `
+      #anchor, .anchor, #anchorImg {
+        min-height: calc(var(--vh) * 60);
+        background-size: contain !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        border-radius: 24px;
+      }
+      @supports(padding: env(safe-area-inset-top)) {
+        body {
+          padding-bottom: env(safe-area-inset-bottom);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  })();
+
+  // ---------- URL helpers & rewriters ----------
+  function addCacheBuster(url) {
+    if (!url) return url;
+    if (url.includes('?')) return url + '&' + CACHE_BUSTER;
+    return url + '?' + CACHE_BUSTER;
+  }
   function toImageUrl(filenameOrId) {
     if (!filenameOrId) return filenameOrId;
     const s = String(filenameOrId).replace(/^["']|["']$/g, '');
     if (s.startsWith('http') || s.startsWith('data:')) return s;
-    if (ID_RE.test(s)) return IMAGE_BASE + s + '.jpg';
-    if (FILE_RE.test(s)) return IMAGE_BASE + s;
+    if (ID_RE.test(s)) return addCacheBuster(IMAGE_BASE + s + '.jpg');
+    if (FILE_RE.test(s)) return addCacheBuster(IMAGE_BASE + s);
     return filenameOrId;
   }
   function rewriteUrlFns(cssVal) {
@@ -30,7 +72,7 @@
     return cssVal.replace(URL_FN_RE, (m, path) => {
       const cleaned = String(path).trim().replace(/^["']|["']$/g, '');
       if (cleaned.startsWith('http') || cleaned.startsWith('data:')) return `url(${path})`;
-      if (FILE_RE.test(cleaned)) {
+      if (FILE_RE.test(cleaned) || ID_RE.test(cleaned.replace(/\.jpg$/i,''))) {
         const out = toImageUrl(cleaned);
         return `url("${out}")`;
       }
@@ -38,8 +80,8 @@
     });
   }
 
-  // ---------- Shims
-  (function installShims(){
+  // IMG & CSS shims
+  (function installRewriters(){
     const origSetAttribute = Element.prototype.setAttribute;
     Element.prototype.setAttribute = function(name, value) {
       if (name === 'src' && this instanceof HTMLImageElement && typeof value === 'string') {
@@ -50,9 +92,8 @@
       }
       return origSetAttribute.call(this, name, value);
     };
-
     const imgProto = HTMLImageElement.prototype;
-    const origSrc = Object.getPropertyDescriptor ? Object.getPropertyDescriptor(imgProto, 'src') : Object.getOwnPropertyDescriptor(imgProto, 'src');
+    const origSrc = Object.getOwnPropertyDescriptor(imgProto, 'src');
     if (origSrc && origSrc.set) {
       Object.defineProperty(imgProto, 'src', {
         configurable:true, enumerable:true,
@@ -60,7 +101,6 @@
         set(v){ return origSrc.set.call(this, toImageUrl(v)); }
       });
     }
-
     const styleProto = CSSStyleDeclaration.prototype;
     const origSetProp = styleProto.setProperty;
     styleProto.setProperty = function(prop, value, priority){
@@ -77,7 +117,7 @@
         set(v){ return bgDesc.set.call(this, rewriteUrlFns(v)); }
       });
     }
-
+    // Rewrite any existing inline url(...) on first paint
     function rewriteExistingInlineStyles(){
       document.querySelectorAll('[style*="url("]').forEach(el => {
         el.setAttribute('style', rewriteUrlFns(el.getAttribute('style')));
@@ -90,11 +130,11 @@
     }
   })();
 
-  // ---------- spouse link loading
+  // ---------- spouse-link loading ----------
+  const STATE = { loaded:false, pairs:[], spouseOf:new Map(), rootOf:new Map() };
   function isDotOne(id){ return typeof id==='string' && id.endsWith('.1'); }
   function baseOf(id){ return isDotOne(id) ? id.slice(0,-2) : id; }
-  function imageUrl(id){ return IMAGE_BASE + `${id}.jpg`; }
-
+  function imageUrl(id){ return addCacheBuster(IMAGE_BASE + `${id}.jpg`); }
   function indexPairs(pairs){
     STATE.spouseOf.clear(); STATE.rootOf.clear();
     for (const pair of pairs){
@@ -121,29 +161,28 @@
     }
   }
 
-  // ---------- anchor detection & loading
-  function findAnchorContainer() {
+  // ---------- anchor auto-detect & load ----------
+  function findAnchorEl() {
     let el = document.getElementById('anchor') ||
              document.querySelector('.anchor') ||
              document.querySelector('[data-anchor]');
     if (el) return el;
-    // Fallback: element whose innerText is exactly "anchor" (case-insensitive)
+    // Fallback: leaf with text "anchor"
     el = [...document.querySelectorAll('body *')].find(e => (e.childElementCount === 0) && (e.textContent||'').trim().toLowerCase() === 'anchor');
-    if (el) return el;
-    return document.querySelector('main') || document.body;
+    return el || document.querySelector('main') || document.body;
   }
   function setAnchor(id){
     if (!id || !ID_RE.test(id)) return;
-    const el = findAnchorContainer();
-    // prefer background-image to preserve layout
-    el.style.backgroundImage = `url(${id}.jpg)`; // will be rewritten to IMAGE_BASE
+    const el = findAnchorEl();
+    el.style.backgroundImage = `url(${id}.jpg)`; // will be rewritten to IMAGE_BASE + cachebuster
     el.style.backgroundSize = 'contain';
     el.style.backgroundRepeat = 'no-repeat';
     el.style.backgroundPosition = 'center';
     if ((el.textContent||'').trim().toLowerCase() === 'anchor') el.textContent = '';
     window.__ANCHOR_ID__ = id;
-    try { history.replaceState(null, '', `#id=${id}`); } catch {}
+    try { history.replaceState(null,'', `#id=${id}`); } catch {}
   }
+  function idFromHash(){ const m=(location.hash||'').match(/id=([0-9.]+)/); return m ? m[1] : null; }
   function wireStart(){
     const input = document.querySelector('input[placeholder*="starting id" i]') || document.querySelector('input[type="text"]');
     const startBtn = [...document.querySelectorAll('button, .btn')].find(el => /start/i.test(el.textContent||''));
@@ -151,19 +190,20 @@
     if (startBtn) startBtn.addEventListener('click', go);
     if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
   }
-  function onHash(){ const m=(location.hash||'').match(/id=([0-9.]+)/); if (m) setAnchor(m[1]); }
+  function onHash(){ const id=idFromHash(); if (id) setAnchor(id); }
 
-  // ---------- public API
+  // ---------- public API ----------
   const API = {
-    IMAGE_BASE, isDotOne, baseOf, imageUrl,
+    IMAGE_BASE, imageUrl, isDotOne, baseOf,
     getSpouse(id){ return STATE.spouseOf.get(String(id)) || null; },
     getChildrenRoot(id){ const s=String(id); if (STATE.rootOf.has(s)) return STATE.rootOf.get(s); if (isDotOne(s)) return null; return s; },
     async rightSwipeTarget(id){ const s=String(id); if (isDotOne(s)) return baseOf(s); const linked=STATE.spouseOf.get(s); if (linked) return linked; const dotOne=`${s}.1`; return dotOne; },
-    debug(){ return { IMAGE_BASE, pairs:STATE.pairs.slice(), spouseOf:[...STATE.spouseOf], rootOf:[...STATE.rootOf], anchor:window.__ANCHOR_ID__||null }; },
-    forceAnchor: setAnchor
+    forceAnchor: setAnchor,
+    debug(){ return { IMAGE_BASE, pairs:STATE.pairs.slice(), spouseOf:[...STATE.spouseOf], rootOf:[...STATE.rootOf], anchor:window.__ANCHOR_ID__||null }; }
   };
   if (!window.SwipeSpouse) window.SwipeSpouse = API; else for (const k of Object.keys(API)) if (!(k in window.SwipeSpouse)) window.SwipeSpouse[k]=API[k];
 
+  // ---------- boot ----------
   function boot(){ loadSpouseLink(); wireStart(); onHash(); window.addEventListener('hashchange', onHash); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
