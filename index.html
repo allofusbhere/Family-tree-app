@@ -2,27 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree – Spouse Tracing Patch</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>SwipeTree</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <h1>SwipeTree</h1>
-    <div class="controls">
-      <input id="startId" class="input" placeholder="Enter starting ID (e.g., 100000)" />
-      <button id="startBtn" class="btn">Start</button>
-      <button id="spouseBtn" class="btn">Spouse</button>
-      <button id="backBtn" class="btn btn-ghost" disabled>Back</button>
-    </div>
-  </header>
+  <div id="app" class="app">
+    <header class="topbar">
+      <div class="left">
+        <button id="backBtn" class="btn" aria-label="Back" title="Back">← Back</button>
+      </div>
+      <div class="center">
+        <form id="startForm">
+          <label for="startId" class="sr-only">Start ID</label>
+          <input id="startId" name="startId" inputmode="numeric" placeholder="Enter ID (e.g., 100000)" />
+          <button class="btn" type="submit">Start</button>
+        </form>
+      </div>
+      <div class="right">
+        <span id="labelName" class="label"></span>
+      </div>
+    </header>
 
-  <main class="stage">
-    <div id="anchorCard" class="card">
-      <div id="anchorPlaceholder" class="placeholder">anchor</div>
-      <img id="anchorImg" alt="anchor" />
-    </div>
-  </main>
+    <main id="stage" class="stage" tabindex="0">
+      <img id="anchor" alt="Anchor" />
+      <div id="overlay" class="overlay hidden" aria-hidden="true"></div>
+    </main>
+
+    <footer class="hint">
+      <div>Swipe: ◀ siblings • ▶ spouse • ▲ parents • ▼ children</div>
+      <div>Tap a tile to anchor it • Long-press anchor to edit label</div>
+    </footer>
+  </div>
 
   <script src="script.js"></script>
 </body>
