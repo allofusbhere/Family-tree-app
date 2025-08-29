@@ -1,4 +1,4 @@
-/* SwipeTree v133_grid — category grids (no overlay), JSON spouses */
+/* SwipeTree v133_grid_corefix — children merge via spouse; root siblings fallback */
 (function(){
   'use strict';
 
@@ -70,19 +70,29 @@
     return arr;
   }
   function deriveSiblingsList(idStr){
+    // Normal case: use parent cohort
     const parent = deriveParent(idStr);
-    if (!parent) return [];
-    const ptz = trailingZerosCount(parent);
-    if (ptz < 1) return [];
-    const step = pow10(ptz - 1);
-    const pbase = parseInt(idMain(parent), 10);
-    const me = parseInt(idMain(idStr), 10);
-    const arr = [];
-    for (let n=1; n<=MAX_COUNT; n++){
-      const sib = pbase + n*step;
-      if (sib !== me) arr.push(String(sib));
+    if (parent){
+      const ptz = trailingZerosCount(parent);
+      if (ptz < 1) return [];
+      const step = pow10(ptz - 1);
+      const pbase = parseInt(idMain(parent), 10);
+      const me = parseInt(idMain(idStr), 10);
+      const arr = [];
+      for (let n=1; n<=MAX_COUNT; n++){
+        const sib = pbase + n*step;
+        if (sib !== me) arr.push(String(sib));
+      }
+      return arr;
     }
-    return arr;
+    // Root fallback (e.g., 100000): siblings are other multiples of 10^tz
+    const main = idMain(idStr);
+    const tz = trailingZerosCount(main);
+    const step = pow10(tz);
+    const cohort = [];
+    for (let k=1; k<=9; k++){ cohort.push(String(k*step)); }
+    const me = String(parseInt(main,10));
+    return cohort.filter(x => x !== me);
   }
   function resolveSpouseId(idStr){
     const ex = spouses.get(String(idStr));
@@ -131,16 +141,11 @@
         card.addEventListener('click', ()=>{ historyStack.push(currentId); loadAnchor(id); });
         grid.appendChild(card); added++;
       };
-      img.onerror = ()=>{ /* skip - no blank space */ };
+      img.onerror = ()=>{ /* skip missing images */ };
     };
 
-    if (type === 'parents'){
-      list.forEach(addTile);
-    } else {
-      list.forEach(addTile);
-    }
+    Array.from(new Set(list)).forEach(addTile);
 
-    // If nothing loaded after a short time, show a message
     setTimeout(()=>{
       if (added === 0){
         const msg = document.createElement('div');
@@ -171,7 +176,7 @@
         // spouse
         const s = resolveSpouseId(currentId); if (s){ historyStack.push(currentId); loadAnchor(s); }
       } else {
-        // siblings grid
+        // siblings grid (with root fallback)
         const sibs = deriveSiblingsList(currentId);
         showGrid('siblings', sibs);
       }
@@ -182,9 +187,12 @@
         const list = []; if (pA){ list.push(pA); const pB = resolveOtherParent(pA); if (pB) list.push(pB); }
         showGrid('parents', list);
       } else {
-        // children grid
-        const kids = deriveChildrenList(currentId);
-        showGrid('children', kids);
+        // children grid: merge current + spouse
+        const kidsSelf = deriveChildrenList(currentId);
+        const s = resolveSpouseId(currentId);
+        const kidsSpouse = s ? deriveChildrenList(s) : [];
+        const merged = Array.from(new Set([...kidsSelf, ...kidsSpouse]));
+        showGrid('children', merged);
       }
     }
   }
