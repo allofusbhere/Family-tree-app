@@ -3,39 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SwipeTree – Stable Baseline (v132b2)</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>SwipeTree – Patch Anchor Display</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
-    <header>
-      <h1>SwipeTree</h1>
-      <div id="controls">
-        <input id="startId" type="text" inputmode="numeric" placeholder="Enter starting ID (e.g., 100000)" />
-        <button id="startBtn">Start</button>
-        <button id="backBtn" disabled>Back</button>
-      </div>
-    </header>
+  <header class="topbar">
+    <h1>SwipeTree</h1>
+    <div class="controls">
+      <input id="startId" class="input" placeholder="Enter starting ID (e.g., 100000)" />
+      <button id="startBtn" class="btn">Start</button>
+      <button id="backBtn" class="btn btn-ghost" disabled>Back</button>
+    </div>
+  </header>
 
-    <main>
-      <div id="anchorWrap">
-        <img id="anchorImg" alt="anchor" />
-        <div id="anchorLabel"></div>
-      </div>
-
-      <div id="overlay" class="hidden">
-        <div class="overlay-header">
-          <span id="overlayTitle"></span>
-          <button id="closeOverlay">✕</button>
-        </div>
-        <div id="grid"></div>
-      </div>
-    </main>
-
-    <footer>
-      <div class="hint">Swipe ⬆ parents • ⬅ siblings • ➡ spouse • ⬇ children</div>
-    </footer>
-  </div>
+  <main class="stage">
+    <div id="anchorCard" class="card">
+      <div id="anchorPlaceholder" class="placeholder">anchor</div>
+      <img id="anchorImg" alt="anchor" />
+    </div>
+  </main>
 
   <script src="script.js"></script>
 </body>

@@ -1,157 +1,91 @@
-/* v132b2 styles (adds centered 2-up layout for parents overlay) */
 :root {
-  --bg: #0b0c10;
-  --fg: #e5e7eb;
+  --bg: #0d1117;
+  --panel: #111827;
+  --text: #e5e7eb;
   --muted: #9ca3af;
-  --card: #111318;
-  --accent: #60a5fa;
-  --shadow: 0 10px 30px rgba(0,0,0,0.35);
+  --radius: 24px;
 }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: radial-gradient(1200px 600px at 50% -10%, #0b1220, var(--bg));
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
 }
 
-#app { max-width: 920px; margin: 0 auto; padding: 16px; }
-
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: .2px; color: var(--fg); }
-#controls { display: flex; align-items: center; gap: 8px; }
-#controls input {
-  background: var(--card);
-  color: var(--fg);
-  border: 1px solid #22252d;
-  border-radius: 12px;
-  padding: 10px 12px;
-  width: 220px;
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
 }
-#controls button {
-  background: #1e293b;
-  color: var(--fg);
-  border: 1px solid #2a3443;
-  border-radius: 12px;
-  padding: 10px 14px;
+
+h1 { margin: 0 12px 0 0; font-weight: 800; }
+
+.controls { display: flex; align-items: center; gap: 12px; }
+
+.input {
+  background: #0b1220;
+  color: var(--text);
+  border: 1px solid #1f2937;
+  border-radius: 999px;
+  padding: 10px 16px;
+  min-width: 320px;
+  outline: none;
+}
+
+.btn {
+  border: 1px solid #1f2937;
+  background: #0b1220;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 18px;
   cursor: pointer;
-  transition: transform .05s ease;
 }
-#controls button:disabled { opacity: .5; cursor: not-allowed; }
-#controls button:active { transform: translateY(1px); }
+.btn:disabled { opacity: .6; cursor: default; }
+.btn-ghost { background: #0b122000; }
 
-main { position: relative; margin-top: 16px; }
-
-#anchorWrap {
-  position: relative;
-  width: 100%;
-  max-width: 680px;
-  margin: 40px auto;
-  aspect-ratio: 1/1;
-  background: radial-gradient(1200px 800px at 50% 35%, #141821, #0b0c10);
-  border-radius: 24px;
+.stage {
   display: grid;
   place-items: center;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  border: 1px solid #1c2030;
-}
-
-#anchorImg {
-  max-width: 95%;
-  max-height: 95%;
-  object-fit: contain;
-  border-radius: 20px;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-#anchorLabel {
-  position: absolute;
-  left: 16px;
-  bottom: 16px;
-  background: rgba(17,19,24,.75);
-  border: 1px solid #262b39;
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-size: 14px;
-  color: var(--fg);
-}
-
-#overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(5,7,11,.8);
-  display: grid;
-  grid-template-rows: auto 1fr;
   padding: 24px;
-  z-index: 100;
-  backdrop-filter: blur(6px);
-}
-
-.hidden { display: none !important; }
-
-.overlay-header {
-  display: flex; align-items: center; justify-content: space-between;
-  background: var(--card);
-  border: 1px solid #22252d;
-  border-radius: 16px;
-  padding: 10px 12px;
-  margin: 0 auto 16px;
-  max-width: 920px;
-  width: 100%;
-  box-shadow: var(--shadow);
-}
-#overlayTitle { font-weight: 600; color: var(--fg); }
-#closeOverlay {
-  background: transparent;
-  border: 1px solid #333a4a;
-  color: var(--fg);
-  border-radius: 10px;
-  padding: 6px 10px;
-  cursor: pointer;
-}
-
-/* Default grid = 3 columns */
-#grid {
-  max-width: 920px;
-  width: 100%;
-  margin: 0 auto;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(3, 1fr);
-  align-content: start;
-}
-
-/* Parents grid: centered 1–2 cards */
-#grid.parents {
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  place-content: start center;
-  justify-items: center;
 }
 
 .card {
-  background: var(--card);
-  border: 1px solid #22252d;
-  border-radius: 18px;
-  padding: 10px;
-  box-shadow: var(--shadow);
+  position: relative;
+  width: min(92vw, 900px);
+  height: min(64vh, 540px);
+  background: #0f172a;
+  border-radius: var(--radius);
+  box-shadow: 0 10px 40px rgba(0,0,0,.45);
+  overflow: hidden;
   display: grid;
-  gap: 8px;
-  cursor: pointer;
-  transition: transform .08s ease;
-  width: 100%;
+  place-items: center;
 }
-.card:active { transform: translateY(1px); }
-.card img {
-  width: 100%;
-  aspect-ratio: 1/1;
-  object-fit: cover;
-  border-radius: 12px;
-  background: #0d1117;
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 28px;
+  z-index: 1; /* sits above by default until image loads */
 }
-.card .meta { font-size: 12px; color: var(--muted); }
-.card .title { font-size: 14px; color: var(--fg); font-weight: 600; }
-footer { display: grid; place-items: center; color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+#anchorImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: none; /* hidden until loaded */
+  z-index: 2;
+  background: #0b1220;
+}
+
+/* When we have an image, hide placeholder cleanly */
+.card.has-image .placeholder { display: none; }
+.card.has-image #anchorImg { display: block; }
