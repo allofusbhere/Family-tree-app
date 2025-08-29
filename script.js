@@ -1,14 +1,15 @@
 
 /*
-  SwipeTree spouse tracing + IMAGE_BASE + IMG SRC SHIM
-  - Reads ./spouse_link.json as [ [root, partner], ... ]
-  - First in pair is ROOT (child root for both spouses)
-  - IMAGE_BASE points to your family-tree-images repo
-  - Shim: any img.setAttribute('src', '123456.jpg') is auto-rewritten to IMAGE_BASE+'123456.jpg'
+  SwipeTree drop-in patch:
+  - Spouse tracing (array-of-two JSON)
+  - IMAGE_BASE (images repo)
+  - IMG auto-rewrite shim (converts "123456.jpg" -> IMAGE_BASE + "123456.jpg")
+  - Anchor auto-loader: reads #id=... on load or Start field, injects <img id="anchorImg">
 */
 
 (function () {
-  const IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/"; // trailing slash required
+  const IMAGE_BASE = "https://allofusbhere.github.io/family-tree-images/"; // trailing slash
+  const ID_RE = /^\d+(?:\.\d+)?$/;
   const ID_FILENAME_RE = /^(\d+(?:\.\d+)?)\.(jpg|JPG|jpeg|JPEG)$/;
 
   const STATE = {
@@ -18,12 +19,11 @@
     rootOf: new Map(),
   };
 
-  // ---- SHIM: rewrite <img src="123456.jpg"> to images repo automatically ----
+  // ---- SHIM: redirect plain filenames to IMAGE_BASE ----
   (function installImgSrcShim(){
     const origSetAttribute = Element.prototype.setAttribute;
     Element.prototype.setAttribute = function(name, value) {
       if (this instanceof HTMLImageElement && name === 'src' && typeof value === 'string') {
-        // if value looks like a plain filename id.jpg, rewrite to IMAGE_BASE
         const m = value.match(ID_FILENAME_RE);
         if (m && !value.startsWith('http') && !value.startsWith('data:')) {
           value = IMAGE_BASE + value;
@@ -31,8 +31,6 @@
       }
       return origSetAttribute.call(this, name, value);
     };
-
-    // also patch direct property assignment: img.src = "123456.jpg"
     const imgProto = HTMLImageElement.prototype;
     const origSrcDescriptor = Object.getOwnPropertyDescriptor(imgProto, 'src');
     if (origSrcDescriptor && origSrcDescriptor.set) {
@@ -51,25 +49,13 @@
         }
       });
     }
-
-    // expose for debugging
     window.__SwipeTreeImgShim = { IMAGE_BASE, ID_FILENAME_RE };
   })();
-  // -------------------------------------------------------------------------
 
+  // ---- Spouse link loading ----
   function isDotOne(id) { return typeof id === 'string' && id.endsWith('.1'); }
   function baseOf(id) { return isDotOne(id) ? id.slice(0, -2) : id; }
-
   function imageUrl(id) { return IMAGE_BASE + `${id}.jpg`; }
-  function imageExists(id) {
-    return new Promise((resolve) => {
-      const url = imageUrl(id);
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = url;
-    });
-  }
 
   function indexPairs(pairs) {
     STATE.spouseOf.clear();
@@ -103,20 +89,71 @@
     }
   }
 
+  // ---- Anchor auto-loader ----
+  function findAnchorContainer() {
+    // try common containers in your app
+    return document.getElementById('anchor')
+        || document.querySelector('.anchor')
+        || document.querySelector('[data-anchor]')
+        || document.querySelector('main')
+        || document.body;
+  }
+
+  function ensureAnchorImg() {
+    let img = document.getElementById('anchorImg');
+    if (!img) {
+      const container = findAnchorContainer();
+      img = document.createElement('img');
+      img.id = 'anchorImg';
+      img.alt = 'anchor';
+      img.style.display = 'block';
+      img.style.margin = '20px auto';
+      img.style.maxWidth = '90%';
+      img.style.borderRadius = '16px';
+      container.appendChild(img);
+    }
+    return img;
+  }
+
+  function getIdFromHash() {
+    const m = (location.hash || '').match(/id=([0-9.]+)/);
+    return m ? m[1] : null;
+  }
+
+  function loadAnchorById(id) {
+    if (!id || !ID_RE.test(id)) return;
+    const img = ensureAnchorImg();
+    img.src = `${id}.jpg`; // shim rewrites to IMAGE_BASE
+    window.__ANCHOR_ID__ = id;
+  }
+
+  function wireStartField() {
+    const input = document.querySelector('input[placeholder*="starting ID"], input[placeholder*="Starting ID"]');
+    const btn = Array.from(document.querySelectorAll('button, .btn')).find(el => /start/i.test(el.textContent || ''));
+    if (!input) return;
+    const act = () => {
+      const v = (input.value || '').trim();
+      if (ID_RE.test(v)) {
+        loadAnchorById(v);
+        // update URL
+        try { history.replaceState(null, '', `#id=${v}`); } catch {}
+      }
+    };
+    if (btn) btn.addEventListener('click', act);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') act(); });
+  }
+
+  function onHashChange() {
+    const id = getIdFromHash();
+    if (id) loadAnchorById(id);
+  }
+
+  // ---- Public API ----
   const API = {
     IMAGE_BASE,
     isDotOne,
     baseOf,
     imageUrl,
-    async rightSwipeTarget(id) {
-      const s = String(id);
-      if (isDotOne(s)) return baseOf(s);
-      const linked = STATE.spouseOf.get(s);
-      if (linked) return linked;
-      const dotOneId = `${s}.1`;
-      if (await imageExists(dotOneId)) return dotOneId;
-      return null;
-    },
     getSpouse(id) { return STATE.spouseOf.get(String(id)) || null; },
     getChildrenRoot(id) {
       const s = String(id);
@@ -124,9 +161,14 @@
       if (isDotOne(s)) return null;
       return s;
     },
-    async filterToExistingImages(ids) {
-      const checks = await Promise.all(ids.map(id => imageExists(id)));
-      return ids.filter((id, i) => checks[i]);
+    async rightSwipeTarget(id) {
+      const s = String(id);
+      if (isDotOne(s)) return baseOf(s);
+      const linked = STATE.spouseOf.get(s);
+      if (linked) return linked;
+      const dotOneId = `${s}.1`;
+      // optimistic: try load; if it fails, UI can ignore
+      return dotOneId;
     },
     debug() {
       return {
@@ -134,7 +176,7 @@
         pairs: STATE.pairs.slice(),
         spouseOf: Array.from(STATE.spouseOf.entries()),
         rootOf: Array.from(STATE.rootOf.entries()),
-        shim: window.__SwipeTreeImgShim
+        anchorId: window.__ANCHOR_ID__ || null,
       };
     }
   };
@@ -142,6 +184,13 @@
   if (!window.SwipeSpouse) window.SwipeSpouse = API;
   else for (const k of Object.keys(API)) if (!(k in window.SwipeSpouse)) window.SwipeSpouse[k] = API[k];
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadSpouseLink);
-  else loadSpouseLink();
+  function boot() {
+    loadSpouseLink();
+    wireStartField();
+    onHashChange();
+    window.addEventListener('hashchange', onHashChange);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
