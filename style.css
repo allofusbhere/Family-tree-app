@@ -1,4 +1,4 @@
-/* iPad scroll lock and layout basics */
+/* iPad scroll lock and layout */
 html, body { height:100%; overscroll-behavior:none; }
 body { margin:0; touch-action:none; -ms-touch-action:none; background:#0b0c10; color:#e6edf3; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
 .app{ display:grid; grid-template-rows:auto 1fr auto; min-height:100vh; }
