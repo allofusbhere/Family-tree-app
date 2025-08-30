@@ -7,10 +7,9 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
   <script>
-    // Parse the starting ID from the URL early so the core can read it.
     (function(){
       var m = location.hash.match(/id=(\d+(?:\.\d+)*)/);
-      if (m) window.__ST_START_ID = m[1];
+      if(m) window.__ST_START_ID = m[1];
     })();
   </script>
 </head>
@@ -23,35 +22,41 @@
 
   <script>
     (function(){
-      function getId(){
-        return (window.__ST_START_ID || (location.hash.match(/id=(\d+(?:\.\d+)*)/)||[])[1] || "140000");
+      // Immediately show the anchor image from hash with extension fallbacks
+      function getId(){ return (window.__ST_START_ID || (location.hash.match(/id=(\d+(?:\.\d+)*)/)||[])[1] || '140000'); }
+      function trySrcs(base, exts, cb){
+        (function next(i){
+          if(i>=exts.length){ cb(false); return; }
+          var test = new Image();
+          test.onload = function(){ document.getElementById('anchorImage').src = base + exts[i]; cb(true); };
+          test.onerror = function(){ next(i+1); };
+          test.src = base + exts[i];
+        })(0);
+      }
+      var id = getId();
+      if(id){
+        var img = document.getElementById('anchorImage');
+        if(img && !img.src){
+          trySrcs(id + '.', ['jpg','jpeg','png','webp'], function(ok){
+            // no-op; core will still take over after it loads
+          });
+        }
       }
 
       function afterCoreLoad(){
-        // Nudge cores that listen to hashchange
         setTimeout(function(){ window.dispatchEvent(new HashChangeEvent('hashchange')); }, 0);
-        setTimeout(function(){ window.dispatchEvent(new HashChangeEvent('hashchange')); }, 120);
-
-        // If nothing has rendered quickly, ensure the anchor is visible so testing can proceed.
-        setTimeout(function(){
-          var img = document.getElementById('anchorImage');
-          if (img && !img.getAttribute('src')) {
-            img.src = getId() + ".jpg";
-            img.removeAttribute('hidden');
-          }
-        }, 180);
+        setTimeout(function(){ window.dispatchEvent(new HashChangeEvent('hashchange')); }, 100);
       }
 
       function loadCore(src, next){
         var s = document.createElement('script');
-        s.src = src;
-        s.defer = true;
+        s.src = src; s.defer = true;
         s.onload = afterCoreLoad;
         s.onerror = next;
         document.body.appendChild(s);
       }
 
-      // Try v132, then fallback to script.js
+      // Prefer script.v132.js; fallback to script.js
       loadCore('script.v132.js', function(){ loadCore('script.js'); });
     })();
   </script>
