@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="data:,">
   <script>
-    // Boot as early as possible: if there's a hash id, expose it for the core script.
     (function(){
       var m = location.hash.match(/id=(\d+(?:\.\d+)*)/);
       if(m){ window.__ST_START_ID = m[1]; }
@@ -15,13 +14,14 @@
   </script>
 </head>
 <body>
-  <!-- Core DOM structure expected by the app -->
-  <img id="anchorImage" class="anchor-image" alt="" draggable="false">
-  <div id="grid" class="relationship-grid" hidden></div>
-  <div class="anchor-label-badge" style="display:none"></div>
-  <div id="noHashHint" hidden>Tip: open with <code>#id=100000</code></div>
+  <div id="stage">
+    <button id="backBtn" hidden>Back</button>
+    <img id="anchorImage" class="anchor-image" alt="" draggable="false">
+    <div id="grid" class="relationship-grid" hidden></div>
+    <div class="anchor-label-badge" style="display:none"></div>
+    <div id="noHashHint" hidden>Tip: open with <code>#id=100000</code></div>
+  </div>
 
-  <!-- Load your core script (prefers script.v132.js, falls back to script.js) -->
   <script>
     (function(){
       var s1 = document.createElement('script'); s1.src = 'script.v132.js'; s1.defer = true;
@@ -30,7 +30,6 @@
     })();
   </script>
 
-  <!-- No overlay, just a tiny hint if there's no hash -->
   <script>
     (function(){
       function hasId(){ return /id=\d/.test(location.hash); }
@@ -40,7 +39,6 @@
     })();
   </script>
 
-  <!-- Inline SoftEdit (long-press) -->
   <script>
   (function(){
     const LABELS_KEY = 'st_labels';
@@ -94,7 +92,7 @@
         cap.textContent = info ? ((info.name || id) + (info.dob ? (' — ' + info.dob) : '')) : '';
       });
       const anchorImg = document.getElementById('anchorImage');
-      const stage = document.body;
+      const stage = document.getElementById('stage');
       if(anchorImg && stage){
         const id = getIdFromSrc(anchorImg.getAttribute('data-id') || anchorImg.src);
         const info = id ? labels[id] : null;
