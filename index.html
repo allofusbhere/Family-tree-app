@@ -5,21 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>SwipeTree</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:,">
+  <script>
+    // Boot as early as possible: if there's a hash id, expose it for the core script.
+    (function(){
+      var m = location.hash.match(/id=(\d+(?:\.\d+)*)/);
+      if(m){ window.__ST_START_ID = m[1]; }
+    })();
+  </script>
 </head>
 <body>
-  <button id="backBtn" hidden>Back</button>
+  <!-- Core DOM structure expected by the app -->
   <img id="anchorImage" class="anchor-image" alt="" draggable="false">
   <div id="grid" class="relationship-grid" hidden></div>
   <div class="anchor-label-badge" style="display:none"></div>
+  <div id="noHashHint" hidden>Tip: open with <code>#id=100000</code></div>
 
-  <div id="startOverlay" hidden>
-    <div id="startCard">
-      <label for="startId">Starting ID</label>
-      <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 100000">
-      <button id="startGo">Start</button>
-    </div>
-  </div>
-
+  <!-- Load your core script (prefers script.v132.js, falls back to script.js) -->
   <script>
     (function(){
       var s1 = document.createElement('script'); s1.src = 'script.v132.js'; s1.defer = true;
@@ -28,23 +30,17 @@
     })();
   </script>
 
+  <!-- No overlay, just a tiny hint if there's no hash -->
   <script>
     (function(){
-      function getHashId(){ var m = location.hash.match(/id=(\d+(?:\.\d+)*)/); return m ? m[1] : null; }
-      function showOverlay(){ document.getElementById('startOverlay').hidden = false; }
-      function hideOverlay(){ document.getElementById('startOverlay').hidden = true; }
-      function boot(){ var id = getHashId(); if(id){ window.__ST_START_ID = id; hideOverlay(); } else { showOverlay(); } }
-      window.addEventListener('DOMContentLoaded', boot);
-      window.addEventListener('hashchange', boot);
-      document.addEventListener('click', function(e){
-        if(e.target && e.target.id === 'startGo'){
-          var v = (document.getElementById('startId').value || '').trim();
-          if(v){ location.hash = '#id=' + v; }
-        }
-      });
+      function hasId(){ return /id=\d/.test(location.hash); }
+      function tick(){ document.getElementById('noHashHint').hidden = hasId(); }
+      window.addEventListener('DOMContentLoaded', tick);
+      window.addEventListener('hashchange', tick);
     })();
   </script>
 
+  <!-- Inline SoftEdit (long-press) -->
   <script>
   (function(){
     const LABELS_KEY = 'st_labels';
