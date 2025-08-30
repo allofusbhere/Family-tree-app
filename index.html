@@ -7,9 +7,19 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app" aria-live="polite"></div>
+  <button id="backBtn" hidden>Back</button>
+  <img id="anchorImage" class="anchor-image" alt="" draggable="false">
+  <div id="grid" class="relationship-grid" hidden></div>
+  <div class="anchor-label-badge" style="display:none"></div>
 
-  <!-- Load EXACTLY one core file (match your repo). If both exist, the second is ignored -->
+  <div id="startOverlay" hidden>
+    <div id="startCard">
+      <label for="startId">Starting ID</label>
+      <input id="startId" type="text" inputmode="numeric" placeholder="e.g., 100000">
+      <button id="startGo">Start</button>
+    </div>
+  </div>
+
   <script>
     (function(){
       var s1 = document.createElement('script'); s1.src = 'script.v132.js'; s1.defer = true;
@@ -18,18 +28,29 @@
     })();
   </script>
 
-  <!-- Inline SoftEdit (long-press) so there are NO extra files -->
+  <script>
+    (function(){
+      function getHashId(){ var m = location.hash.match(/id=(\d+(?:\.\d+)*)/); return m ? m[1] : null; }
+      function showOverlay(){ document.getElementById('startOverlay').hidden = false; }
+      function hideOverlay(){ document.getElementById('startOverlay').hidden = true; }
+      function boot(){ var id = getHashId(); if(id){ window.__ST_START_ID = id; hideOverlay(); } else { showOverlay(); } }
+      window.addEventListener('DOMContentLoaded', boot);
+      window.addEventListener('hashchange', boot);
+      document.addEventListener('click', function(e){
+        if(e.target && e.target.id === 'startGo'){
+          var v = (document.getElementById('startId').value || '').trim();
+          if(v){ location.hash = '#id=' + v; }
+        }
+      });
+    })();
+  </script>
+
   <script>
   (function(){
     const LABELS_KEY = 'st_labels';
     function loadLabels(){ try { return JSON.parse(localStorage.getItem(LABELS_KEY) || '{}'); } catch(e){ return {}; } }
     function saveLabels(map){ localStorage.setItem(LABELS_KEY, JSON.stringify(map)); }
-    function getIdFromSrc(src){
-      if(!src) return null;
-      const m = src.match(/(\d+(?:\.\d+)*?)\.(?:jpg|jpeg|png|webp|gif)(?:\?.*)?$/i);
-      return m ? m[1] : null;
-    }
-
+    function getIdFromSrc(src){ if(!src) return null; const m = src.match(/(\d+(?:\.\d+)*?)\.(?:jpg|jpeg|png|webp|gif)(?:\?.*)?$/i); return m ? m[1] : null; }
     function wireSoftEdit(root){
       const imgs = Array.from((root || document).querySelectorAll('img'));
       imgs.forEach(img => {
@@ -37,20 +58,13 @@
         if(!id) return;
         if(img.__st_softedit_wired) return;
         img.__st_softedit_wired = true;
-
-        let pressTimer = null, pressed = false;
+        let pressTimer = null;
         const start = (ev) => {
           if(ev.touches && ev.touches.length > 1) return;
-          pressed = true;
           img.classList.add('longpress-focus');
           pressTimer = setTimeout(() => { openEditor(id, img); }, 520);
         };
-        const cancel = () => {
-          pressed = false;
-          img.classList.remove('longpress-focus');
-          if(pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
-        };
-
+        const cancel = () => { img.classList.remove('longpress-focus'); if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } };
         img.addEventListener('touchstart', start, {passive:true});
         img.addEventListener('mousedown', start);
         img.addEventListener('touchend', cancel);
@@ -59,7 +73,6 @@
         img.addEventListener('touchmove', cancel, {passive:true});
       });
     }
-
     function openEditor(id, el){
       const labels = loadLabels();
       const current = labels[id] || { name: '', dob: '' };
@@ -72,10 +85,8 @@
       applyLabels();
       setTimeout(function(){ el.classList.remove('longpress-focus'); }, 120);
     }
-
     function applyLabels(root){
       const labels = loadLabels();
-
       document.querySelectorAll('.grid-item, .relationship-grid .tile, .grid .tile').forEach(tile => {
         const img = tile.querySelector('img');
         if(!img) return;
@@ -86,31 +97,21 @@
         if(!cap){ cap = document.createElement('div'); cap.className = 'st-label'; tile.appendChild(cap); }
         cap.textContent = info ? ((info.name || id) + (info.dob ? (' — ' + info.dob) : '')) : '';
       });
-
-      const anchorImg = document.querySelector('.anchor-image, .anchor img, img#anchorImage');
+      const anchorImg = document.getElementById('anchorImage');
       const stage = document.body;
       if(anchorImg && stage){
         const id = getIdFromSrc(anchorImg.getAttribute('data-id') || anchorImg.src);
         const info = id ? labels[id] : null;
-        let badge = document.querySelector('.anchor-label-badge');
-        if(!badge){ badge = document.createElement('div'); badge.className = 'anchor-label-badge'; stage.appendChild(badge); }
-        badge.textContent = info ? ((info.name || id) + (info.dob ? (' — ' + info.dob) : '')) : (id || '');
-        badge.style.display = id ? 'block' : 'none';
+        const badge = document.querySelector('.anchor-label-badge');
+        if(badge){
+          badge.textContent = info ? ((info.name || id) + (info.dob ? (' — ' + info.dob) : '')) : (id || '');
+          badge.style.display = id ? 'block' : 'none';
+        }
       }
     }
-
-    const obs = new MutationObserver(function(){
-      wireSoftEdit(document);
-      applyLabels(document);
-    });
+    const obs = new MutationObserver(function(){ wireSoftEdit(document); applyLabels(document); });
     obs.observe(document.documentElement, { childList:true, subtree:true, attributes:true });
-
-    window.addEventListener('DOMContentLoaded', function(){
-      wireSoftEdit(document);
-      applyLabels(document);
-      setTimeout(function(){ wireSoftEdit(document); applyLabels(document); }, 400);
-    });
-
+    window.addEventListener('DOMContentLoaded', function(){ wireSoftEdit(document); applyLabels(document); setTimeout(function(){ wireSoftEdit(document); applyLabels(document); }, 400); });
     window.SwipeTreeSoftEdit = { applyLabels: applyLabels, loadLabels: loadLabels };
   })();
   </script>
