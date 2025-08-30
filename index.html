@@ -1,64 +1,34 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>SwipeTree</title>
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css">
-  <script>
-    (function(){
-      var m = location.hash.match(/id=(\d+(?:\.\d+)*)/);
-      if(m) window.__ST_START_ID = m[1];
-    })();
-  </script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="stage">
-    <button id="backBtn" hidden>Back</button>
-    <img id="anchorImage" alt="" draggable="false">
-    <div id="grid" hidden></div>
+  <div id="app">
+    <header id="topbar">
+      <div id="status">Swipe: ↑ parents · ↓ children · ← siblings · → spouse</div>
+      <button id="backBtn" aria-label="Back" title="Back" disabled>Back</button>
+    </header>
+
+    <main id="stage" aria-live="polite">
+      <div id="anchorWrap">
+        <img id="anchorImg" alt="anchor" draggable="false" />
+        <div id="anchorLabel"></div>
+      </div>
+
+      <!-- Relationship grid overlay (replaces anchor when visible) -->
+      <section id="gridOverlay" class="hidden" aria-label="relationship grid">
+        <div id="gridHeader">
+          <button id="closeGrid" aria-label="Close grid">✕</button>
+          <h2 id="gridTitle"></h2>
+        </div>
+        <div id="grid"></div>
+      </section>
+    </main>
   </div>
-
-  <script>
-    (function(){
-      // Immediately show the anchor image from hash with extension fallbacks
-      function getId(){ return (window.__ST_START_ID || (location.hash.match(/id=(\d+(?:\.\d+)*)/)||[])[1] || '140000'); }
-      function trySrcs(base, exts, cb){
-        (function next(i){
-          if(i>=exts.length){ cb(false); return; }
-          var test = new Image();
-          test.onload = function(){ document.getElementById('anchorImage').src = base + exts[i]; cb(true); };
-          test.onerror = function(){ next(i+1); };
-          test.src = base + exts[i];
-        })(0);
-      }
-      var id = getId();
-      if(id){
-        var img = document.getElementById('anchorImage');
-        if(img && !img.src){
-          trySrcs(id + '.', ['jpg','jpeg','png','webp'], function(ok){
-            // no-op; core will still take over after it loads
-          });
-        }
-      }
-
-      function afterCoreLoad(){
-        setTimeout(function(){ window.dispatchEvent(new HashChangeEvent('hashchange')); }, 0);
-        setTimeout(function(){ window.dispatchEvent(new HashChangeEvent('hashchange')); }, 100);
-      }
-
-      function loadCore(src, next){
-        var s = document.createElement('script');
-        s.src = src; s.defer = true;
-        s.onload = afterCoreLoad;
-        s.onerror = next;
-        document.body.appendChild(s);
-      }
-
-      // Prefer script.v132.js; fallback to script.js
-      loadCore('script.v132.js', function(){ loadCore('script.js'); });
-    })();
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
