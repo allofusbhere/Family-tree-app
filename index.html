@@ -4,110 +4,44 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>SwipeTree</title>
-  <link rel="stylesheet" href="style.css">
   <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
   <script>
+    // Expose the start ID for the core to read.
     (function(){
       var m = location.hash.match(/id=(\d+(?:\.\d+)*)/);
-      if(m){ window.__ST_START_ID = m[1]; }
+      if(m) window.__ST_START_ID = m[1];
     })();
   </script>
 </head>
 <body>
   <div id="stage">
     <button id="backBtn" hidden>Back</button>
-    <img id="anchorImage" class="anchor-image" alt="" draggable="false">
-    <div id="grid" class="relationship-grid" hidden></div>
-    <div class="anchor-label-badge" style="display:none"></div>
-    <div id="noHashHint" hidden>Tip: open with <code>#id=100000</code></div>
+    <img id="anchorImage" alt="" draggable="false">
+    <div id="grid" hidden></div>
   </div>
 
+  <!-- Load the core script (prefer v132) and lightly "ping" it to start -->
   <script>
     (function(){
-      var s1 = document.createElement('script'); s1.src = 'script.v132.js'; s1.defer = true;
-      s1.onerror = function(){ var s2 = document.createElement('script'); s2.src = 'script.js'; s2.defer = true; document.body.appendChild(s2); };
-      document.body.appendChild(s1);
-    })();
-  </script>
-
-  <script>
-    (function(){
-      function hasId(){ return /id=\d/.test(location.hash); }
-      function tick(){ document.getElementById('noHashHint').hidden = hasId(); }
-      window.addEventListener('DOMContentLoaded', tick);
-      window.addEventListener('hashchange', tick);
-    })();
-  </script>
-
-  <script>
-  (function(){
-    const LABELS_KEY = 'st_labels';
-    function loadLabels(){ try { return JSON.parse(localStorage.getItem(LABELS_KEY) || '{}'); } catch(e){ return {}; } }
-    function saveLabels(map){ localStorage.setItem(LABELS_KEY, JSON.stringify(map)); }
-    function getIdFromSrc(src){ if(!src) return null; const m = src.match(/(\d+(?:\.\d+)*?)\.(?:jpg|jpeg|png|webp|gif)(?:\?.*)?$/i); return m ? m[1] : null; }
-    function wireSoftEdit(root){
-      const imgs = Array.from((root || document).querySelectorAll('img'));
-      imgs.forEach(img => {
-        const id = getIdFromSrc(img.getAttribute('data-id') || img.src);
-        if(!id) return;
-        if(img.__st_softedit_wired) return;
-        img.__st_softedit_wired = true;
-        let pressTimer = null;
-        const start = (ev) => {
-          if(ev.touches && ev.touches.length > 1) return;
-          img.classList.add('longpress-focus');
-          pressTimer = setTimeout(() => { openEditor(id, img); }, 520);
-        };
-        const cancel = () => { img.classList.remove('longpress-focus'); if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } };
-        img.addEventListener('touchstart', start, {passive:true});
-        img.addEventListener('mousedown', start);
-        img.addEventListener('touchend', cancel);
-        img.addEventListener('mouseup', cancel);
-        img.addEventListener('mouseleave', cancel);
-        img.addEventListener('touchmove', cancel, {passive:true});
-      });
-    }
-    function openEditor(id, el){
-      const labels = loadLabels();
-      const current = labels[id] || { name: '', dob: '' };
-      const name = prompt('Edit name for ' + id + ':', current.name || '');
-      if(name === null){ el.classList.remove('longpress-focus'); return; }
-      const dob = prompt('Edit DOB for ' + id + ' (optional):', current.dob || '');
-      if(dob === null){ el.classList.remove('longpress-focus'); return; }
-      labels[id] = { name: name.trim(), dob: dob.trim() };
-      saveLabels(labels);
-      applyLabels();
-      setTimeout(function(){ el.classList.remove('longpress-focus'); }, 120);
-    }
-    function applyLabels(root){
-      const labels = loadLabels();
-      document.querySelectorAll('.grid-item, .relationship-grid .tile, .grid .tile').forEach(tile => {
-        const img = tile.querySelector('img');
-        if(!img) return;
-        const id = getIdFromSrc(img.getAttribute('data-id') || img.src);
-        if(!id) return;
-        const info = labels[id];
-        let cap = tile.querySelector('.caption, .st-label');
-        if(!cap){ cap = document.createElement('div'); cap.className = 'st-label'; tile.appendChild(cap); }
-        cap.textContent = info ? ((info.name || id) + (info.dob ? (' — ' + info.dob) : '')) : '';
-      });
-      const anchorImg = document.getElementById('anchorImage');
-      const stage = document.getElementById('stage');
-      if(anchorImg && stage){
-        const id = getIdFromSrc(anchorImg.getAttribute('data-id') || anchorImg.src);
-        const info = id ? labels[id] : null;
-        const badge = document.querySelector('.anchor-label-badge');
-        if(badge){
-          badge.textContent = info ? ((info.name || id) + (info.dob ? (' — ' + info.dob) : '')) : (id || '');
-          badge.style.display = id ? 'block' : 'none';
-        }
+      function afterLoad(){
+        // If your core uses hashchange to boot, make sure it fires once.
+        setTimeout(function(){
+          window.dispatchEvent(new HashChangeEvent('hashchange'));
+        }, 0);
       }
-    }
-    const obs = new MutationObserver(function(){ wireSoftEdit(document); applyLabels(document); });
-    obs.observe(document.documentElement, { childList:true, subtree:true, attributes:true });
-    window.addEventListener('DOMContentLoaded', function(){ wireSoftEdit(document); applyLabels(document); setTimeout(function(){ wireSoftEdit(document); applyLabels(document); }, 400); });
-    window.SwipeTreeSoftEdit = { applyLabels: applyLabels, loadLabels: loadLabels };
-  })();
+      var s = document.createElement('script');
+      s.src = 'script.v132.js';
+      s.defer = true;
+      s.onload = afterLoad;
+      s.onerror = function(){
+        var f = document.createElement('script');
+        f.src = 'script.js'; f.defer = true;
+        f.onload = afterLoad;
+        document.body.appendChild(f);
+      };
+      document.body.appendChild(s);
+    })();
   </script>
 </body>
 </html>
