@@ -1,202 +1,225 @@
-/*!
- * SoftEdit v1.1 — long-press "Edit Label" (Name, DOB) on iOS/desktop without touching swipe code.
- * Scope-safe: adds listeners to the main portrait image (by #anchorImage, then largest <img> as fallback).
- * Caches are defeated with a timestamp param; iOS callout/share is suppressed while our gesture is active.
+
+/*! softedit.js — Drop-in long-press editor (Name + DOB) for Family-tree-app
+ *  Scope: non-invasive, adds overlay and Netlify labels GET/POST with cache-busting.
+ *  v1.2 (iOS callout suppression + robust long-press target detection)
  */
-(function () {
-  const NETLIFY_FN = '/.netlify/functions/labels';
-  const PRESS_MS = 550;            // long-press threshold
-  const MOVE_TOL = 10;             // px movement allowed during press
-  const MODAL_ID = 'softedit-modal';
-  const NO_CALL_OUT_CSS = `
-    #${MODAL_ID} { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; 
-      background: rgba(0,0,0,.55); z-index: 999999; -webkit-touch-callout:none; }
-    #${MODAL_ID}.open { display: flex; }
-    #${MODAL_ID} .card { width: min(92vw, 420px); background: #121212; color: #e6e6e6; 
-      border-radius: 14px; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.55); font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
-    #${MODAL_ID} label { display:block; font-size: 13px; opacity:.8; margin: 8px 4px 4px; }
-    #${MODAL_ID} input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #2a2a2a; background: #1b1b1b; color: #fff; font-size: 15px; }
-    #${MODAL_ID} .row { display:flex; gap:10px; margin-top: 14px; }
-    #${MODAL_ID} button { flex:1; padding: 10px 14px; border-radius: 10px; border: 0; cursor:pointer; font-weight: 600; }
-    #${MODAL_ID} .cancel { background:#2a2a2a; color:#e6e6e6; }
-    #${MODAL_ID} .save { background:#3b82f6; color:#fff; }
-    img, #anchorImage, body { -webkit-user-select: none; -webkit-touch-callout: none; }
-  `;
+(function(){
+  const TS = () => Date.now().toString();
 
-  function injectStyle(css) {
-    const el = document.createElement('style');
-    el.setAttribute('data-softedit', '1');
-    el.textContent = css;
-    document.head.appendChild(el);
-  }
+  // --- CONFIG (lightly opinionated defaults; adjust only if needed) ---
+  const FN_PATH = '/.netlify/functions/labels';   // Canonical Netlify function
+  const PRESS_MS = 520;                            // Long-press threshold
+  const DOB_PLACEHOLDER = 'YYYY-MM-DD';
 
-  function getPersonId() {
-    // 1) URL hash #id=123
-    const h = String(location.hash || '');
-    const m = h.match(/(?:^|#|&)id=(\d+)/i);
-    if (m) return m[1];
+  // --- Utilities ---
+  function byId(id){ try { return document.getElementById(id);} catch(_) { return null; } }
+  function qs(sel, root=document){ try { return root.querySelector(sel);} catch(_) { return null; } }
+  function qsa(sel, root=document){ try { return Array.from(root.querySelectorAll(sel)); } catch(_) { return []; } }
 
-    // 2) Image filename .../images/12345.jpg
-    const img = targetImage();
-    if (img && img.currentSrc) {
-      const m2 = img.currentSrc.match(/\/(\d+)\.[a-z]+(?:\?|$)/i);
-      if (m2) return m2[1];
-    }
-
-    // 3) Global hook if the app sets it
-    if (window.currentId && /^\d+$/.test(String(window.currentId))) return String(window.currentId);
-
+  function parseIdFromHash() {
+    // Accept formats: #id=100000, #100000, #person-100000
+    const h = window.location.hash || '';
+    const m1 = h.match(/id=(\d+)/i);
+    if (m1) return m1[1];
+    const m2 = h.match(/#(\d{2,})$/);
+    if (m2) return m2[1];
+    const m3 = h.match(/(\d{2,})/);
+    if (m3) return m3[1];
     return null;
   }
 
-  function cacheBust(url) {
-    const u = new URL(url, location.origin);
-    u.searchParams.set('t', Date.now());
-    return u.toString();
-  }
-
-  async function fetchLabel(id) {
-    const url = cacheBust(`${NETLIFY_FN}?id=${encodeURIComponent(id)}`);
-    const res = await fetch(url, { method: 'GET', cache: 'no-store' });
-    if (!res.ok) throw new Error(`GET ${res.status}`);
-    return res.json();
-  }
-
-  async function saveLabel(id, payload) {
-    const url = cacheBust(`${NETLIFY_FN}?id=${encodeURIComponent(id)}`);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-      cache: 'no-store'
+  function largestVisibleImage() {
+    let imgs = qsa('img');
+    imgs = imgs.filter(img => {
+      const r = img.getBoundingClientRect();
+      return r.width > 32 && r.height > 32 && r.bottom > 0 && r.right > 0 && r.left < window.innerWidth && r.top < window.innerHeight;
     });
-    if (!res.ok) throw new Error(`POST ${res.status}`);
-    return res.json();
-  }
-
-  function ensureModal() {
-    let wrap = document.getElementById(MODAL_ID);
-    if (wrap) return wrap;
-    wrap = document.createElement('div');
-    wrap.id = MODAL_ID;
-    wrap.innerHTML = `
-      <div class="card">
-        <div style="font-size:16px; font-weight:700; margin-bottom:6px;">Edit Label</div>
-        <label for="se_name">Name</label>
-        <input id="se_name" placeholder="Full name" autocomplete="name" />
-        <label for="se_dob" style="margin-top:10px;">DOB</label>
-        <input id="se_dob" placeholder="YYYY-MM-DD" inputmode="numeric" />
-        <div class="row">
-          <button class="cancel" type="button">Cancel</button>
-          <button class="save" type="button">Save</button>
-        </div>
-      </div>`;
-    document.body.appendChild(wrap);
-    wrap.addEventListener('click', (e) => { if (e.target === wrap) closeModal(); });
-    wrap.querySelector('.cancel').addEventListener('click', closeModal);
-    wrap.querySelector('.save').addEventListener('click', async () => {
-      const id = getPersonId(); if (!id) return closeModal();
-      const name = wrap.querySelector('#se_name').value.trim();
-      const dob = wrap.querySelector('#se_dob').value.trim();
-      try {
-        await saveLabel(id, { id, name, dob });
-        // Re-fetch to warm caches; app will pick it up on its own flow.
-        await fetchLabel(id).catch(()=>{});
-      } catch (e) {
-        console.warn('SoftEdit save failed', e);
-      } finally {
-        closeModal();
-      }
-    });
-    return wrap;
-  }
-  function openModal(prefill) {
-    const wrap = ensureModal();
-    wrap.querySelector('#se_name').value = prefill?.name || '';
-    wrap.querySelector('#se_dob').value = prefill?.dob || '';
-    wrap.classList.add('open');
-  }
-  function closeModal() {
-    const wrap = document.getElementById(MODAL_ID);
-    if (wrap) wrap.classList.remove('open');
-  }
-
-  function targetImage() {
-    // Prefer an explicitly marked image if present
-    const anchor = document.getElementById('anchorImage');
-    if (anchor && anchor.tagName === 'IMG') return anchor;
-    // Fallback: pick the largest visible IMG (by area)
-    const imgs = Array.from(document.images || [])
-      .filter(im => im.width && im.height && im.offsetParent !== null);
     if (!imgs.length) return null;
     imgs.sort((a,b)=> (b.naturalWidth*b.naturalHeight) - (a.naturalWidth*a.naturalHeight));
     return imgs[0];
   }
 
-  function setupGesture(img) {
-    if (!img || img.__softedit) return;
-    img.__softedit = true;
+  function css(strings){ const s = strings[0]; const tag = document.createElement('style'); tag.setAttribute('data-softedit', ''); tag.textContent = s; document.head.appendChild(tag); }
 
-    let downX=0, downY=0, timer=null, pressed=false;
+  // --- Inject minimal CSS (scoped) + iOS callout suppression ---
+  css`
+  /* Scope only to the chosen target & overlay to avoid touching swipe logic */
+  .softedit-target, .softedit-target img {
+    -webkit-touch-callout: none !important; /* iOS: disable long-press image sheet */
+    touch-action: manipulation;
+  }
+  .softedit-label {
+    text-align: center; color: #ddd; font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+    margin-top: 10px; line-height: 1.15; font-size: 14px; text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  }
+  .softedit-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .softedit-modal {
+    width: min(92vw, 420px); background: #1f1f1f; border-radius: 14px; padding: 18px 16px 14px;
+    color: #eee; box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+    font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+  }
+  .softedit-modal h3 { margin: 0 0 10px; font-weight: 600; font-size: 16px; }
+  .softedit-field { display: grid; gap: 6px; margin: 10px 0 8px; }
+  .softedit-field label { font-size: 12px; opacity: .85; }
+  .softedit-field input {
+    width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid #3a3a3a; background: #111; color: #f3f3f3; outline: none;
+  }
+  .softedit-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+  .softedit-btn {
+    padding: 10px 14px; border-radius: 10px; border: 1px solid #444;
+    background: #2a2a2a; color: #fff; cursor: pointer;
+  }
+  .softedit-btn.primary { background: #3b82f6; border-color: #3b82f6; }
+  .softedit-hidden { display: none !important; }
+  `;
 
-    // Prevent iOS callout while finger is down
-    const supressContext = (e)=> e.preventDefault();
+  // --- Modal factory ---
+  function createModal() {
+    const backdrop = document.createElement('div'); backdrop.className = 'softedit-backdrop softedit-hidden';
+    const modal = document.createElement('div'); modal.className = 'softedit-modal';
+    modal.innerHTML = `
+      <h3>Edit Label</h3>
+      <div class="softedit-field"><label>Name</label><input id="se_name" placeholder="Full name" autocomplete="off"></div>
+      <div class="softedit-field"><label>DOB</label><input id="se_dob" placeholder="${DOB_PLACEHOLDER}" inputmode="numeric" autocomplete="off"></div>
+      <div class="softedit-actions">
+        <button class="softedit-btn" id="se_cancel">Cancel</button>
+        <button class="softedit-btn primary" id="se_save">Save</button>
+      </div>`;
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+    return { backdrop, name: modal.querySelector('#se_name'), dob: modal.querySelector('#se_dob'),
+             saveBtn: modal.querySelector('#se_save'), cancelBtn: modal.querySelector('#se_cancel') };
+  }
 
+  function show(el){ el.classList.remove('softedit-hidden'); }
+  function hide(el){ el.classList.add('softedit-hidden'); }
+
+  // --- Data I/O ---
+  async function fetchLabel(personId) {
+    const url = `${FN_PATH}?id=${encodeURIComponent(personId)}&t=${TS()}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('GET failed');
+    return res.json();
+  }
+  async function saveLabel(personId, data) {
+    const url = `${FN_PATH}?id=${encodeURIComponent(personId)}&t=${TS()}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      body: JSON.stringify({ id: personId, ...data })
+    });
+    if (!res.ok) throw new Error('POST failed');
+    return res.json();
+  }
+
+  // --- Label renderer under image (non-invasive) ---
+  function ensureLabelUnder(target) {
+    let box = target.nextElementSibling;
+    if (!box || !box.classList || !box.classList.contains('softedit-label')) {
+      box = document.createElement('div');
+      box.className = 'softedit-label';
+      target.insertAdjacentElement('afterend', box);
+    }
+    return box;
+  }
+  function render(box, name, dob) {
+    const year = (dob||'').match(/^(\d{4})/)?.[1] || '';
+    box.textContent = [name||'', year||''].filter(Boolean).join('\n');
+  }
+
+  // --- Long press wiring ---
+  function wireLongPress(target, onPress) {
+    let timer = null;
     const start = (e) => {
-      const pt = e.touches ? e.touches[0] : e;
-      downX = pt.clientX; downY = pt.clientY; pressed = true;
-      img.addEventListener('contextmenu', supressContext, { passive:false });
-      timer = setTimeout(async () => {
-        if (!pressed) return;
-        // Long-press confirmed
-        const id = getPersonId();
-        let existing = { name:'', dob:'' };
-        if (id) {
-          try { existing = await fetchLabel(id); } catch {}
-        }
-        openModal(existing);
-      }, PRESS_MS);
-    };
-    const move = (e) => {
-      if (!pressed) return;
-      const pt = e.touches ? e.touches[0] : e;
-      if (Math.abs(pt.clientX - downX) > MOVE_TOL || Math.abs(pt.clientY - downY) > MOVE_TOL) {
-        cancel(e);
+      // Prevent iOS context/callout aggressively
+      if (e.type === 'touchstart') {
+        if (e.touches && e.touches.length > 1) return; // ignore multi-touch
       }
+      timer = setTimeout(()=> onPress(e), PRESS_MS);
     };
-    const end = (e) => { cancel(e); };
-    const cancel = (e) => {
-      pressed = false;
-      clearTimeout(timer);
-      timer = null;
-      img.removeEventListener('contextmenu', supressContext);
-    };
+    const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
 
-    img.addEventListener('touchstart', start, { passive:true });
-    img.addEventListener('touchmove', move, { passive:true });
-    img.addEventListener('touchend', end, { passive:true });
-    img.addEventListener('touchcancel', end, { passive:true });
+    // Prevent iOS image callout/context menu
+    target.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); }, { passive:false });
+    target.addEventListener('gesturestart', cancel, { passive:true });
 
-    img.addEventListener('mousedown', start);
-    img.addEventListener('mousemove', move);
-    img.addEventListener('mouseleave', end);
-    img.addEventListener('mouseup', end);
+    target.addEventListener('touchstart', start, { passive:true });
+    target.addEventListener('touchend', cancel, { passive:true });
+    target.addEventListener('touchcancel', cancel, { passive:true });
+    target.addEventListener('mousedown', start, { passive:true });
+    target.addEventListener('mouseup', cancel, { passive:true });
+    target.addEventListener('mouseleave', cancel, { passive:true });
   }
 
+  // --- Boot ---
   function boot() {
-    injectStyle(NO_CALL_OUT_CSS);
-    const tryBind = () => {
-      const img = targetImage();
-      if (img) setupGesture(img);
+    // Identify target image
+    let target = qs('#anchor, #anchorImage, [data-softedit-target]');
+    if (!target) target = largestVisibleImage();
+    if (!target) return; // Nothing to do
+
+    // Mark & suppress iOS callout on this specific element
+    target.classList.add('softedit-target');
+    target.setAttribute('draggable', 'false'); // reduce callout likelihood
+
+    const labelBox = ensureLabelUnder(target);
+
+    // Determine person id
+    const personId = parseIdFromHash();
+    if (!personId) {
+      // still render empty label box to keep layout stable
+      render(labelBox, '', '');
+    } else {
+      fetchLabel(personId).then(rec => {
+        render(labelBox, rec.name||'', rec.dob||'');
+      }).catch(()=>{
+        render(labelBox, '', '');
+      });
+    }
+
+    // Modal
+    const modal = createModal();
+
+    const openEditor = async () => {
+      if (!personId) return; // cannot edit without id context
+      try {
+        const rec = await fetchLabel(personId);
+        modal.name.value = rec.name || '';
+        modal.dob.value = rec.dob || '';
+      } catch(_) {
+        modal.name.value = ''; modal.dob.value = '';
+      }
+      show(modal.backdrop);
+      modal.name.focus();
     };
-    tryBind();
-    // Rebind on DOM swaps
-    const mo = new MutationObserver(tryBind);
-    mo.observe(document.documentElement, { childList: true, subtree: true });
+
+    modal.cancelBtn.addEventListener('click', ()=> hide(modal.backdrop));
+    modal.backdrop.addEventListener('click', (e)=> { if (e.target === modal.backdrop) hide(modal.backdrop); });
+
+    modal.saveBtn.addEventListener('click', async ()=>{
+      const payload = {
+        name: modal.name.value.trim(),
+        dob: modal.dob.value.trim()
+      };
+      try {
+        await saveLabel(personId, payload);
+        // Re-fetch to defeat caches and re-render
+        const rec = await fetchLabel(personId);
+        render(labelBox, rec.name||payload.name, rec.dob||payload.dob);
+      } catch(_){ /* swallow */ }
+      hide(modal.backdrop);
+    });
+
+    wireLongPress(target, openEditor);
   }
 
+  // Boot once DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
   } else {
     boot();
   }
