@@ -1,19 +1,14 @@
-SoftEdit install (v1.3) — Family-tree-app
+SwipeTree SoftEdit v1.3 — Upload Package
+Built: 2025-09-04T18:37:08Z
 
-Files included
-- softedit.js  (scoped, load-safe; waits for images; iOS callout suppressed)
+WHAT TO DO (SOP):
+1) Upload BOTH files to the repo root (same folder as index.html) and COMMIT:
+   - index.html  (this replaces your existing one; it already includes softedit.js)
+   - softedit.js (new)
 
-How to install (no other file edits):
-1) Upload softedit.js to the repo root (same folder as index.html).
-2) Do not change index.html, script.js, or style.css.
-3) Publish.
+2) Do not edit anything else. Let GitHub Pages publish.
 
-How it works
-- Detects person id from URL hash (#100000 etc.) or from the on-page id input if present.
-- Waits for the full page load so the anchor image exists on Safari.
-- Attaches a long-press (~0.5s) to the main photo (prefers #anchorImage, then largest <img>).
-- GET/POST to /.netlify/functions/labels with cache-busting ts and Cache-Control: no-store.
-- Renders the saved name & DOB under the photo.
+3) On iPhone Safari, hard-refresh with cache-bust once:
+   https://allofusbehre.github.io/#id=100000&ts=now   (swap the id to your test)
 
-Rollback
-- Delete softedit.js if you want to remove editing; nothing else was touched.
+Rollback: if you need to undo, restore your previous index.html.
